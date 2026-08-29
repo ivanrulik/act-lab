@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CI image
+        run: docker build --target ci --tag act-lab-ci .
+      - name: Lint
+        run: docker run --rm act-lab-ci ruff check .
+      - name: Type check
+        run: docker run --rm act-lab-ci mypy src
+      - name: Test
+        run: docker run --rm act-lab-ci pytest
+      - name: Runtime health
+        run: docker run --rm act-lab-ci act-lab doctor --json
+

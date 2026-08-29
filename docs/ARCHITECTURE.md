@@ -1,0 +1,87 @@
+# Architecture
+
+## Objective
+
+ACT Lab makes the complete imitation-learning lifecycle understandable and
+reproducible while allowing simulation components to be replaced by physical
+hardware later.
+
+## Dependency rule
+
+Dependencies point inward:
+
+```text
+external frameworks and devices
+            |
+         adapters
+            |
+      application use cases
+            |
+    dependency-free domain
+```
+
+The domain defines observations, actions, robot state, and ports. Adapters
+translate MuJoCo, MediaPipe, MCAP, LeRobot, and eventually ROS 2 types at the
+boundary. Framework objects must not leak into domain contracts.
+
+## Data flow
+
+```text
+webcam -> hand tracker -> teleop mapper -> safety filter
+                                               |
+                                               v
+                                       robot controller
+                                               |
+                                               v
+                                      MuJoCo environment
+                                       |      |      |
+                                     state  images  events
+                                       \      |      /
+                                        synchronized
+                                             sample
+                                               |
+                                               v
+                                          raw MCAP
+                                               |
+                                  validate + resample + split
+                                               |
+                                               v
+                                      LeRobotDataset
+                                          |       |
+                                          v       v
+                                      ACT train  replay/QA
+                                          |
+                                          v
+                                  held-out evaluation
+```
+
+## Clock and control model
+
+- Physics advances on an explicit fixed timestep.
+- Control runs at a configured integer divisor of physics frequency.
+- Sensor acquisition timestamps use a monotonic clock.
+- Wall-clock time is metadata, never the basis for ordering samples.
+- Actions represent Cartesian intent plus gripper intent.
+- A safety layer bounds the intent before controller or driver execution.
+- Stale or disabled intent commands motion to stop.
+
+## Storage model
+
+Raw MCAP logs are immutable acquisition evidence. Conversion produces a
+derived, reproducible LeRobotDataset. A manifest connects raw episode IDs,
+validation decisions, converter revision, resolved configuration, and derived
+dataset fingerprint.
+
+## Deployment model
+
+Docker Compose is the supported local orchestrator. CPU/headless execution is
+the baseline. Webcam, display, and GPU access are opt-in profiles with narrow
+host permissions. The host owns source and artifacts; images own dependencies.
+
+## ROS 2 boundary
+
+ROS 2 is planned but not required by the core. It becomes valuable for
+distributed processes, standard visualization, and physical UR integration.
+ROS messages will be translated by adapters into the same domain contracts used
+by local MuJoCo. Training and dataset inspection remain ROS-independent.
+

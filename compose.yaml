@@ -1,0 +1,43 @@
+name: act-lab
+
+x-common: &common
+  build:
+    context: .
+    target: dev
+  working_dir: /workspace
+  init: true
+  volumes:
+    - .:/workspace
+    - act-lab-cache:/home/actlab/.cache
+
+services:
+  dev:
+    <<: *common
+    command: act-lab doctor
+
+  sim:
+    <<: *common
+    command: act-lab doctor
+    environment:
+      MUJOCO_GL: egl
+
+  notebook:
+    <<: *common
+    profiles: ["notebook"]
+    command: >-
+      sh -lc 'echo "Notebook dependencies arrive in the ACT training PR" &&
+      act-lab doctor'
+    ports:
+      - "127.0.0.1:8888:8888"
+
+  teleop:
+    <<: *common
+    profiles: ["teleop"]
+    command: >-
+      sh -lc 'echo "Teleoperation arrives in roadmap PR 5" && act-lab doctor'
+    devices:
+      - "${ACT_LAB_CAMERA_DEVICE:-/dev/video0}:/dev/video0"
+
+volumes:
+  act-lab-cache:
+
