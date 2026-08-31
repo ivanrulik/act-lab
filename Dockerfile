@@ -9,6 +9,7 @@ RUN groupadd --gid 1000 actlab \
     && useradd --uid 1000 --gid actlab --create-home actlab
 
 WORKDIR /workspace
+RUN chown actlab:actlab /workspace
 
 FROM base AS runtime
 COPY pyproject.toml README.md ./
@@ -28,4 +29,3 @@ CMD ["act-lab", "doctor"]
 
 FROM dev AS ci
 CMD ["pytest"]
-
