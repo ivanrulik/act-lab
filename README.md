@@ -23,7 +23,21 @@ Requirements: Docker Engine with Docker Compose v2.
 docker compose build dev
 docker compose run --rm dev act-lab doctor
 docker compose run --rm dev pytest
+docker compose run --rm sim
 ```
+
+Convenience wrappers open the interactive MuJoCo viewer through the host's
+X11/XWayland display and stop it from any working directory:
+
+```bash
+./scripts/start-sim.sh
+./scripts/stop-sim.sh
+```
+
+The window stays open until you close it or run the stop script. The separate
+`sim` service remains a finite headless 50-step smoke rollout for CI. The UI
+uses Mesa software rendering and grants the container read-only access only to
+the host X11 socket; it does not require a privileged container or GPU access.
 
 For a local, non-container fallback:
 
@@ -41,7 +55,7 @@ tooling and diagnosis only.
 ## Project status
 
 - [x] Repository contracts, architecture records, container scaffold, and CI
-- [ ] MuJoCo UR5e environment and task
+- [x] MuJoCo UR5e environment and task
 - [ ] Cartesian controller and safety envelope
 - [ ] Keyboard and webcam teleoperation
 - [ ] MCAP recording, validation, replay, and conversion
@@ -64,7 +78,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Definition of done](docs/DEFINITION_OF_DONE.md)
 - [Data contract](docs/contracts/data.md)
 - [Control and safety contract](docs/contracts/control.md)
+- [Simulation contract](docs/contracts/simulation.md)
 - [Experiment contract](docs/contracts/experiments.md)
 - [ADRs](docs/adr/README.md)
 - [Contributing](CONTRIBUTING.md)
-

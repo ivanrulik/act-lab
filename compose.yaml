@@ -17,9 +17,23 @@ services:
 
   sim:
     <<: *common
-    command: act-lab doctor
+    command: act-lab sim rollout --seed 0 --steps 50 --json
     environment:
       MUJOCO_GL: egl
+
+  sim-ui:
+    <<: *common
+    profiles: ["ui"]
+    command: act-lab sim view --seed ${ACT_LAB_SIM_SEED:-0}
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MUJOCO_GL: glfw
+    volumes:
+      - .:/workspace
+      - act-lab-cache:/home/actlab/.cache
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    stop_grace_period: 5s
 
   notebook:
     <<: *common
@@ -40,4 +54,3 @@ services:
 
 volumes:
   act-lab-cache:
-

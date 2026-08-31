@@ -1,0 +1,25 @@
+[clock]
+physics_hz = 500
+environment_hz = 50
+
+[robot]
+home_joint_positions_rad = [-1.5708, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]
+
+[task]
+episode_steps = 500
+cube_spawn_x_m = [0.35, 0.52]
+cube_spawn_y_m = [-0.22, -0.08]
+cube_center_z_m = 0.425
+cube_half_extent_m = 0.025
+tray_center_xy_m = [0.58, 0.23]
+tray_inner_half_extents_xy_m = [0.12, 0.10]
+tray_floor_top_z_m = 0.42
+support_tolerance_m = 0.008
+linear_speed_threshold_m_s = 0.02
+angular_speed_threshold_rad_s = 0.10
+settling_steps = 10
+
+[render]
+width = 320
+height = 240
+cameras = ["overview", "policy"]
