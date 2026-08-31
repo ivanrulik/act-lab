@@ -16,6 +16,9 @@ linting, typing, and tests entirely inside the container.
 
 ## PR 2 — Deterministic UR5e simulation
 
+Status: implemented in the current working tree; acceptance checks are listed
+in the implementing change.
+
 Add pinned/licensed MuJoCo Menagerie UR5e assets, simple parallel gripper,
 table/cube/tray scene, fixed-step environment, headless rendering, and task
 success contract.
@@ -97,4 +100,3 @@ Acceptance: a second person completes the entire workflow from a clean clone.
 4. Add official UR hardware integration only after a dedicated safety review.
 
 ROS must remain optional for simulation, conversion, training, and evaluation.
-

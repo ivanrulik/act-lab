@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Pose:
+    frame_id: str
     position_xyz_m: tuple[float, float, float]
     quaternion_wxyz: tuple[float, float, float, float]
 
@@ -35,4 +36,3 @@ class Observation:
     timestamp_ns: int
     robot: RobotState
     image_keys: tuple[str, ...]
-

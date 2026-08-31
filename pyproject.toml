@@ -10,7 +10,12 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0" }
 authors = [{ name = "ACT Lab contributors" }]
-dependencies = []
+dependencies = [
+  # Official bindings and native engine for deterministic simulation.
+  "mujoco==3.12.0",
+  # Imported directly by the MuJoCo adapter for validated array conversion.
+  "numpy==2.3.2",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -24,6 +29,12 @@ act-lab = "act_lab.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/act_lab"]
+
+[tool.hatch.build]
+include = [
+  "src/act_lab/**/*.py",
+  "src/act_lab/adapters/mujoco/assets/**/*",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
@@ -40,4 +51,3 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.11"
 strict = true
 packages = ["act_lab"]
-

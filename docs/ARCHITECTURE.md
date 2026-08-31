@@ -65,6 +65,11 @@ webcam -> hand tracker -> teleop mapper -> safety filter
 - A safety layer bounds the intent before controller or driver execution.
 - Stale or disabled intent commands motion to stop.
 
+The MuJoCo adapter advances 500 Hz physics in explicit groups of ten steps for
+a 50 Hz environment interface. Its low-level actuator target is private to the
+adapter until the PR 3 controller maps the domain Cartesian action through the
+safety path.
+
 ## Storage model
 
 Raw MCAP logs are immutable acquisition evidence. Conversion produces a
@@ -84,4 +89,3 @@ ROS 2 is planned but not required by the core. It becomes valuable for
 distributed processes, standard visualization, and physical UR integration.
 ROS messages will be translated by adapters into the same domain contracts used
 by local MuJoCo. Training and dataset inspection remain ROS-independent.
-
