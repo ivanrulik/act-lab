@@ -10,6 +10,30 @@ from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
+class CartesianControlConfig:
+    watchdog_timeout_ms: int
+    workspace_x_m: tuple[float, float]
+    workspace_y_m: tuple[float, float]
+    workspace_z_m: tuple[float, float]
+    max_translation_velocity_m_s: float
+    max_translation_acceleration_m_s2: float
+    max_orientation_velocity_rad_s: float
+    max_orientation_acceleration_rad_s2: float
+    max_joint_velocity_rad_s: float
+    max_joint_acceleration_rad_s2: float
+    joint_bound_margin_rad: float
+    max_gripper_velocity_s: float
+    dls_damping: float
+    ik_max_iterations: int
+    ik_position_tolerance_m: float
+    ik_orientation_tolerance_rad: float
+
+    @property
+    def watchdog_timeout_ns(self) -> int:
+        return self.watchdog_timeout_ms * 1_000_000
+
+
+@dataclass(frozen=True, slots=True)
 class SimulationConfig:
     physics_hz: int
     environment_hz: int
@@ -29,6 +53,7 @@ class SimulationConfig:
     render_width: int
     render_height: int
     cameras: tuple[str, ...]
+    control: CartesianControlConfig
 
     @property
     def substeps(self) -> int:
@@ -47,6 +72,7 @@ class SimulationConfig:
         robot = _table(raw, "robot")
         task = _table(raw, "task")
         render = _table(raw, "render")
+        control = _table(raw, "control")
         config = cls(
             physics_hz=_positive_int(clock, "physics_hz"),
             environment_hz=_positive_int(clock, "environment_hz"),
@@ -74,6 +100,44 @@ class SimulationConfig:
             render_width=_positive_int(render, "width"),
             render_height=_positive_int(render, "height"),
             cameras=_string_tuple(render, "cameras"),
+            control=CartesianControlConfig(
+                watchdog_timeout_ms=_positive_int(control, "watchdog_timeout_ms"),
+                workspace_x_m=_float_pair(control, "workspace_x_m"),
+                workspace_y_m=_float_pair(control, "workspace_y_m"),
+                workspace_z_m=_float_pair(control, "workspace_z_m"),
+                max_translation_velocity_m_s=_positive_float(
+                    control, "max_translation_velocity_m_s"
+                ),
+                max_translation_acceleration_m_s2=_positive_float(
+                    control, "max_translation_acceleration_m_s2"
+                ),
+                max_orientation_velocity_rad_s=_positive_float(
+                    control, "max_orientation_velocity_rad_s"
+                ),
+                max_orientation_acceleration_rad_s2=_positive_float(
+                    control, "max_orientation_acceleration_rad_s2"
+                ),
+                max_joint_velocity_rad_s=_positive_float(
+                    control, "max_joint_velocity_rad_s"
+                ),
+                max_joint_acceleration_rad_s2=_positive_float(
+                    control, "max_joint_acceleration_rad_s2"
+                ),
+                joint_bound_margin_rad=_positive_float(
+                    control, "joint_bound_margin_rad"
+                ),
+                max_gripper_velocity_s=_positive_float(
+                    control, "max_gripper_velocity_s"
+                ),
+                dls_damping=_positive_float(control, "dls_damping"),
+                ik_max_iterations=_positive_int(control, "ik_max_iterations"),
+                ik_position_tolerance_m=_positive_float(
+                    control, "ik_position_tolerance_m"
+                ),
+                ik_orientation_tolerance_rad=_positive_float(
+                    control, "ik_orientation_tolerance_rad"
+                ),
+            ),
         )
         config._validate()
         return config
@@ -97,6 +161,13 @@ class SimulationConfig:
             raise ValueError("tray inner half extents must be positive")
         if len(set(self.cameras)) != len(self.cameras):
             raise ValueError("camera names must be unique")
+        for name, bounds in (
+            ("workspace_x_m", self.control.workspace_x_m),
+            ("workspace_y_m", self.control.workspace_y_m),
+            ("workspace_z_m", self.control.workspace_z_m),
+        ):
+            if bounds[0] >= bounds[1]:
+                raise ValueError(f"{name} lower bound must be less than upper bound")
 
 
 def _table(raw: dict[str, Any], name: str) -> dict[str, Any]:

@@ -28,6 +28,9 @@ tests pass; reachable randomization bounds are documented.
 
 ## PR 3 — Cartesian controller and safety envelope
 
+Status: implemented in the current working tree; acceptance checks are listed
+in the implementing change.
+
 Add damped-least-squares IK, pose/gripper targets, joint/workspace limits,
 velocity/acceleration bounds, collision checks where applicable, and watchdog.
 

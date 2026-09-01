@@ -27,7 +27,7 @@ The tray is fixed at `(0.58, 0.23)` in the world XY plane. Cube centres sample
 uniformly from `x=[0.35, 0.52]`, `y=[-0.22, -0.08]`, at `z=0.425`. These bounds
 are on the table, do not overlap the tray or robot base, and lie within the
 UR5e's geometric reach. Controller-level reachability and collision feasibility
-are acceptance criteria for PR 3.
+are enforced by the safe Cartesian path.
 
 All authoritative values live in `configs/sim/ur5e_pick_place.toml`; this page
 documents rather than overrides them.
@@ -48,8 +48,27 @@ success and timeout state.
 
 `ActuatorTargets` is an adapter-local seam for tests and neutral rollouts. It is
 not operator or policy intent and does not implement `Robot.command(Action)`.
-PR 3 will translate the domain Cartesian `Action` through safety filtering and
-IK before reaching these actuator targets.
+The application `SafeCartesianRobot` translates domain Cartesian `Action`
+values through safety filtering before the MuJoCo driver emits these targets.
+The driver uses the end-effector site Jacobian, shortest-path quaternion error,
+and damped least squares with damping 0.05, at most 50 iterations, 2 mm
+position tolerance, and 0.02 rad orientation tolerance.
+
+Candidate targets are clipped inside model joint ranges with a 0.02 rad margin
+and checked with `mj_forward` before execution. Robot self-contact and robot
+contact with the floor, table, or tray stop the command. Finger-pad/cube contact
+is allowed for grasping; other robot/cube contact stops. During a confirmed pad
+grasp, the checker also classifies the wrist capsule's known coarse overlap with
+that same cube as part of the pad interaction. The scene explicitly excludes
+only the persistent coarse-collision overlaps between `wrist_2_link` and each
+adjacent finger. Reset has no unclassified contacts and clears safety, watchdog,
+and controller-rate history. Per-link gravity compensation lets the position
+actuators meet the documented Cartesian tolerance without changing the cube's
+task dynamics.
+
+`act-lab sim control-smoke --seed SEED --steps STEPS --json` exercises this path
+deterministically. It is also the Compose `sim` service command. Direct
+environment stepping remains an adapter-local test seam.
 
 Unknown cameras, invalid configuration, non-finite controls, out-of-range
 gripper values, closed environments, and non-finite simulator state fail

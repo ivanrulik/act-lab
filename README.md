@@ -35,7 +35,8 @@ X11/XWayland display and stop it from any working directory:
 ```
 
 The window stays open until you close it or run the stop script. The separate
-`sim` service remains a finite headless 50-step smoke rollout for CI. The UI
+`sim` service runs a finite headless 50-step safe Cartesian-controller smoke
+rollout for CI. The UI
 uses Mesa software rendering and grants the container read-only access only to
 the host X11 socket; it does not require a privileged container or GPU access.
 
@@ -56,7 +57,7 @@ tooling and diagnosis only.
 
 - [x] Repository contracts, architecture records, container scaffold, and CI
 - [x] MuJoCo UR5e environment and task
-- [ ] Cartesian controller and safety envelope
+- [x] Cartesian controller and safety envelope
 - [ ] Keyboard and webcam teleoperation
 - [ ] MCAP recording, validation, replay, and conversion
 - [ ] ACT training notebook and CLI
