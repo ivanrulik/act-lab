@@ -52,6 +52,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rollout.add_argument("--render-dir", type=Path)
     rollout.add_argument("--json", action="store_true")
+    control_smoke = sim_commands.add_parser(
+        "control-smoke", help="run the safe Cartesian controller headlessly"
+    )
+    control_smoke.add_argument("--seed", type=int, default=0)
+    control_smoke.add_argument("--steps", type=int, default=50)
+    control_smoke.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_pick_place.toml"),
+    )
+    control_smoke.add_argument("--json", action="store_true")
     view = sim_commands.add_parser("view", help="open the interactive MuJoCo viewer")
     view.add_argument("--seed", type=int, default=0)
     view.add_argument(
@@ -128,12 +139,66 @@ def _sim_view(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sim_control_smoke(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mujoco import MujocoCartesianDriver
+    from act_lab.application import SafeCartesianRobot
+    from act_lab.domain import Action, CommandOutcome, Pose
+
+    if args.steps <= 0:
+        print("steps must be positive", file=sys.stderr)
+        return 2
+    try:
+        with MujocoCartesianDriver.from_config_file(args.config) as driver:
+            robot = SafeCartesianRobot(driver, driver.limits)
+            observation = robot.reset(args.seed)
+            initial_pose = observation.robot.end_effector_pose
+            target = Pose(
+                frame_id="world",
+                position_xyz_m=(
+                    initial_pose.position_xyz_m[0] + 0.03,
+                    initial_pose.position_xyz_m[1],
+                    initial_pose.position_xyz_m[2] + 0.02,
+                ),
+                quaternion_wxyz=initial_pose.quaternion_wxyz,
+            )
+            counts = {outcome.value: 0 for outcome in CommandOutcome}
+            state = observation.robot
+            for _ in range(args.steps):
+                state = robot.command(
+                    Action(state.timestamp_ns, target, 0.25, enabled=True)
+                )
+                command_report = robot.last_command_report
+                if command_report is None:
+                    raise RuntimeError("safe controller did not produce a report")
+                counts[command_report.outcome.value] += 1
+            report = {
+                "command_outcomes": counts,
+                "end_effector_position_xyz_m": state.end_effector_pose.position_xyz_m,
+                "environment_steps": args.steps,
+                "physics_ticks": driver.environment.physics_ticks,
+                "seed": args.seed,
+                "status": "ok",
+                "timestamp_ns": state.timestamp_ns,
+            }
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"controller smoke error: {error}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        for key, value in report.items():
+            print(f"{key}: {value}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "doctor":
         return _doctor(as_json=args.json)
     if args.command == "sim" and args.sim_command == "rollout":
         return _sim_rollout(args)
+    if args.command == "sim" and args.sim_command == "control-smoke":
+        return _sim_control_smoke(args)
     if args.command == "sim" and args.sim_command == "view":
         return _sim_view(args)
     raise AssertionError(f"unhandled command: {args.command}")

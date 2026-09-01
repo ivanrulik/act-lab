@@ -17,7 +17,7 @@ services:
 
   sim:
     <<: *common
-    command: act-lab sim rollout --seed 0 --steps 50 --json
+    command: act-lab sim control-smoke --seed 0 --steps 50 --json
     environment:
       MUJOCO_GL: egl
 

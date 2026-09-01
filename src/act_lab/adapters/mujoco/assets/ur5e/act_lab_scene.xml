@@ -42,4 +42,12 @@
     <camera name="overview" pos="1.45 -1.25 1.25" xyaxes="0.72 0.69 0 -0.4 0.42 0.81"/>
     <camera name="policy" pos="0.95 -0.7 0.9" xyaxes="0.8 0.6 0 -0.34 0.45 0.83"/>
   </worldbody>
+
+  <!-- The simplified finger boxes overlap wrist_2's coarse collision capsule at
+       every valid opening. These two known adjacent-link pairs are excluded;
+       all other robot contacts remain available to the controller safety check. -->
+  <contact>
+    <exclude name="wrist2_left_finger" body1="wrist_2_link" body2="left_finger"/>
+    <exclude name="wrist2_right_finger" body1="wrist_2_link" body2="right_finger"/>
+  </contact>
 </mujoco>

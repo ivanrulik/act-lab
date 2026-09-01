@@ -66,9 +66,11 @@ webcam -> hand tracker -> teleop mapper -> safety filter
 - Stale or disabled intent commands motion to stop.
 
 The MuJoCo adapter advances 500 Hz physics in explicit groups of ten steps for
-a 50 Hz environment interface. Its low-level actuator target is private to the
-adapter until the PR 3 controller maps the domain Cartesian action through the
-safety path.
+a 50 Hz environment interface. `SafeCartesianRobot` owns application safety,
+validation order, limiting, hold behavior, and command reports. The MuJoCo
+Cartesian driver owns Jacobian-based IK and predicted-contact feasibility. Its
+low-level `ActuatorTargets` remains private to the adapter as a deterministic
+test seam.
 
 ## Storage model
 
