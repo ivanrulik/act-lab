@@ -2,6 +2,7 @@
 
 from act_lab.domain.models import (
     Action,
+    CameraFrame,
     CommandOutcome,
     CommandReport,
     Observation,
@@ -20,6 +21,7 @@ from act_lab.domain.ports import (
 __all__ = [
     "Action",
     "Camera",
+    "CameraFrame",
     "CommandOutcome",
     "CommandReport",
     "EpisodeSink",

@@ -40,6 +40,16 @@ class Observation:
 
 
 @dataclass(frozen=True, slots=True)
+class CameraFrame:
+    """Framework-neutral RGB camera sample ordered by a monotonic clock."""
+
+    timestamp_ns: int
+    width: int
+    height: int
+    rgb_bytes: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class PickPlaceTaskState:
     """Privileged task state, deliberately separate from policy observations."""
 

@@ -59,6 +59,31 @@ to jog; continuous hold-to-move control is intentionally deferred.
 MuJoCo physics is CPU-based in this service. GPU rendering would change viewer
 rendering performance, not keyboard command cadence or controller response.
 
+Webcam teleoperation is an opt-in, unprivileged service. On Linux, pass the
+numeric group that owns the selected video device:
+
+```bash
+ACT_LAB_VIDEO_GID="$(stat -c '%g' /dev/video0)" \
+  docker compose --profile teleop run --rm teleop
+```
+
+Press `Enter` while holding a steady open hand to calibrate. Keep the middle, ring,
+and little fingers extended to clutch motion; fold any of them to stop and
+reposition. Move up/down for world X, right/left for world Y, and move your hand
+toward/away from the camera for world Z. Thumb/index pinch controls the gripper. `Q` exits. The MuJoCo
+viewer shows the annotated hand image, confidence, calibration, clutch, frame
+age, task status, and safety result. Camera frames are processed locally and
+are not retained.
+
+For deterministic, display-free diagnosis with a recorded input:
+
+```bash
+docker compose run --rm dev sh -lc \
+  'base64 -d tests/fixtures/webcam/open_hand_loss.mp4.b64 >/tmp/hand.mp4 && \
+   act-lab sim webcam-teleop --video /tmp/hand.mp4 \
+     --headless --auto-calibrate --json'
+```
+
 The deterministic privileged baseline is headless and reports per-seed results:
 
 ```bash
@@ -86,7 +111,7 @@ tooling and diagnosis only.
 - [x] MuJoCo UR5e environment and task
 - [x] Cartesian controller and safety envelope
 - [x] Keyboard teleoperation and deterministic scripted expert
-- [ ] Webcam hand teleoperation
+- [x] Webcam hand teleoperation
 - [ ] MCAP recording, validation, replay, and conversion
 - [ ] ACT training notebook and CLI
 - [ ] Seeded closed-loop evaluation

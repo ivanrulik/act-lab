@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from act_lab.domain.models import Action, Observation, PickPlaceTaskState, RobotState
+from act_lab.domain.models import (
+    Action,
+    CameraFrame,
+    Observation,
+    PickPlaceTaskState,
+    RobotState,
+)
 
 
 class Robot(Protocol):
@@ -16,7 +22,9 @@ class Robot(Protocol):
 
 
 class Camera(Protocol):
-    def capture(self) -> tuple[int, bytes]: ...
+    def capture(self) -> CameraFrame | None: ...
+
+    def close(self) -> None: ...
 
 
 class Teleoperator(Protocol):

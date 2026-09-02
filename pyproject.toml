@@ -15,6 +15,10 @@ dependencies = [
   "mujoco==3.12.0",
   # Imported directly by the MuJoCo adapter for validated array conversion.
   "numpy==2.3.2",
+  # Hand landmark inference for the PR 5 device adapter.
+  "mediapipe==1.0.1",
+  # Directly imported for V4L2/video decoding and diagnostic drawing.
+  "opencv-contrib-python==5.0.0.93",
 ]
 
 [project.optional-dependencies]

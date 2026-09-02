@@ -5,14 +5,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     MUJOCO_GL=egl \
-    MESA_SHADER_CACHE_DIR=/tmp/act-lab-mesa-cache
+    MESA_SHADER_CACHE_DIR=/tmp/act-lab-mesa-cache \
+    MPLCONFIGDIR=/tmp/act-lab-matplotlib \
+    ACT_LAB_HAND_MODEL=/opt/act-lab/models/hand_landmarker.task
+
+# Official MediaPipe float16 Hand Landmarker model, pinned independently of pip.
+ADD --checksum=sha256:fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1 \
+    https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task \
+    /opt/act-lab/models/hand_landmarker.task
+RUN chmod 0444 /opt/act-lab/models/hand_landmarker.task
 
 RUN groupadd --gid 1000 actlab \
     && useradd --uid 1000 --gid actlab --create-home actlab
 
 # Mesa provides a software EGL implementation for reproducible headless rendering.
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends libegl1 libgl1 libgl1-mesa-dri \
+    && apt-get install --yes --no-install-recommends \
+        libegl1 libgl1 libgl1-mesa-dri libgles2 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
