@@ -55,6 +55,35 @@ within the configured watchdog deadline. Translation and gripper control land
 before optional wrist-orientation mapping. Calibration is explicit and stored
 with episode provenance.
 
+`Teleoperator.poll(Observation) -> Action` uses the observation's monotonic
+timestamp. Keyboard events add 0.01 m world-frame translation or 0.1 normalized
+gripper nudges. `W/S` map to ±X, `A/D` to ±Y, `R/F` to ±Z, `O/C` open and
+close, Space emits disabled hold, and `Q` closes the session. Orientation stays
+fixed. Polling without an event retains the previous input timestamp, so the
+normal watchdog stops pursuit at 100 ms. Letter matching is case-insensitive.
+The supported passive-viewer callback reports discrete presses rather than
+held-key state, so this PR intentionally provides tap-to-jog rather than
+continuous motion. Safety and actuator dynamics may stop before the observed
+pose reaches the accumulated target; another press adds another nudge and
+refreshes the input timestamp.
+
+All keyboard and scripted-expert actions execute through `SafeCartesianRobot`.
+The simulator driver may deterministically scale an actuator target from a
+restored pre-step state when servo tracking would exceed the measured Cartesian
+velocity ceiling.
+
+## Scripted baseline
+
+The deterministic expert runs open/raise, approach, descend, close/dwell, lift,
+transit, lower, open/dwell, retreat, and disabled-hold phases. It advances only
+inside configured observed pose/gripper tolerances and dwell counts. Timestamps
+refresh each step. Terminal task state, timeout, IK failure, invalid/stale
+intent, or prohibited contact ends in disabled hold.
+
+Exact cube and goal poses arrive through the privileged task-state port. They
+must not be copied into policy observations, recordings used as policy inputs,
+derived training data, or learned-policy evaluation inputs.
+
 ## Physical hardware
 
 Application safety is defense in depth and never replaces manufacturer safety

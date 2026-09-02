@@ -235,8 +235,8 @@ class SafeCartesianRobot:
         dt = self._driver.control_period_s
         delta = _subtract(target.position_xyz_m, self._history.pose.position_xyz_m)
         desired_linear = _scale(delta, 1.0 / dt)
-        # Leave servo-tracking headroom so the measured end-effector motion also
-        # remains below the configured hard ceiling under discrete dynamics.
+        # Leave servo-tracking headroom so measured discrete-time motion also
+        # remains below the configured hard ceiling under MuJoCo dynamics.
         tracking_safe_velocity = self._limits.max_translation_velocity_m_s * 0.5
         linear = _limit_vector(desired_linear, tracking_safe_velocity)
         linear = _limit_delta(

@@ -44,6 +44,10 @@ The adapter reports each predicate, the settling count, terminal state, and
 reason. An episode times out after 500 environment steps. A reset clears prior
 success and timeout state.
 
+The separate dependency-free `PickPlaceTaskState` reports cube pose, desired
+resting pose at tray center, and terminal result for privileged scripted
+teaching/evaluation. It is not part of `Observation` or a dataset feature.
+
 ## Control boundary
 
 `ActuatorTargets` is an adapter-local seam for tests and neutral rollouts. It is
@@ -60,15 +64,28 @@ contact with the floor, table, or tray stop the command. Finger-pad/cube contact
 is allowed for grasping; other robot/cube contact stops. During a confirmed pad
 grasp, the checker also classifies the wrist capsule's known coarse overlap with
 that same cube as part of the pad interaction. The scene explicitly excludes
-only the persistent coarse-collision overlaps between `wrist_2_link` and each
-adjacent finger. Reset has no unclassified contacts and clears safety, watchdog,
-and controller-rate history. Per-link gravity compensation lets the position
-actuators meet the documented Cartesian tolerance without changing the cube's
-task dynamics.
+only persistent coarse-collision overlaps between the wrist capsules and the
+elongated educational fingers. Reset has no unclassified contacts and clears
+safety, watchdog, and controller-rate history. Per-link gravity compensation
+lets the position actuators meet the documented Cartesian tolerance without
+changing the cube's task dynamics.
+
+The educational gripper pads extend from the working side of the palm for an
+above-table grasp. Narrow wrist/finger exclusions represent internal coarse
+geometry artifacts only; external contacts remain checked. The table begins at
+world X=0.30 m, supporting all cube spawns and the tray while clearing the
+fixed-base arm. Servo damping and deterministic target backoff preserve the
+measured Cartesian ceiling.
 
 `act-lab sim control-smoke --seed SEED --steps STEPS --json` exercises this path
 deterministically. It is also the Compose `sim` service command. Direct
 environment stepping remains an adapter-local test seam.
+
+`act-lab sim expert --seed-start 0 --episodes 20 --min-success-rate 0.90
+--json` runs the headless baseline. JSON includes aggregate success rate and
+per-seed steps, result, terminal reason, final FSM phase, and safety counts.
+Exit codes are 0 for a passing threshold, 1 for failure, and 2 for invalid
+configuration or runtime input.
 
 Unknown cameras, invalid configuration, non-finite controls, out-of-range
 gripper values, closed environments, and non-finite simulator state fail
@@ -81,3 +98,11 @@ while a passive MuJoCo viewer is open. Closing the window ends the process. The
 Compose `sim-ui` service forwards only the host's read-only X11/XWayland socket
 and uses Mesa software rendering; the headless `sim` service remains the CI and
 automation interface.
+
+`act-lab sim keyboard-teleop --seed 0` uses the passive viewer key callback and
+overlays controls, accepted input count, target and actual poses, latest safety
+outcome with detail, and task state. Viewer and control threads synchronize
+access to shared MuJoCo state through the viewer lock. The callback exposes
+discrete presses, not held-key state; keyboard teleoperation is therefore
+tap-to-jog. Its opt-in Compose service has the same narrow X11 mount as
+`sim-ui`.

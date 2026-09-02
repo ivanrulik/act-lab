@@ -39,6 +39,17 @@ class Observation:
     image_keys: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class PickPlaceTaskState:
+    """Privileged task state, deliberately separate from policy observations."""
+
+    cube_pose: Pose
+    desired_cube_pose: Pose
+    success: bool
+    terminal: bool
+    reason: str | None
+
+
 class CommandOutcome(StrEnum):
     """Inspectable result of applying Cartesian intent through safety."""
 

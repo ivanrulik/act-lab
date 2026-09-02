@@ -114,6 +114,22 @@ def test_cube_must_settle_in_tray_before_success() -> None:
     assert status.reason == "success"
 
 
+def test_privileged_task_state_stays_separate_from_observation() -> None:
+    config = SimulationConfig.load(CONFIG_PATH)
+    with make_environment() as environment:
+        observation = environment.reset(5)
+        task = environment.task_state()
+
+    assert not hasattr(observation, "cube_pose")
+    assert task.cube_pose.position_xyz_m == environment.cube_position_xyz_m
+    assert task.desired_cube_pose.position_xyz_m == (
+        config.tray_center_xy_m[0],
+        config.tray_center_xy_m[1],
+        config.tray_floor_top_z_m + config.cube_half_extent_m,
+    )
+    assert not task.terminal
+
+
 def test_long_headless_rollout_stays_finite() -> None:
     with make_environment() as environment:
         environment.reset(42)

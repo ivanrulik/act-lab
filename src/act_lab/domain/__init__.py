@@ -5,10 +5,17 @@ from act_lab.domain.models import (
     CommandOutcome,
     CommandReport,
     Observation,
+    PickPlaceTaskState,
     Pose,
     RobotState,
 )
-from act_lab.domain.ports import Camera, EpisodeSink, Robot, Teleoperator
+from act_lab.domain.ports import (
+    Camera,
+    EpisodeSink,
+    PickPlaceTaskStateSource,
+    Robot,
+    Teleoperator,
+)
 
 __all__ = [
     "Action",
@@ -17,6 +24,8 @@ __all__ = [
     "CommandReport",
     "EpisodeSink",
     "Observation",
+    "PickPlaceTaskState",
+    "PickPlaceTaskStateSource",
     "Pose",
     "Robot",
     "RobotState",
