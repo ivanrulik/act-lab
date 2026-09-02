@@ -24,6 +24,7 @@ docker compose build dev
 docker compose run --rm dev act-lab doctor
 docker compose run --rm dev pytest
 docker compose run --rm sim
+docker compose run --rm expert
 ```
 
 Convenience wrappers open the interactive MuJoCo viewer through the host's
@@ -39,6 +40,32 @@ The window stays open until you close it or run the stop script. The separate
 rollout for CI. The UI
 uses Mesa software rendering and grants the container read-only access only to
 the host X11 socket; it does not require a privileged container or GPU access.
+
+Keyboard teleoperation uses the same narrow X11 forwarding and safety path:
+
+```bash
+docker compose --profile ui run --rm keyboard-teleop
+```
+
+Tap `W/S` for world X, `A/D` for world Y, `R/F` for world Z, and `O/C` to
+open/close. Space stops and `Q` quits. Letter bindings are case-insensitive.
+MuJoCo's supported passive-viewer callback reports presses rather than held-key
+state, so holding a key does not provide continuous motion. Each press adds one
+configured target nudge; the safety controller may execute only part of that
+nudge before input becomes stale at 100 ms. The overlay distinguishes accepted
+events, target pose, actual pose, and the latest safety outcome. Tap repeatedly
+to jog; continuous hold-to-move control is intentionally deferred.
+
+MuJoCo physics is CPU-based in this service. GPU rendering would change viewer
+rendering performance, not keyboard command cadence or controller response.
+
+The deterministic privileged baseline is headless and reports per-seed results:
+
+```bash
+docker compose run --rm expert
+docker compose run --rm dev act-lab sim expert \
+  --seed-start 0 --episodes 20 --min-success-rate 0.90 --json
+```
 
 For a local, non-container fallback:
 
@@ -58,7 +85,8 @@ tooling and diagnosis only.
 - [x] Repository contracts, architecture records, container scaffold, and CI
 - [x] MuJoCo UR5e environment and task
 - [x] Cartesian controller and safety envelope
-- [ ] Keyboard and webcam teleoperation
+- [x] Keyboard teleoperation and deterministic scripted expert
+- [ ] Webcam hand teleoperation
 - [ ] MCAP recording, validation, replay, and conversion
 - [ ] ACT training notebook and CLI
 - [ ] Seeded closed-loop evaluation

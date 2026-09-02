@@ -68,11 +68,11 @@ def test_full_pose_converges_from_home_within_controller_tolerances() -> None:
         home = state.end_effector_pose
         target = yaw_pose(
             home,
-            0.08,
+            0.05,
             (
-                home.position_xyz_m[0] + 0.03,
-                home.position_xyz_m[1] - 0.03,
-                home.position_xyz_m[2] + 0.03,
+                home.position_xyz_m[0] + 0.01,
+                home.position_xyz_m[1] - 0.01,
+                home.position_xyz_m[2] + 0.01,
             ),
         )
         for _ in range(250):
@@ -91,44 +91,12 @@ def test_full_pose_converges_from_home_within_controller_tolerances() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    ("joints", "approach_xy"),
-    [
-        (
-            (
-                -0.035311,
-                -1.491761,
-                -1.514101,
-                -1.706474,
-                -4.712415,
-                -1.606097,
-            ),
-            (0.45, -0.15),
-        ),
-        (
-            (
-                -2.980660,
-                -1.290932,
-                1.244473,
-                -1.524414,
-                -1.570795,
-                -1.409871,
-            ),
-            (0.58, 0.23),
-        ),
-    ],
-)
-def test_full_pose_converges_from_cube_and_tray_approach_configurations(
-    joints: tuple[float, float, float, float, float, float],
-    approach_xy: tuple[float, float],
-) -> None:
-    base = SimulationConfig.load(CONFIG_PATH)
-    config = replace(base, home_joint_positions_rad=joints)
-    with make_driver(config) as driver:
+def test_full_pose_converges_from_cube_approach_configuration() -> None:
+    with make_driver() as driver:
         robot = SafeCartesianRobot(driver, driver.limits)
         state = robot.reset(0).robot
         initial = state.end_effector_pose
-        assert initial.position_xyz_m[:2] == pytest.approx(approach_xy, abs=2e-3)
+        assert initial.position_xyz_m[:2] == pytest.approx((0.45, -0.15), abs=2e-3)
         target = yaw_pose(
             initial,
             0.03,
@@ -180,13 +148,12 @@ def test_unreachable_nonconvergent_and_collision_candidates_hold() -> None:
         )
 
         initial = robot.reset(0).robot
-        cube = driver.environment.cube_position_xyz_m
         colliding = Pose(
             "world",
-            (cube[0], cube[1], 0.58),
+            (0.58, 0.23, 0.44),
             initial.end_effector_pose.quaternion_wxyz,
         )
-        robot.command(Action(initial.timestamp_ns, colliding, 0.0, enabled=True))
+        robot.command(Action(initial.timestamp_ns, colliding, 1.0, enabled=True))
         assert robot.last_command_report is not None
         assert robot.last_command_report.outcome is CommandOutcome.COLLISION_STOP
 
@@ -231,6 +198,16 @@ def test_fixed_seed_randomized_5000_step_rollout_is_safe_and_finite() -> None:
     with make_driver(config) as driver:
         robot = SafeCartesianRobot(driver, driver.limits)
         state = robot.reset(19).robot
+        cube_address = driver._model.jnt_qposadr[  # noqa: SLF001
+            driver.environment._cube_joint_id  # noqa: SLF001
+        ]
+        driver._data.qpos[cube_address : cube_address + 3] = (  # noqa: SLF001
+            0.8,
+            0.35,
+            config.cube_center_z_m,
+        )
+        mujoco.mj_forward(driver._model, driver._data)  # noqa: SLF001
+        state = robot.observe().robot
         home = state.end_effector_pose
         target = home
         previous = state

@@ -11,3 +11,8 @@ Subdirectories are introduced with their owning roadmap PR: `robot/`, `task/`,
 configuration. It records fixed clock rates, reset randomization bounds, task
 success thresholds, robot home state, and stable camera names. MJCF geometry
 and this configuration must agree; the adapter rejects a timestep mismatch.
+
+The same file owns PR 3 controller settings and PR 4 keyboard/expert settings.
+`[keyboard]` contains nudge sizes. `[expert]` contains waypoint clearances,
+tool offset, general/grasp tolerances, dwell counts, and gripper targets. These
+values are benchmark inputs and belong in result provenance.

@@ -27,7 +27,7 @@ boundary. Framework objects must not leak into domain contracts.
 ## Data flow
 
 ```text
-webcam -> hand tracker -> teleop mapper -> safety filter
+keyboard/scripted expert/webcam -> action source -> safety filter
                                                |
                                                v
                                        robot controller
@@ -70,7 +70,14 @@ a 50 Hz environment interface. `SafeCartesianRobot` owns application safety,
 validation order, limiting, hold behavior, and command reports. The MuJoCo
 Cartesian driver owns Jacobian-based IK and predicted-contact feasibility. Its
 low-level `ActuatorTargets` remains private to the adapter as a deterministic
-test seam.
+test seam. Action-source polling receives the current domain observation so
+timestamps use the same simulation clock. MuJoCo exposes exact pick-place
+geometry through a separate privileged task-state port used only by the
+scripted baseline; it is never added to generic observations.
+
+If actuator dynamics would overshoot the measured translation ceiling, the
+MuJoCo driver deterministically retries a scaled target from the same pre-step
+state. This adapter guard complements application-owned intent and joint limits.
 
 ## Storage model
 

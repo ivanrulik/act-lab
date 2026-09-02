@@ -9,7 +9,7 @@
     <default class="ur5e">
       <material specular="0.5" shininess="0.25"/>
       <joint axis="0 1 0" range="-6.28319 6.28319" armature="0.1"/>
-      <general gaintype="fixed" biastype="affine" ctrlrange="-6.2831 6.2831" gainprm="2000" biasprm="0 -2000 -400"
+      <general gaintype="fixed" biastype="affine" ctrlrange="-6.2831 6.2831" gainprm="2000" biasprm="0 -2000 -600"
         forcerange="-150 150"/>
       <default class="size3">
         <default class="size3_limited">
@@ -18,7 +18,7 @@
         </default>
       </default>
       <default class="size1">
-        <general gainprm="500" biasprm="0 -500 -100" forcerange="-28 28"/>
+        <general gainprm="500" biasprm="0 -500 -150" forcerange="-28 28"/>
       </default>
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
@@ -117,19 +117,19 @@
                   <body name="gripper_palm" pos="0 0.1 0" quat="-0.7071068 0.7071068 0 0" gravcomp="1">
                     <geom name="gripper_palm_geom" type="box" size="0.045 0.025 0.018"
                       mass="0.25" rgba="0.18 0.18 0.2 1"/>
-                    <site name="end_effector" pos="0 0 -0.11" quat="1 0 0 0"/>
-                    <body name="left_finger" pos="0.025 0 -0.065" gravcomp="1">
+                    <site name="end_effector" pos="0 0 0.11" quat="1 0 0 0"/>
+                    <body name="left_finger" pos="0.025 0 0.065" gravcomp="1">
                       <joint name="left_finger_joint" type="slide" axis="1 0 0"
                         range="0 0.025" damping="2"/>
-                      <geom name="left_finger_pad" type="box" pos="0 0 -0.035"
-                        size="0.01 0.018 0.05" mass="0.05" friction="1.2 0.01 0.001"
+                      <geom name="left_finger_pad" type="box" pos="0 0 0.035"
+                        size="0.01 0.018 0.05" mass="0.005" friction="1.2 0.01 0.001"
                         rgba="0.12 0.12 0.14 1"/>
                     </body>
-                    <body name="right_finger" pos="-0.025 0 -0.065" gravcomp="1">
+                    <body name="right_finger" pos="-0.025 0 0.065" gravcomp="1">
                       <joint name="right_finger_joint" type="slide" axis="-1 0 0"
                         range="0 0.025" damping="2"/>
-                      <geom name="right_finger_pad" type="box" pos="0 0 -0.035"
-                        size="0.01 0.018 0.05" mass="0.05" friction="1.2 0.01 0.001"
+                      <geom name="right_finger_pad" type="box" pos="0 0 0.035"
+                        size="0.01 0.018 0.05" mass="0.005" friction="1.2 0.01 0.001"
                         rgba="0.12 0.12 0.14 1"/>
                     </body>
                   </body>

@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from act_lab.adapters.mujoco.config import SimulationConfig
-from act_lab.domain import Observation, Pose, RobotState
+from act_lab.domain import Observation, PickPlaceTaskState, Pose, RobotState
 
 ARM_JOINTS = (
     "shoulder_pan_joint",
@@ -94,6 +94,10 @@ class MujocoUR5eEnvironment:
     @property
     def physics_ticks(self) -> int:
         return self._physics_ticks
+
+    @property
+    def environment_steps(self) -> int:
+        return self._environment_steps
 
     @property
     def cube_position_xyz_m(self) -> tuple[float, float, float]:
@@ -232,6 +236,41 @@ class MujocoUR5eEnvironment:
             success=success,
             terminal=success or timed_out,
             reason=reason,
+        )
+
+    def task_state(self) -> PickPlaceTaskState:
+        """Return privileged task geometry without changing policy observations."""
+        self._ensure_open()
+        cube_qpos = self._data.joint("cube_free_joint").qpos
+        status = self.task_status()
+        return PickPlaceTaskState(
+            cube_pose=Pose(
+                frame_id="world",
+                position_xyz_m=(
+                    float(cube_qpos[0]),
+                    float(cube_qpos[1]),
+                    float(cube_qpos[2]),
+                ),
+                quaternion_wxyz=(
+                    float(cube_qpos[3]),
+                    float(cube_qpos[4]),
+                    float(cube_qpos[5]),
+                    float(cube_qpos[6]),
+                ),
+            ),
+            desired_cube_pose=Pose(
+                frame_id="world",
+                position_xyz_m=(
+                    self._config.tray_center_xy_m[0],
+                    self._config.tray_center_xy_m[1],
+                    self._config.tray_floor_top_z_m
+                    + self._config.cube_half_extent_m,
+                ),
+                quaternion_wxyz=(1.0, 0.0, 0.0, 0.0),
+            ),
+            success=status.success,
+            terminal=status.terminal,
+            reason=status.reason,
         )
 
     def render(self, camera: str) -> NDArray[np.uint8]:

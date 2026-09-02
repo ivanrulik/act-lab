@@ -75,6 +75,32 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="close after this many environment steps; default is to run until closed",
     )
+    keyboard = sim_commands.add_parser(
+        "keyboard-teleop", help="teleoperate safely with the MuJoCo viewer"
+    )
+    keyboard.add_argument("--seed", type=int, default=0)
+    keyboard.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_pick_place.toml"),
+    )
+    keyboard.add_argument(
+        "--max-steps",
+        type=int,
+        help="close after this many control steps; default is to run until closed",
+    )
+    expert = sim_commands.add_parser(
+        "expert", help="benchmark the deterministic scripted expert"
+    )
+    expert.add_argument("--seed-start", type=int, default=0)
+    expert.add_argument("--episodes", type=int, default=20)
+    expert.add_argument("--min-success-rate", type=float, default=0.90)
+    expert.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_pick_place.toml"),
+    )
+    expert.add_argument("--json", action="store_true")
     return parser
 
 
@@ -191,6 +217,120 @@ def _sim_control_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mujoco import (
+        KeyboardTeleoperator,
+        MujocoCartesianDriver,
+        run_keyboard_session,
+    )
+    from act_lab.application import SafeCartesianRobot
+
+    try:
+        with MujocoCartesianDriver.from_config_file(args.config) as driver:
+            robot = SafeCartesianRobot(driver, driver.limits)
+            teleoperator = KeyboardTeleoperator(
+                driver.simulation_config.keyboard,
+                driver.limits,
+            )
+            run_keyboard_session(
+                driver,
+                robot,
+                teleoperator,
+                args.seed,
+                max_steps=args.max_steps,
+            )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"keyboard teleoperation error: {error}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _sim_expert(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mujoco import MujocoCartesianDriver, SimulationConfig
+    from act_lab.application import SafeCartesianRobot, ScriptedPickPlaceExpert
+    from act_lab.domain import CommandOutcome
+
+    if args.episodes <= 0:
+        print("episodes must be positive", file=sys.stderr)
+        return 2
+    if not 0.0 <= args.min_success_rate <= 1.0:
+        print("min-success-rate must be in [0, 1]", file=sys.stderr)
+        return 2
+    try:
+        config = SimulationConfig.load(args.config)
+        episodes: list[dict[str, object]] = []
+        for seed in range(args.seed_start, args.seed_start + args.episodes):
+            with MujocoCartesianDriver.from_config_file(args.config) as driver:
+                robot = SafeCartesianRobot(driver, driver.limits)
+                observation = robot.reset(seed)
+                expert = ScriptedPickPlaceExpert(driver.environment, config.expert)
+                expert.reset(observation)
+                counts = {outcome.value: 0 for outcome in CommandOutcome}
+                completed_steps = 0
+                final_task = None
+                for _ in range(config.episode_steps):
+                    completed_steps += 1
+                    action = expert.poll(observation)
+                    robot.command(action)
+                    command_report = robot.last_report
+                    if command_report is None:
+                        raise RuntimeError("safe controller did not produce a report")
+                    counts[command_report.outcome.value] += 1
+                    expert.record_command_report(command_report)
+                    observation = robot.observe()
+                    task = driver.environment.task_state()
+                    if task.terminal or expert.failure_reason is not None:
+                        final_task = task
+                        hold_action = expert.poll(observation)
+                        robot.command(hold_action)
+                        hold_report = robot.last_report
+                        if hold_report is None:
+                            raise RuntimeError(
+                                "safe controller did not produce a hold report"
+                            )
+                        counts[hold_report.outcome.value] += 1
+                        break
+                task = final_task or driver.environment.task_state()
+                terminal_reason = task.reason or expert.failure_reason or "step_limit"
+                episodes.append(
+                    {
+                        "seed": seed,
+                        "steps": completed_steps,
+                        "result": "success" if task.success else "failure",
+                        "terminal_reason": terminal_reason,
+                        "final_phase": expert.phase.value,
+                        "safety_outcomes": counts,
+                    }
+                )
+        successes = sum(item["result"] == "success" for item in episodes)
+        success_rate = successes / args.episodes
+        benchmark_report = {
+            "episodes": episodes,
+            "episodes_requested": args.episodes,
+            "min_success_rate": args.min_success_rate,
+            "seed_start": args.seed_start,
+            "successes": successes,
+            "success_rate": success_rate,
+            "threshold_passed": success_rate >= args.min_success_rate,
+        }
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"expert benchmark error: {error}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(benchmark_report, indent=2, sort_keys=True))
+    else:
+        print(
+            f"expert success: {successes}/{args.episodes} "
+            f"({success_rate:.1%}); required {args.min_success_rate:.1%}"
+        )
+        for item in episodes:
+            print(
+                f"seed {item['seed']}: {item['result']} in {item['steps']} steps "
+                f"({item['terminal_reason']})"
+            )
+    return 0 if benchmark_report["threshold_passed"] else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "doctor":
@@ -201,4 +341,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sim_control_smoke(args)
     if args.command == "sim" and args.sim_command == "view":
         return _sim_view(args)
+    if args.command == "sim" and args.sim_command == "keyboard-teleop":
+        return _sim_keyboard_teleop(args)
+    if args.command == "sim" and args.sim_command == "expert":
+        return _sim_expert(args)
     raise AssertionError(f"unhandled command: {args.command}")

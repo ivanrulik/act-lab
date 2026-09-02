@@ -34,6 +34,27 @@ class CartesianControlConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class KeyboardConfig:
+    translation_nudge_m: float
+    gripper_nudge: float
+
+
+@dataclass(frozen=True, slots=True)
+class ExpertConfig:
+    approach_clearance_m: float
+    transit_clearance_m: float
+    retreat_clearance_m: float
+    tool_to_cube_offset_m: float
+    position_tolerance_m: float
+    grasp_position_tolerance_m: float
+    gripper_tolerance: float
+    close_dwell_steps: int
+    open_dwell_steps: int
+    open_gripper: float
+    closed_gripper: float
+
+
+@dataclass(frozen=True, slots=True)
 class SimulationConfig:
     physics_hz: int
     environment_hz: int
@@ -54,6 +75,8 @@ class SimulationConfig:
     render_height: int
     cameras: tuple[str, ...]
     control: CartesianControlConfig
+    keyboard: KeyboardConfig
+    expert: ExpertConfig
 
     @property
     def substeps(self) -> int:
@@ -73,6 +96,8 @@ class SimulationConfig:
         task = _table(raw, "task")
         render = _table(raw, "render")
         control = _table(raw, "control")
+        keyboard = _table(raw, "keyboard")
+        expert = _table(raw, "expert")
         config = cls(
             physics_hz=_positive_int(clock, "physics_hz"),
             environment_hz=_positive_int(clock, "environment_hz"),
@@ -138,6 +163,37 @@ class SimulationConfig:
                     control, "ik_orientation_tolerance_rad"
                 ),
             ),
+            keyboard=KeyboardConfig(
+                translation_nudge_m=_positive_float(
+                    keyboard, "translation_nudge_m"
+                ),
+                gripper_nudge=_positive_float(keyboard, "gripper_nudge"),
+            ),
+            expert=ExpertConfig(
+                approach_clearance_m=_positive_float(
+                    expert, "approach_clearance_m"
+                ),
+                transit_clearance_m=_nonnegative_float(
+                    expert, "transit_clearance_m"
+                ),
+                retreat_clearance_m=_positive_float(
+                    expert, "retreat_clearance_m"
+                ),
+                tool_to_cube_offset_m=_nonnegative_float(
+                    expert, "tool_to_cube_offset_m"
+                ),
+                position_tolerance_m=_positive_float(
+                    expert, "position_tolerance_m"
+                ),
+                grasp_position_tolerance_m=_positive_float(
+                    expert, "grasp_position_tolerance_m"
+                ),
+                gripper_tolerance=_positive_float(expert, "gripper_tolerance"),
+                close_dwell_steps=_positive_int(expert, "close_dwell_steps"),
+                open_dwell_steps=_positive_int(expert, "open_dwell_steps"),
+                open_gripper=_unit_float(expert, "open_gripper"),
+                closed_gripper=_unit_float(expert, "closed_gripper"),
+            ),
         )
         config._validate()
         return config
@@ -157,6 +213,12 @@ class SimulationConfig:
         ):
             if bounds[0] >= bounds[1]:
                 raise ValueError(f"{name} lower bound must be less than upper bound")
+        if self.keyboard.gripper_nudge > 1.0:
+            raise ValueError("gripper_nudge must be at most 1")
+        if self.expert.gripper_tolerance > 1.0:
+            raise ValueError("gripper_tolerance must be at most 1")
+        if self.expert.closed_gripper >= self.expert.open_gripper:
+            raise ValueError("closed_gripper must be less than open_gripper")
         if any(value <= 0 for value in self.tray_inner_half_extents_xy_m):
             raise ValueError("tray inner half extents must be positive")
         if len(set(self.cameras)) != len(self.cameras):
@@ -198,6 +260,20 @@ def _positive_float(table: dict[str, Any], name: str) -> float:
     value = _finite_float(table, name)
     if value <= 0:
         raise ValueError(f"{name} must be positive")
+    return value
+
+
+def _nonnegative_float(table: dict[str, Any], name: str) -> float:
+    value = _finite_float(table, name)
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return value
+
+
+def _unit_float(table: dict[str, Any], name: str) -> float:
+    value = _finite_float(table, name)
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"{name} must be in [0, 1]")
     return value
 
 

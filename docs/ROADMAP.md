@@ -39,6 +39,11 @@ safely; long randomized tests produce no NaNs or limit violations.
 
 ## PR 4 — Keyboard teleop and scripted expert
 
+Status: complete. The deterministic 20-seed acceptance benchmark passes at the
+documented 0.90 threshold and produces identical repeated reports. Manual X11
+validation confirmed keyboard jogging and completion of the pick-and-place
+task.
+
 Provide a stable keyboard input adapter and deterministic finite-state-machine
 expert before introducing camera perception.
 

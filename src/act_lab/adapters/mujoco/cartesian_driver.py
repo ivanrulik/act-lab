@@ -65,6 +65,10 @@ class MujocoCartesianDriver:
         return self._config.control
 
     @property
+    def simulation_config(self) -> SimulationConfig:
+        return self._config
+
+    @property
     def control_period_s(self) -> float:
         return 1.0 / self._config.environment_hz
 
@@ -200,7 +204,43 @@ class MujocoCartesianDriver:
         return True
 
     def step(self, joints: JointVector, gripper: float) -> RobotState:
-        return self._environment.step(ActuatorTargets(joints, gripper)).robot
+        start_position = self._data.site_xpos[self._site_id].copy()
+        current_joints = tuple(
+            float(self._data.qpos[address]) for address in self._qpos_addresses
+        )
+        backup = mujoco.MjData(self._model)
+        mujoco.mj_copyData(backup, self._model, self._data)
+        physics_ticks = self._environment._physics_ticks  # noqa: SLF001
+        environment_steps = self._environment._environment_steps  # noqa: SLF001
+        settled_steps = self._environment._settled_steps  # noqa: SLF001
+        maximum_distance = (
+            self._config.control.max_translation_velocity_m_s
+            * self.control_period_s
+        )
+        for scale in (1.0, 0.5, 0.25, 0.125, 0.0):
+            if scale != 1.0:
+                mujoco.mj_copyData(self._data, self._model, backup)
+                self._environment._physics_ticks = physics_ticks  # noqa: SLF001
+                self._environment._environment_steps = environment_steps  # noqa: SLF001
+                self._environment._settled_steps = settled_steps  # noqa: SLF001
+            scaled = tuple(
+                current + (target - current) * scale
+                for current, target in zip(current_joints, joints, strict=True)
+            )
+            state = self._environment.step(
+                ActuatorTargets(_joint_vector(scaled), gripper)
+            ).robot
+            if (
+                float(
+                    np.linalg.norm(
+                        np.asarray(state.end_effector_pose.position_xyz_m)
+                        - start_position
+                    )
+                )
+                <= maximum_distance + 1e-9
+            ):
+                return state
+        return state
 
     def close(self) -> None:
         self._environment.close()

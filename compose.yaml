@@ -35,6 +35,28 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
     stop_grace_period: 5s
 
+  keyboard-teleop:
+    <<: *common
+    profiles: ["ui"]
+    command: act-lab sim keyboard-teleop --seed ${ACT_LAB_SIM_SEED:-0}
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MUJOCO_GL: glfw
+    volumes:
+      - .:/workspace
+      - act-lab-cache:/home/actlab/.cache
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    stop_grace_period: 5s
+
+  expert:
+    <<: *common
+    command: >-
+      act-lab sim expert --seed-start 0 --episodes 20
+      --min-success-rate 0.90 --json
+    environment:
+      MUJOCO_GL: egl
+
   notebook:
     <<: *common
     profiles: ["notebook"]
