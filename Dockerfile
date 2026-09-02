@@ -30,7 +30,7 @@ ENTRYPOINT ["act-lab"]
 CMD ["doctor"]
 
 FROM base AS dev
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md compose.yaml ./
 COPY requirements ./requirements
 COPY src ./src
 COPY tests ./tests
