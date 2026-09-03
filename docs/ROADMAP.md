@@ -105,11 +105,93 @@ taxonomy, model/dataset cards, privacy guidance, and immutable published images.
 
 Acceptance: a second person completes the entire workflow from a clean clone.
 
-## PRs 11–14 — Optional ROS 2 and hardware track
+## Optional ROS 2, CRISP, and hardware track
 
-1. Define ROS topics, QoS, frames, clock behavior, and domain conversions.
-2. Expose MuJoCo through that contract and test local/ROS equivalence.
-3. Record ROS topics through rosbag2 MCAP and reuse the existing converter.
-4. Add official UR hardware integration only after a dedicated safety review.
+[CRISP Controllers](https://github.com/learnsyslab/crisp_controllers) is a
+candidate low-level controller for this track. Its real-time Cartesian
+impedance and operational-space controllers could turn sparse pose targets from
+ACT or teleoperation into smooth, compliant torque commands. CRISP is not a
+replacement for ACT, the application-owned safety envelope, or the validated
+MCAP-to-LeRobot data lifecycle.
 
-ROS must remain optional for simulation, conversion, training, and evaluation.
+### PR 11 — ROS 2 contracts
+
+Define ROS topics, QoS, frames, clock behavior, watchdog behavior, and
+conversions at the domain boundary. ROS messages and clocks remain adapter
+types and must not enter `act_lab.domain`.
+
+Acceptance: the contract defines stale and lost-command behavior; frame and
+timestamp conversions have automated tests; local simulation, conversion,
+training, and evaluation still run without ROS 2.
+
+### PR 12 — CRISP feasibility spike and decision
+
+Evaluate a pinned CRISP revision in an isolated Docker Compose profile. Record
+its license and dependency rationale, and test its action semantics, control
+frequency, gravity and friction conventions, watchdog behavior, and
+compatibility with the official UR5e `ros2_control` effort interface. Do not
+adopt CRISP merely because its demos run on another manipulator.
+
+Acceptance: a reproducible report compares CRISP requirements with ACT Lab's
+control and safety contracts, exercises command loss and stale targets without
+hardware, and records a go/no-go decision in an ADR. A no-go result preserves
+the ROS contract and selects or defers an alternative controller without
+changing the learning pipeline.
+
+Reference: the official Universal Robots driver documents its
+[joint-torque interface](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/rolling/doc/ur_robot_driver/ur_robot_driver/doc/usage/force_torque_control.html),
+including PolyScope requirements and the safety responsibilities of direct
+torque control.
+
+### PR 13 — CRISP simulation adapter
+
+Proceed only after a CRISP go decision. Expose CRISP behind the existing robot
+and feasibility ports, connect it to an effort-controlled MuJoCo/`ros2_control`
+test environment, and keep the current local MuJoCo adapter as the
+deterministic baseline.
+
+Acceptance: identical input traces produce comparable local and ROS/CRISP
+trajectories and inspectable command outcomes; workspace, joint, torque, and
+rate limits hold; disabled, stale, invalid, and lost commands stop safely; the
+default headless workflow does not require ROS 2 or CRISP.
+
+### PR 14 — ROS MCAP recording and conversion equivalence
+
+Record synchronized ROS topics through rosbag2 MCAP and translate them into
+the existing versioned raw-recording contract. Reuse the validator, episode
+selection manifest, deterministic converter, and LeRobotDataset representation.
+CRISP Gym's direct LeRobot recording may inform tests but is not an
+authoritative acquisition path.
+
+Acceptance: equivalent local and ROS recordings pass the same quality rules
+and produce schema-compatible derived datasets; invalid and interrupted
+episodes remain traceable; training never consumes unvalidated raw logs.
+
+### PR 15 — UR5e hardware readiness and safety review
+
+Before commanding a physical robot, document controller ownership, torque and
+torque-rate limits, payload and gravity configuration, protective stops,
+network-loss behavior, startup/shutdown ordering, recovery procedures, and
+operator supervision. Define a staged, low-energy commissioning protocol and
+the evidence required to advance each stage.
+
+Acceptance: a dedicated ADR and safety checklist are reviewed; all feasible
+fault-injection and dry-run tests pass in simulation; documentation clearly
+distinguishes simulated evidence from hardware validation.
+
+### PR 16 — Supervised UR5e hardware integration
+
+Integrate the official Universal Robots ROS 2 driver and the controller chosen
+by PR 12. Run the commissioning protocol under trained supervision, then prove
+that teleoperation and learned policies use the same domain action, application
+safety, recording, and reporting paths as simulation.
+
+Acceptance: hardware, PolyScope, driver, controller, configuration, payload,
+and calibration versions are recorded; watchdog and protective-stop tests
+pass; evaluation reports include every intervention and failure. Do not claim
+CRISP hardware support if PR 12 selected another controller or hardware tests
+did not run.
+
+ROS 2 and CRISP remain optional adapters. Their packages must not become
+dependencies of the domain, data conversion, training, evaluation, or default
+local simulation workflows.
