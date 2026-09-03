@@ -29,6 +29,11 @@ class TeleopDiagnostics:
     clutch_detected: bool
     clutch_active: bool
     calibration_id: str | None
+    palm_xy: tuple[float, float] | None
+    clutch_anchor_xy: tuple[float, float] | None
+    clutch_anchor_scale: float | None
+    command_offset_xyz_m: tuple[float, float, float]
+    commanded_gripper_position: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +84,10 @@ class WebcamTeleoperator:
             return self._preview
 
     @property
+    def config(self) -> WebcamConfig:
+        return self._config
+
+    @property
     def diagnostics(self) -> TeleopDiagnostics:
         with self._lock:
             signal = self._signal
@@ -101,6 +110,19 @@ class WebcamTeleoperator:
                 clutch_active=self._clutch_active,
                 calibration_id=(
                     self._calibration.calibration_id if self._calibration else None
+                ),
+                palm_xy=(signal.palm_x, signal.palm_y) if signal else None,
+                clutch_anchor_xy=(
+                    (self._anchor_signal.palm_x, self._anchor_signal.palm_y)
+                    if self._anchor_signal
+                    else None
+                ),
+                clutch_anchor_scale=(
+                    self._anchor_signal.palm_scale if self._anchor_signal else None
+                ),
+                command_offset_xyz_m=self._filtered_offset,
+                commanded_gripper_position=(
+                    self._last_action.gripper_position if self._last_action else None
                 ),
             )
 

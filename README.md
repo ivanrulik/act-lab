@@ -72,8 +72,11 @@ and little fingers extended to clutch motion; fold any of them to stop and
 reposition. Move up/down for world X, right/left for world Y, and move your hand
 toward/away from the camera for world Z. Thumb/index pinch controls the gripper. `Q` exits. The MuJoCo
 viewer shows the annotated hand image, confidence, calibration, clutch, frame
-age, task status, and safety result. Camera frames are processed locally and
-are not retained.
+age, task status, and safety result. While clutching, the camera overlay shows
+the input anchor, dead zone, direction vector, and signed XYZ command. The 3D
+view shows the requested end-effector target and an actual-to-target arrow;
+cyan means accepted, amber means safety-limited, and red means rejected. Camera
+frames are processed locally and are not retained.
 
 For deterministic, display-free diagnosis with a recorded input:
 

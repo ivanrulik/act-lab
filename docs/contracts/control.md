@@ -80,6 +80,12 @@ failure, uncalibrated state, and clutch release all fail closed.
 The interactive webcam viewer remains open after pick/place success or the
 configured episode-step timeout so operators can inspect the terminal status;
 only `Q`, closing the viewer, or an explicit CLI step limit ends the session.
+Its camera overlay displays the clutch anchor, image-plane dead zone, current
+hand displacement vector, signed anchor-relative XYZ command, and state. The
+3D view displays the requested end-effector target and an actual-to-target
+arrow. Target colors distinguish accepted, safety-limited, and rejected
+commands; the text HUD separately reports requested pose, actual pose, pose
+error, gripper command, tracking health, and the safety decision detail.
 
 `Teleoperator.poll(Observation) -> Action` uses the observation's monotonic
 timestamp. Keyboard events add 0.01 m world-frame translation or 0.1 normalized

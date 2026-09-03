@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from act_lab.adapters.mediapipe.teleoperator import WebcamTeleoperator
+from act_lab.adapters.mediapipe.viewer_ui import build_viewer_hud, draw_camera_hud
 from act_lab.adapters.mediapipe.worker import HandTrackingWorker
 from act_lab.domain import CommandOutcome, Observation
 
@@ -45,9 +46,7 @@ def run_webcam_session(
             )
             while completed_steps < limit:
                 started_at = time.monotonic()
-                observation = _control_step(
-                    robot, teleoperator, observation, counts
-                )
+                observation = _control_step(robot, teleoperator, observation, counts)
                 completed_steps += 1
                 diagnostics = teleoperator.diagnostics
                 if diagnostics.source_status.startswith("worker_failure"):
@@ -114,7 +113,8 @@ def _run_viewer(
     max_steps: int | None,
 ) -> tuple[int, str]:
     import cv2
-    from mujoco import MjrRect, mjtGridPos, viewer  # type: ignore[import-untyped]
+    import mujoco  # type: ignore[import-untyped]
+    from mujoco import MjrRect, mjtGridPos, viewer
 
     environment = driver.environment
     completed = 0
@@ -132,42 +132,20 @@ def _run_viewer(
             completed += 1
             diagnostics = teleoperator.diagnostics
             report = robot.last_report
-            age = (
-                f"{diagnostics.frame_age_ms:.0f} ms"
-                if diagnostics.frame_age_ms is not None
-                else "none"
-            )
+            hud = build_viewer_hud(diagnostics, report, observation, task.reason)
             handle.set_texts(
                 (
                     None,
                     mjtGridPos.mjGRID_TOPLEFT,
-                    "ACT Lab webcam teleoperation",
-                    "\n".join(
-                        (
-                            "Enter: calibrate  Q: quit",
-                            f"state: {diagnostics.state}",
-                            f"source: {diagnostics.source_status}; age: {age}",
-                            "hand: "
-                            f"{diagnostics.handedness or 'none'} "
-                            f"({diagnostics.confidence or 0.0:.2f})",
-                            "clutch: "
-                            f"detected={diagnostics.clutch_detected} "
-                            f"active={diagnostics.clutch_active}",
-                            f"calibration: {diagnostics.calibration_id or 'none'}",
-                            "safety: "
-                            f"{report.outcome.value if report else 'none'} "
-                            f"({report.detail if report else 'no command'})",
-                            f"task: {task.reason or 'running'}",
-                        )
-                    ),
+                    hud.banner,
+                    "\n".join(hud.lines),
                 )
             )
+            _update_command_scene(mujoco, handle, hud)
             preview = teleoperator.preview
             viewport = handle.viewport
             if preview is not None and viewport is not None:
-                image = np.frombuffer(preview.rgb_bytes, dtype=np.uint8).reshape(
-                    preview.height, preview.width, 3
-                )
+                image = draw_camera_hud(preview, diagnostics, teleoperator.config)
                 width = min(320, max(1, viewport.width // 3))
                 height = max(1, round(width * preview.height / preview.width))
                 resized = cv2.resize(image, (width, height))
@@ -183,6 +161,51 @@ def _run_viewer(
     if max_steps is not None and completed >= max_steps:
         termination = "step_limit"
     return completed, termination
+
+
+def _update_command_scene(mujoco: object, handle: object, hud: object) -> None:
+    from act_lab.adapters.mediapipe.viewer_ui import ViewerHud
+
+    assert isinstance(hud, ViewerHud)
+    scene = handle.user_scn  # type: ignore[attr-defined]
+    if scene is None:
+        return
+    scene.ngeom = 0
+    if not hud.show_target:
+        return
+    identity = np.eye(3).ravel()
+    target = np.asarray(hud.target_xyz_m)
+    actual = np.asarray(hud.actual_xyz_m)
+    mujoco.mjv_initGeom(  # type: ignore[attr-defined]
+        scene.geoms[0],
+        type=mujoco.mjtGeom.mjGEOM_SPHERE,  # type: ignore[attr-defined]
+        size=[0.025, 0.0, 0.0],
+        pos=target,
+        mat=identity,
+        rgba=np.asarray(hud.target_rgba),
+    )
+    scene.ngeom = 1
+    if float(np.linalg.norm(target - actual)) > 1e-5:
+        mujoco.mjv_connector(  # type: ignore[attr-defined]
+            scene.geoms[1],
+            mujoco.mjtGeom.mjGEOM_ARROW,  # type: ignore[attr-defined]
+            0.008,
+            actual,
+            target,
+        )
+        scene.geoms[1].rgba = np.asarray(hud.target_rgba)
+        scene.ngeom = 2
+    executed = hud.executed_target_xyz_m
+    if executed is not None and not np.allclose(executed, target, atol=1e-5):
+        mujoco.mjv_initGeom(  # type: ignore[attr-defined]
+            scene.geoms[scene.ngeom],
+            type=mujoco.mjtGeom.mjGEOM_SPHERE,  # type: ignore[attr-defined]
+            size=[0.018, 0.0, 0.0],
+            pos=np.asarray(executed),
+            mat=identity,
+            rgba=np.asarray((1.0, 0.65, 0.05, 0.9)),
+        )
+        scene.ngeom += 1
 
 
 def _pace(started_at: float, period_s: float) -> None:

@@ -38,5 +38,12 @@ not stall safety processing. Apparent hand scale is an intentionally simple
 depth proxy, so calibration and camera placement matter. Wrist orientation,
 multi-hand control, camera recording, and physical robot use remain deferred.
 
+The operator sees both sides of the mapping: the camera preview renders the
+clutch anchor, dead zone, input vector, and generated XYZ values, while custom
+MuJoCo scene geometry renders the requested Cartesian target and the error
+vector from the measured tool pose. Accepted, limited, and rejected targets use
+distinct colors so lack of motion is attributable to input, filtering, or the
+safety layer.
+
 MediaPipe and OpenCV become pinned runtime dependencies. The licensed task
 model is checksum-pinned into the container rather than committed to Git.
