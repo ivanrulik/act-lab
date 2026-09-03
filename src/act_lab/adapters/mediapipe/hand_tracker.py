@@ -13,6 +13,7 @@ from act_lab.adapters.mediapipe.config import WebcamConfig
 from act_lab.domain import CameraFrame
 
 _PALM = (0, 5, 9, 17)
+_APPARENT_SCALE_SPANS = ((0, 9), (5, 17), (5, 13), (9, 17))
 _CLUTCH_FINGERS = ((10, 12), (14, 16), (18, 20))
 _CONNECTIONS = (
     (0, 1), (1, 2), (2, 3), (3, 4),
@@ -31,6 +32,7 @@ class HandSignal:
     palm_x: float
     palm_y: float
     palm_scale: float
+    apparent_scale: float
     pinch_ratio: float
     clutch: bool
     preview: CameraFrame
@@ -84,7 +86,8 @@ class MediaPipeHandTracker:
         palm_x = sum(landmarks[index][0] for index in _PALM) / len(_PALM)
         palm_y = sum(landmarks[index][1] for index in _PALM) / len(_PALM)
         palm_scale = _distance(landmarks[5], landmarks[17])
-        if palm_scale <= 1e-6:
+        apparent_scale = _apparent_scale(landmarks)
+        if palm_scale <= 1e-6 or apparent_scale <= 1e-6:
             return None
         pinch_ratio = _distance(landmarks[4], landmarks[8]) / palm_scale
         wrist = landmarks[0]
@@ -102,6 +105,7 @@ class MediaPipeHandTracker:
             palm_x=palm_x,
             palm_y=palm_y,
             palm_scale=palm_scale,
+            apparent_scale=apparent_scale,
             pinch_ratio=pinch_ratio,
             clutch=clutch,
             preview=preview,
@@ -121,6 +125,18 @@ def _distance(
     left: tuple[float, float, float], right: tuple[float, float, float]
 ) -> float:
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right, strict=True)))
+
+
+def _apparent_scale(
+    landmarks: tuple[tuple[float, float, float], ...],
+) -> float:
+    """Return projected palm size without MediaPipe's pose-relative Z values."""
+    squared_spans = []
+    for start, end in _APPARENT_SCALE_SPANS:
+        dx = landmarks[start][0] - landmarks[end][0]
+        dy = landmarks[start][1] - landmarks[end][1]
+        squared_spans.append(dx * dx + dy * dy)
+    return math.sqrt(sum(squared_spans) / len(squared_spans))
 
 
 def _annotate(

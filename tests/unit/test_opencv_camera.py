@@ -43,7 +43,7 @@ def test_live_camera_selects_v4l2_and_negotiates_yuyv_first(monkeypatch) -> None
     with OpenCVCamera("/dev/video0", width=640, height=480, fps=30):
         pass
 
-    assert calls == [("/dev/video0", fake_cv2.CAP_V4L2)]
+    assert calls == [(0, fake_cv2.CAP_V4L2)]
     assert capture.settings == [
         (fake_cv2.CAP_PROP_FOURCC, 0x56595559),
         (fake_cv2.CAP_PROP_FRAME_WIDTH, 640),

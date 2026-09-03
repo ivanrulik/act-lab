@@ -32,7 +32,7 @@ class OpenCVCamera:
         # backend can route `/dev/video*` through FFmpeg, which is less reliable
         # for long-running UVC capture and can abort on VIDIOC_DQBUF failures.
         self._capture: Any = (
-            cv2.VideoCapture(str(source), cv2.CAP_V4L2)
+            cv2.VideoCapture(_v4l2_source(source), cv2.CAP_V4L2)
             if not recorded
             else cv2.VideoCapture(str(source))
         )
@@ -89,3 +89,13 @@ class OpenCVCamera:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+def _v4l2_source(source: str | Path) -> int | str:
+    """Translate conventional device paths to the index OpenCV V4L2 expects."""
+    text = str(source)
+    prefix = "/dev/video"
+    suffix = text.removeprefix(prefix)
+    if text.startswith(prefix) and suffix.isdigit():
+        return int(suffix)
+    return text

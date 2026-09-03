@@ -35,6 +35,7 @@ def diagnostics(**changes: object) -> TeleopDiagnostics:
         "palm_xy": (0.6, 0.4),
         "clutch_anchor_xy": (0.5, 0.5),
         "clutch_anchor_scale": 0.2,
+        "depth_ratio": 1.08,
         "command_offset_xyz_m": (0.042, -0.008, 0.003),
         "commanded_gripper_position": 0.46,
     }
@@ -67,6 +68,7 @@ def test_hud_exposes_generated_command_and_safety_result() -> None:
     assert hud.target_xyz_m == target.position_xyz_m
     assert any("X +042mm" in line for line in hud.lines)
     assert any("GRIPPER   46%" in line for line in hud.lines)
+    assert any("1.080x (+8.0%)" in line for line in hud.lines)
     assert any("workspace clamp" in line for line in hud.lines)
 
 

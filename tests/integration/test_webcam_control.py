@@ -26,6 +26,7 @@ def test_tracking_loss_reaches_watchdog_boundary_within_five_steps() -> None:
         palm_x=0.5,
         palm_y=0.5,
         palm_scale=0.2,
+        apparent_scale=0.2,
         pinch_ratio=0.5,
         clutch=True,
         preview=FRAME,

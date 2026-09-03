@@ -38,7 +38,7 @@ def signal(
     clutch: bool = True,
     handedness: str = "Right",
 ) -> HandSignal:
-    return HandSignal(0, handedness, 0.95, x, y, scale, pinch, clutch, FRAME)
+    return HandSignal(0, handedness, 0.95, x, y, scale, scale, pinch, clutch, FRAME)
 
 
 def submit(

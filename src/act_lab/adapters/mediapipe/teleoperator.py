@@ -32,6 +32,7 @@ class TeleopDiagnostics:
     palm_xy: tuple[float, float] | None
     clutch_anchor_xy: tuple[float, float] | None
     clutch_anchor_scale: float | None
+    depth_ratio: float | None
     command_offset_xyz_m: tuple[float, float, float]
     commanded_gripper_position: float | None
 
@@ -41,6 +42,7 @@ class _Calibration:
     palm_x: float
     palm_y: float
     palm_scale: float
+    apparent_scale: float
     handedness: str
     robot_position_xyz_m: tuple[float, float, float]
     robot_quaternion_wxyz: tuple[float, float, float, float]
@@ -118,7 +120,12 @@ class WebcamTeleoperator:
                     else None
                 ),
                 clutch_anchor_scale=(
-                    self._anchor_signal.palm_scale if self._anchor_signal else None
+                    self._anchor_signal.apparent_scale if self._anchor_signal else None
+                ),
+                depth_ratio=(
+                    signal.apparent_scale / self._anchor_signal.apparent_scale
+                    if signal and self._anchor_signal
+                    else None
                 ),
                 command_offset_xyz_m=self._filtered_offset,
                 commanded_gripper_position=(
@@ -229,9 +236,15 @@ class WebcamTeleoperator:
             xs = [item.palm_x for item in self._calibration_samples]
             ys = [item.palm_y for item in self._calibration_samples]
             scales = [item.palm_scale for item in self._calibration_samples]
+            apparent_scales = [
+                item.apparent_scale for item in self._calibration_samples
+            ]
             anchor_spread = max(max(xs) - min(xs), max(ys) - min(ys))
             median_scale = statistics.median(scales)
-            scale_spread = (max(scales) - min(scales)) / median_scale
+            median_apparent_scale = statistics.median(apparent_scales)
+            scale_spread = (
+                max(apparent_scales) - min(apparent_scales)
+            ) / median_apparent_scale
             handedness = {item.handedness for item in self._calibration_samples}
             if (
                 anchor_spread <= self._config.calibration_max_anchor_spread
@@ -246,6 +259,7 @@ class WebcamTeleoperator:
                     "palm_x": median_x,
                     "palm_y": median_y,
                     "palm_scale": median_scale,
+                    "apparent_scale": median_apparent_scale,
                     "handedness": calibrated_hand,
                     "robot_position_xyz_m": robot_pose.position_xyz_m,
                     "robot_quaternion_wxyz": robot_pose.quaternion_wxyz,
@@ -257,6 +271,7 @@ class WebcamTeleoperator:
                     palm_x=median_x,
                     palm_y=median_y,
                     palm_scale=median_scale,
+                    apparent_scale=median_apparent_scale,
                     handedness=calibrated_hand,
                     robot_position_xyz_m=robot_pose.position_xyz_m,
                     robot_quaternion_wxyz=robot_pose.quaternion_wxyz,
@@ -286,7 +301,8 @@ class WebcamTeleoperator:
         # displacement. Apparent palm size is the noisiest monocular signal,
         # so it has its own dead zone and stronger low-pass filter below.
         depth = _dead_zone(
-            math.log(signal.palm_scale / scale), self._config.depth_dead_zone
+            math.log(signal.apparent_scale / self._anchor_signal.apparent_scale),
+            self._config.depth_dead_zone,
         )
         desired = (
             image_y * self._config.world_x_gain_m,
@@ -362,13 +378,14 @@ def _dead_zone(value: float, threshold: float) -> float:
 
 
 def _finite_signal(signal: HandSignal) -> bool:
-    return signal.palm_scale > 0.0 and all(
+    return signal.palm_scale > 0.0 and signal.apparent_scale > 0.0 and all(
         math.isfinite(value)
         for value in (
             signal.confidence,
             signal.palm_x,
             signal.palm_y,
             signal.palm_scale,
+            signal.apparent_scale,
             signal.pinch_ratio,
         )
     )

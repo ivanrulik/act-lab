@@ -78,6 +78,7 @@ def build_viewer_hud(
         f"TRACKING {diagnostics.source_status} "
         f"{diagnostics.confidence or 0.0:.2f} "
         f"{diagnostics.frame_age_ms or 0.0:.0f}ms",
+        f"DEPTH    {_depth_text(diagnostics.depth_ratio, config_dead_zone=None)}",
         f"SAFETY   {detail}",
         f"TASK     {task_reason or 'running'}",
     )
@@ -137,7 +138,7 @@ def draw_camera_hud(
                 tipLength=0.18,
             )
     x_mm, y_mm, z_mm = (value * 1000.0 for value in diagnostics.command_offset_xyz_m)
-    cv2.rectangle(image, (0, 0), (frame.width, 54), (15, 18, 24), -1)
+    cv2.rectangle(image, (0, 0), (frame.width, 74), (15, 18, 24), -1)
     cv2.putText(
         image,
         diagnostics.state.replace("_", " ").upper(),
@@ -154,6 +155,16 @@ def draw_camera_hud(
         (10, 44),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.52,
+        (235, 235, 235),
+        1,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        image,
+        "depth " + _depth_text(diagnostics.depth_ratio, config.depth_dead_zone),
+        (10, 65),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.48,
         (235, 235, 235),
         1,
         cv2.LINE_AA,
@@ -199,6 +210,18 @@ def _level_bar(value: float) -> str:
 
 def _signed_mm(value: float) -> str:
     return f"{value:+04.0f}mm"
+
+
+def _depth_text(ratio: float | None, config_dead_zone: float | None) -> str:
+    if ratio is None:
+        return "no clutch anchor"
+    change = (ratio - 1.0) * 100.0
+    suffix = (
+        f"  dead zone +/-{config_dead_zone * 100.0:.0f}%"
+        if config_dead_zone is not None
+        else ""
+    )
+    return f"{ratio:.3f}x ({change:+.1f}%){suffix}"
 
 
 def _pose_text(position: tuple[float, float, float]) -> str:

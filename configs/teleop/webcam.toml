@@ -24,9 +24,9 @@ world_y_gain_m = -0.15
 # Moving toward the camera drives robot -Z (down toward the table).
 world_z_gain_m = -0.15
 image_xy_dead_zone = 0.03
-depth_dead_zone = 0.10
-ema_alpha = 0.25
+depth_dead_zone = 0.035
+ema_alpha = 0.40
 # Depth comes from apparent palm size and needs more damping than screen motion.
-depth_ema_alpha = 0.12
+depth_ema_alpha = 0.30
 pinch_closed_ratio = 0.35
 pinch_open_ratio = 1.50

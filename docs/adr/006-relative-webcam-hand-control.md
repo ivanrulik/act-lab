@@ -20,8 +20,10 @@ domain observation time; repeated samples retain that timestamp.
 Calibration is explicit and captures a stable median palm anchor, scale,
 handedness, and robot pose. Screen-right maps to world `-Y`, screen-up to world
 `+X`, and increasing apparent palm scale maps to world `-Z`. The depth proxy uses a
-log scale ratio for symmetric toward/away motion, plus a wider dead zone and a
-stronger depth-specific exponential moving average. Orientation is fixed.
+log ratio of multiple projected palm spans for symmetric toward/away motion.
+MediaPipe's pose-relative landmark Z values are excluded from this camera-depth
+proxy. A dedicated dead zone and depth-specific exponential moving average
+reject jitter. Orientation is fixed.
 Filtering precedes the existing application safety limits.
 
 Middle, ring, and little fingers must remain extended to clutch motion. The
