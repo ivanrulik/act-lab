@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import sys
 from collections.abc import Sequence
@@ -89,6 +90,38 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="close after this many control steps; default is to run until closed",
     )
+    webcam = sim_commands.add_parser(
+        "webcam-teleop", help="teleoperate safely with MediaPipe hand tracking"
+    )
+    webcam.add_argument("--seed", type=int, default=0)
+    webcam.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_pick_place.toml"),
+        help="simulation and safety configuration",
+    )
+    webcam.add_argument(
+        "--teleop-config",
+        type=Path,
+        default=Path("configs/teleop/webcam.toml"),
+    )
+    source = webcam.add_mutually_exclusive_group()
+    source.add_argument("--camera", default="/dev/video0")
+    source.add_argument("--video", type=Path)
+    webcam.add_argument(
+        "--model",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "ACT_LAB_HAND_MODEL",
+                "/opt/act-lab/models/hand_landmarker.task",
+            )
+        ),
+    )
+    webcam.add_argument("--headless", action="store_true")
+    webcam.add_argument("--auto-calibrate", action="store_true")
+    webcam.add_argument("--max-steps", type=int)
+    webcam.add_argument("--json", action="store_true")
     expert = sim_commands.add_parser(
         "expert", help="benchmark the deterministic scripted expert"
     )
@@ -245,6 +278,62 @@ def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sim_webcam_teleop(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mediapipe import (
+        HandTrackingWorker,
+        MediaPipeHandTracker,
+        OpenCVCamera,
+        WebcamConfig,
+        WebcamTeleoperator,
+        run_webcam_session,
+    )
+    from act_lab.adapters.mujoco import MujocoCartesianDriver
+    from act_lab.application import SafeCartesianRobot
+
+    if args.max_steps is not None and args.max_steps <= 0:
+        print("max-steps must be positive", file=sys.stderr)
+        return 2
+    if args.auto_calibrate and (args.video is None or not args.headless):
+        print(
+            "auto-calibrate requires --video and --headless",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        teleop_config = WebcamConfig.load(args.teleop_config)
+        source = args.video if args.video is not None else args.camera
+        with (
+            OpenCVCamera(
+                source,
+                width=teleop_config.width,
+                height=teleop_config.height,
+                fps=teleop_config.fps,
+                recorded=args.video is not None,
+            ) as camera,
+            MediaPipeHandTracker(args.model, teleop_config) as tracker,
+            MujocoCartesianDriver.from_config_file(args.config) as driver,
+        ):
+            robot = SafeCartesianRobot(driver, driver.limits)
+            teleoperator = WebcamTeleoperator(teleop_config)
+            worker = HandTrackingWorker(camera, tracker, teleoperator.update)
+            report = run_webcam_session(
+                driver,
+                robot,
+                teleoperator,
+                worker,
+                args.seed,
+                headless=args.headless,
+                auto_calibrate=args.auto_calibrate,
+                max_steps=args.max_steps,
+            )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"webcam teleoperation error: {error}", file=sys.stderr)
+        return 2
+    if args.json or args.headless:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    return 0
+
+
 def _sim_expert(args: argparse.Namespace) -> int:
     from act_lab.adapters.mujoco import MujocoCartesianDriver, SimulationConfig
     from act_lab.application import SafeCartesianRobot, ScriptedPickPlaceExpert
@@ -343,6 +432,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sim_view(args)
     if args.command == "sim" and args.sim_command == "keyboard-teleop":
         return _sim_keyboard_teleop(args)
+    if args.command == "sim" and args.sim_command == "webcam-teleop":
+        return _sim_webcam_teleop(args)
     if args.command == "sim" and args.sim_command == "expert":
         return _sim_expert(args)
     raise AssertionError(f"unhandled command: {args.command}")

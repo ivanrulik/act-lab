@@ -75,3 +75,17 @@ def test_compose_has_authoritative_keyboard_and_expert_commands() -> None:
     assert "act-lab sim keyboard-teleop" in compose
     assert "expert:" in compose
     assert "act-lab sim expert --seed-start 0 --episodes 20" in compose
+
+
+def test_webcam_cli_rejects_unsafe_auto_calibration(capsys: object) -> None:
+    assert main(["sim", "webcam-teleop", "--auto-calibrate"]) == 2
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "requires --video and --headless" in captured.err
+
+
+def test_compose_has_least_privilege_webcam_service() -> None:
+    compose = Path("compose.yaml").read_text()
+    assert "act-lab sim webcam-teleop" in compose
+    assert "ACT_LAB_CAMERA_DEVICE" in compose
+    assert "ACT_LAB_VIDEO_GID" in compose
+    assert "privileged:" not in compose

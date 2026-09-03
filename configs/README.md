@@ -16,3 +16,8 @@ The same file owns PR 3 controller settings and PR 4 keyboard/expert settings.
 `[keyboard]` contains nudge sizes. `[expert]` contains waypoint clearances,
 tool offset, general/grasp tolerances, dwell counts, and gripper targets. These
 values are benchmark inputs and belong in result provenance.
+
+`teleop/webcam.toml` owns PR 5 capture requests, confidence and frame-age
+gates, gesture-clutch thresholds, calibration stability, Cartesian mapping,
+filtering, and pinch normalization. Camera device paths and model filesystem
+paths are runtime arguments rather than versioned machine-specific values.

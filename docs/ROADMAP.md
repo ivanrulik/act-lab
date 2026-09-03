@@ -52,6 +52,11 @@ the scripted expert meets a documented success threshold on seeded trials.
 
 ## PR 5 — Webcam hand teleoperation
 
+Status: complete. Automated tests cover calibrated mapping, gesture clutching,
+tracking loss, the 100 ms watchdog boundary, and recorded MediaPipe input.
+Live camera and X11 behavior remain environment-specific validation and must be
+reported separately when run.
+
 Add MediaPipe capture/tracking, neutral-pose calibration, clutch, dead zones,
 filtering, confidence gating, pinch gripper mapping, diagnostics, and recorded
 video input for tests.

@@ -1,0 +1,32 @@
+[capture]
+width = 640
+height = 480
+fps = 30
+max_frame_age_ms = 80
+
+[tracking]
+min_detection_confidence = 0.60
+min_presence_confidence = 0.60
+min_tracking_confidence = 0.60
+min_handedness_confidence = 0.60
+clutch_extension_margin = 0.10
+clutch_engage_frames = 3
+
+[calibration]
+sample_frames = 15
+max_anchor_spread = 0.035
+max_scale_spread = 0.10
+
+[mapping]
+# Screen-up drives robot +X; mirrored screen-right drives robot -Y.
+world_x_gain_m = -0.20
+world_y_gain_m = -0.15
+# Moving toward the camera drives robot -Z (down toward the table).
+world_z_gain_m = -0.15
+image_xy_dead_zone = 0.03
+depth_dead_zone = 0.035
+ema_alpha = 0.40
+# Depth comes from apparent palm size and needs more damping than screen motion.
+depth_ema_alpha = 0.30
+pinch_closed_ratio = 0.35
+pinch_open_ratio = 1.50

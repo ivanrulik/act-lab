@@ -55,6 +55,40 @@ within the configured watchdog deadline. Translation and gripper control land
 before optional wrist-orientation mapping. Calibration is explicit and stored
 with episode provenance.
 
+Webcam control requires `Enter` to collect 15 stable hand samples. Calibration
+records the median palm location and scale, detected handedness, current robot
+pose, and a stable identifier. Middle, ring, and little fingers extended for
+three consecutive frames engage motion; any loss of that gesture disengages
+immediately. Re-engagement anchors the current hand signal to the current robot
+pose so clutching never jumps to an old target.
+
+Mirrored screen-right maps to world `-Y`, screen-up to world `+X`, and a larger
+palm scale maps to world `-Z`. The depth proxy uses the logarithm of a projected
+multi-span palm-size ratio, excluding MediaPipe's pose-relative landmark Z
+values, so equal motion toward and away from the camera is symmetric. It has a
+dedicated dead zone and depth-only smoothing. Orientation remains the calibrated
+robot orientation. Filtering
+applies before the normal safety envelope. Thumb/index distance normalized by
+palm width maps linearly between configured closed/open gripper thresholds.
+
+Camera capture and inference run independently from the 50 Hz control loop.
+Only a new valid hand sample refreshes the action timestamp using the current
+observation clock. Missing, older-than-80-ms, non-finite, low-confidence, or
+changed-handedness samples disable immediately; retained timestamps guarantee
+the normal watchdog subsequently reports stale intent. Camera EOF, worker
+failure, uncalibrated state, and clutch release all fail closed.
+
+The interactive webcam viewer remains open after pick/place success or the
+configured episode-step timeout so operators can inspect the terminal status;
+only `Q`, closing the viewer, or an explicit CLI step limit ends the session.
+Its camera overlay displays the clutch anchor, image-plane dead zone, current
+hand displacement vector, raw palm-scale depth ratio, signed anchor-relative
+XYZ command, and state. The
+3D view displays the requested end-effector target and an actual-to-target
+arrow. Target colors distinguish accepted, safety-limited, and rejected
+commands; the text HUD separately reports requested pose, actual pose, pose
+error, gripper command, tracking health, and the safety decision detail.
+
 `Teleoperator.poll(Observation) -> Action` uses the observation's monotonic
 timestamp. Keyboard events add 0.01 m world-frame translation or 0.1 normalized
 gripper nudges. `W/S` map to ±X, `A/D` to ±Y, `R/F` to ±Z, `O/C` open and

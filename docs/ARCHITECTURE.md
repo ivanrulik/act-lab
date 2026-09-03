@@ -79,6 +79,13 @@ If actuator dynamics would overshoot the measured translation ceiling, the
 MuJoCo driver deterministically retries a scaled target from the same pre-step
 state. This adapter guard complements application-owned intent and joint limits.
 
+Webcam capture and MediaPipe inference run in an adapter-owned background
+thread with a one-sample latest-value boundary. The control loop never waits on
+camera I/O. A framework-neutral RGB `CameraFrame` crosses the camera port;
+MediaPipe and OpenCV values do not. Calibration, relative mapping, filtering,
+and gesture clutching produce the same domain `Action` used by keyboard and the
+scripted expert.
+
 ## Storage model
 
 Raw MCAP logs are immutable acquisition evidence. Conversion produces a

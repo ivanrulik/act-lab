@@ -36,3 +36,7 @@ Default examples should prefer scene/wrist images for policy observations and
 document whether webcam frames are retained. Never publish recordings without
 review and consent.
 
+PR 5 uses webcam frames only for live diagnostics and does not persist them.
+The small regression asset is a cropped, downsampled derivative of an
+Apache-2.0 MediaPipe test image; it contains hands only and has provenance next
+to the fixture. Raw operator-camera material remains prohibited in Git.
