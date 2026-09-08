@@ -12,7 +12,11 @@ from act_lab.adapters.mujoco.environment import (
     MujocoUR5eEnvironment,
     PickPlaceStatus,
 )
-from act_lab.adapters.mujoco.keyboard import KeyboardTeleoperator, run_keyboard_session
+from act_lab.adapters.mujoco.keyboard import (
+    KeyboardTeleoperator,
+    X11KeyboardAdapter,
+    run_keyboard_session,
+)
 
 __all__ = [
     "ActuatorTargets",
@@ -20,6 +24,7 @@ __all__ = [
     "ExpertConfig",
     "KeyboardConfig",
     "KeyboardTeleoperator",
+    "X11KeyboardAdapter",
     "MujocoCartesianDriver",
     "MujocoUR5eEnvironment",
     "PickPlaceStatus",

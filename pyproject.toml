@@ -27,6 +27,11 @@ dev = [
   "pytest>=8.3,<9",
   "ruff>=0.6,<1",
 ]
+ui = [
+  # Global X11 key releases and focused-window detection for safe held-key input.
+  "pynput==1.8.1",
+  "python-xlib==0.33",
+]
 
 [project.scripts]
 act-lab = "act_lab.cli:main"

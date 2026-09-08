@@ -90,16 +90,13 @@ commands; the text HUD separately reports requested pose, actual pose, pose
 error, gripper command, tracking health, and the safety decision detail.
 
 `Teleoperator.poll(Observation) -> Action` uses the observation's monotonic
-timestamp. Keyboard events add 0.01 m world-frame translation or 0.1 normalized
-gripper nudges. `W/S` map to ±X, `A/D` to ±Y, `R/F` to ±Z, `O/C` open and
-close, Space emits disabled hold, and `Q` closes the session. Orientation stays
-fixed. Polling without an event retains the previous input timestamp, so the
-normal watchdog stops pursuit at 100 ms. Letter matching is case-insensitive.
-The supported passive-viewer callback reports discrete presses rather than
-held-key state, so this PR intentionally provides tap-to-jog rather than
-continuous motion. Safety and actuator dynamics may stop before the observed
-pose reaches the accumulated target; another press adds another nudge and
-refreshes the input timestamp.
+timestamp. With the viewer focused, either Shift key is a held deadman; `W/S`
+map to ±X, `A/D` to ±Y, `R/F` to ±Z, and `O/C` open and close continuously.
+`Q` closes the session. Orientation stays fixed and diagonal translation is
+normalized. Releasing Shift, releasing all motion/gripper keys, or losing focus
+emits a disabled measured-pose hold on the next control cycle. Letter matching
+is case-insensitive. The optional X11 adapter captures press/release state on a
+background thread; simulator access remains on the control thread.
 
 All keyboard and scripted-expert actions execute through `SafeCartesianRobot`.
 The simulator driver may deterministically scale an actuator target from a

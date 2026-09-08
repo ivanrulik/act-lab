@@ -37,6 +37,9 @@ services:
 
   keyboard-teleop:
     <<: *common
+    build:
+      context: .
+      target: ui
     profiles: ["ui"]
     command: act-lab sim keyboard-teleop --seed ${ACT_LAB_SIM_SEED:-0}
     environment:

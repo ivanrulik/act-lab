@@ -1,11 +1,11 @@
-"""Event-driven keyboard intent adapter for the MuJoCo passive viewer."""
+"""Held-key X11 input for safe Cartesian keyboard teleoperation."""
 
 from __future__ import annotations
 
+import math
 import time
-from collections import deque
-from threading import Lock
-from typing import TYPE_CHECKING
+from threading import Event, Lock, Thread
+from typing import TYPE_CHECKING, Any
 
 from act_lab.adapters.mujoco.config import CartesianControlConfig, KeyboardConfig
 from act_lab.domain import Action, Observation, Pose
@@ -16,35 +16,27 @@ if TYPE_CHECKING:
 
 
 class KeyboardTeleoperator:
-    """Convert queued viewer key events into watchdog-backed Cartesian intent."""
-
-    _TRANSLATION_KEYS = {
-        ord("W"): (1.0, 0.0, 0.0),
-        ord("S"): (-1.0, 0.0, 0.0),
-        ord("A"): (0.0, 1.0, 0.0),
-        ord("D"): (0.0, -1.0, 0.0),
-        ord("R"): (0.0, 0.0, 1.0),
-        ord("F"): (0.0, 0.0, -1.0),
+    _DIRECTIONS = {
+        "w": (1, 0, 0),
+        "s": (-1, 0, 0),
+        "a": (0, 1, 0),
+        "d": (0, -1, 0),
+        "r": (0, 0, 1),
+        "f": (0, 0, -1),
     }
 
-    def __init__(
-        self, config: KeyboardConfig, limits: CartesianControlConfig
-    ) -> None:
-        self._config = config
-        self._limits = limits
-        self._events: deque[int] = deque()
-        self._events_lock = Lock()
+    def __init__(self, config: KeyboardConfig, limits: CartesianControlConfig) -> None:
+        self._config, self._limits = config, limits
+        self._lock, self._held = Lock(), set[str]()
+        self._focused = self._quit_requested = False
         self._target_pose: Pose | None = None
-        self._gripper = 0.0
-        self._enabled = False
-        self._last_input_timestamp_ns = 0
-        self._quit_requested = False
-        self._accepted_event_count = 0
-        self._latest_input = "none"
+        self._gripper, self._accepted_cycles = 0.0, 0
+        self._latest_input = "waiting for viewer focus"
 
     @property
     def quit_requested(self) -> bool:
-        return self._quit_requested
+        with self._lock:
+            return self._quit_requested
 
     @property
     def target_pose(self) -> Pose | None:
@@ -52,7 +44,7 @@ class KeyboardTeleoperator:
 
     @property
     def accepted_event_count(self) -> int:
-        return self._accepted_event_count
+        return self._accepted_cycles
 
     @property
     def latest_input(self) -> str:
@@ -60,98 +52,142 @@ class KeyboardTeleoperator:
 
     @property
     def controls_text(self) -> str:
-        return (
-            "Tap W/S: X  A/D: Y  R/F: Z  O/C: open/close  "
-            "Space: stop  Q: quit"
-        )
+        return "Hold Shift + W/S: X  A/D: Y  R/F: Z  O/C: open/close  Q: quit"
 
-    def on_key(self, keycode: int) -> None:
-        """Viewer callback: enqueue only, keeping simulator access on its thread."""
-        with self._events_lock:
-            self._events.append(keycode)
+    def update_key(self, key: str, pressed: bool) -> None:
+        key = key.lower()
+        with self._lock:
+            if key == "q" and pressed:
+                self._quit_requested = True
+            (self._held.add if pressed else self._held.discard)(key)
+
+    def update_focus(self, focused: bool) -> None:
+        with self._lock:
+            self._focused = focused
+            if not focused:
+                self._held.clear()
+
+    def request_quit(self) -> None:
+        """Request shutdown from either the X11 listener or MuJoCo callback."""
+        with self._lock:
+            self._quit_requested = True
 
     def poll(self, observation: Observation) -> Action:
+        measured = observation.robot
         if self._target_pose is None:
-            self._target_pose = observation.robot.end_effector_pose
-            self._gripper = observation.robot.gripper_position
-            self._last_input_timestamp_ns = observation.timestamp_ns
-
-        with self._events_lock:
-            events = tuple(self._events)
-            self._events.clear()
-        for raw_keycode in events:
-            self._apply_key(raw_keycode, observation)
-
-        assert self._target_pose is not None
-        return Action(
-            timestamp_ns=self._last_input_timestamp_ns,
-            target_pose=self._target_pose,
-            gripper_position=self._gripper,
-            enabled=self._enabled,
+            self._target_pose = measured.end_effector_pose
+            self._gripper = measured.gripper_position
+        with self._lock:
+            held, focused = frozenset(self._held), self._focused
+        motion = set(self._DIRECTIONS).intersection(held)
+        enabled = focused and "shift" in held and bool(motion or held & {"o", "c"})
+        if not enabled:
+            self._target_pose = measured.end_effector_pose
+            self._latest_input = (
+                "focus lost" if not focused else "deadman/motion released"
+            )
+            return Action(
+                observation.timestamp_ns, self._target_pose, self._gripper, False
+            )
+        direction = [
+            sum(self._DIRECTIONS[key][axis] for key in motion) for axis in range(3)
+        ]
+        magnitude = math.sqrt(sum(value * value for value in direction))
+        scale = (
+            self._config.translation_speed_m_s / magnitude / 50.0 if magnitude else 0.0
         )
-
-    def _apply_key(self, raw_keycode: int, observation: Observation) -> None:
-        keycode = (
-            ord(chr(raw_keycode).upper())
-            if 0 <= raw_keycode <= 255
-            else raw_keycode
+        bounds = (
+            self._limits.workspace_x_m,
+            self._limits.workspace_y_m,
+            self._limits.workspace_z_m,
         )
-        if keycode == ord("Q"):
-            self._quit_requested = True
-            self._record_input("Q (quit)")
-            self._stop(observation)
-            return
-        if keycode == ord(" "):
-            self._record_input("Space (stop)")
-            self._stop(observation)
-            return
-        direction = self._TRANSLATION_KEYS.get(keycode)
-        if direction is not None:
-            assert self._target_pose is not None
-            current = self._target_pose.position_xyz_m
-            requested = tuple(
-                current[index]
-                + direction[index] * self._config.translation_nudge_m
-                for index in range(3)
-            )
-            bounds = (
-                self._limits.workspace_x_m,
-                self._limits.workspace_y_m,
-                self._limits.workspace_z_m,
-            )
-            position = tuple(
-                min(max(value, axis[0]), axis[1])
-                for value, axis in zip(requested, bounds, strict=True)
-            )
-            self._target_pose = Pose(
-                "world",
-                (position[0], position[1], position[2]),
-                self._target_pose.quaternion_wxyz,
-            )
-            self._record_input(chr(keycode))
-            self._accept_input(observation)
-            return
-        if keycode in {ord("O"), ord("C")}:
-            sign = 1.0 if keycode == ord("O") else -1.0
-            self._gripper = min(
-                max(self._gripper + sign * self._config.gripper_nudge, 0.0), 1.0
-            )
-            self._record_input(chr(keycode))
-            self._accept_input(observation)
+        position = tuple(
+            min(max(value + direction[i] * scale, bounds[i][0]), bounds[i][1])
+            for i, value in enumerate(measured.end_effector_pose.position_xyz_m)
+        )
+        grip_direction = float("o" in held) - float("c" in held)
+        self._gripper = min(
+            max(
+                self._gripper + grip_direction * self._config.gripper_speed_s / 50.0,
+                0.0,
+            ),
+            1.0,
+        )
+        self._target_pose = Pose(
+            "world",
+            (position[0], position[1], position[2]),
+            measured.end_effector_pose.quaternion_wxyz,
+        )
+        self._accepted_cycles += 1
+        self._latest_input = "+".join(sorted(held))
+        return Action(observation.timestamp_ns, self._target_pose, self._gripper, True)
 
-    def _record_input(self, label: str) -> None:
-        self._accepted_event_count += 1
-        self._latest_input = label
 
-    def _accept_input(self, observation: Observation) -> None:
-        self._enabled = True
-        self._last_input_timestamp_ns = observation.timestamp_ns
+class X11KeyboardAdapter:
+    """Capture releases globally and fail closed unless MuJoCo owns X11 focus."""
 
-    def _stop(self, observation: Observation) -> None:
-        self._target_pose = observation.robot.end_effector_pose
-        self._gripper = observation.robot.gripper_position
-        self._enabled = False
-        self._last_input_timestamp_ns = observation.timestamp_ns
+    def __init__(self, teleoperator: KeyboardTeleoperator) -> None:
+        self._teleoperator, self._stop = teleoperator, Event()
+        self._listener: Any | None = None
+        self._thread: Thread | None = None
+
+    def start(self) -> None:
+        try:
+            from pynput import keyboard  # type: ignore[import-untyped]
+            from Xlib import display  # type: ignore[import-untyped]
+        except ImportError as error:
+            raise RuntimeError(
+                "keyboard teleoperation requires the optional 'ui' dependencies"
+            ) from error
+        xdisplay = display.Display()
+
+        def label(key: object) -> str | None:
+            char = getattr(key, "char", None)
+            return (
+                char.lower()
+                if isinstance(char, str)
+                else (
+                    "shift"
+                    if key
+                    in {keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r}
+                    else None
+                )
+            )
+
+        def transition(key: object, pressed: bool) -> None:
+            name = label(key)
+            if name is not None:
+                self._teleoperator.update_key(name, pressed)
+
+        self._listener = keyboard.Listener(
+            on_press=lambda key: transition(key, True),
+            on_release=lambda key: transition(key, False),
+        )
+        self._listener.start()
+
+        def monitor() -> None:
+            while not self._stop.wait(0.02):
+                try:
+                    focus = xdisplay.get_input_focus().focus
+                    title = (
+                        focus.get_wm_name() if hasattr(focus, "get_wm_name") else None
+                    )
+                    self._teleoperator.update_focus(
+                        isinstance(title, str) and "mujoco" in title.lower()
+                    )
+                except Exception:
+                    self._teleoperator.update_focus(False)
+
+        self._thread = Thread(target=monitor, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._listener is not None:
+            self._listener.stop()
+        if self._thread is not None:
+            self._thread.join(timeout=1.0)
+        self._teleoperator.update_focus(False)
 
 
 def run_keyboard_session(
@@ -162,63 +198,77 @@ def run_keyboard_session(
     *,
     max_steps: int | None = None,
 ) -> None:
-    """Run the supported passive viewer callback through the safe robot path."""
     from mujoco import mjtGridPos, viewer  # type: ignore[import-untyped]
 
     if max_steps is not None and max_steps <= 0:
         raise ValueError("max_steps must be positive when provided")
-    observation = robot.reset(seed)
-    environment = driver.environment
-    period_s = driver.control_period_s
-    completed_steps = 0
-    with viewer.launch_passive(
-        environment._model,  # noqa: SLF001
-        environment._data,  # noqa: SLF001
-        key_callback=teleoperator.on_key,
+    observation, environment = robot.reset(seed), driver.environment
+    started, completed, adapter = time.monotonic(), 0, X11KeyboardAdapter(teleoperator)
+
+    def viewer_key(keycode: int) -> None:
+        # MuJoCo's callback is sufficient for the press-only quit action and
+        # provides a fallback if the global X11 listener misses the focused key.
+        if keycode in {ord("q"), ord("Q")}:
+            teleoperator.request_quit()
+
+    with viewer.launch_passive(  # noqa: SLF001
+        environment._model,
+        environment._data,
+        key_callback=viewer_key,
     ) as handle:
-        while handle.is_running() and (
-            max_steps is None or completed_steps < max_steps
-        ):
-            started_at = time.monotonic()
-            # MuJoCo's passive viewer owns a render thread. Its documented lock
-            # protects the shared MjData while control advances physics.
-            with handle.lock():
-                action = teleoperator.poll(observation)
-                robot.command(action)
-                observation = robot.observe()
-                report = robot.last_report
-                task = environment.task_state()
-            completed_steps += 1
-            target = action.target_pose.position_xyz_m
-            actual = observation.robot.end_effector_pose.position_xyz_m
-            handle.set_texts(
-                (
-                    None,
-                    mjtGridPos.mjGRID_TOPLEFT,
-                    "ACT Lab keyboard teleoperation",
-                    "\n".join(
-                        (
-                            teleoperator.controls_text,
-                            "input: "
-                            f"{teleoperator.latest_input} "
-                            f"(accepted {teleoperator.accepted_event_count})",
-                            "target: "
-                            f"({target[0]:.3f}, {target[1]:.3f}, {target[2]:.3f})",
-                            "actual: "
-                            f"({actual[0]:.3f}, {actual[1]:.3f}, {actual[2]:.3f})",
-                            f"gripper: {action.gripper_position:.2f}",
-                            "safety: "
-                            f"{report.outcome.value if report else 'none'}"
-                            f" ({report.detail if report else 'no command'})",
-                            f"task: {task.reason or 'running'}",
-                        )
-                    ),
+        adapter.start()
+        try:
+            while handle.is_running() and (max_steps is None or completed < max_steps):
+                cycle = time.monotonic()
+                with handle.lock():
+                    action = teleoperator.poll(observation)
+                    robot.command(action)
+                    observation, report, task = (
+                        robot.observe(),
+                        robot.last_report,
+                        environment.task_state(),
+                    )
+                completed += 1
+                requested, measured = (
+                    action.target_pose.position_xyz_m,
+                    observation.robot.end_effector_pose.position_xyz_m,
                 )
-            )
-            handle.sync()
-            if teleoperator.quit_requested:
-                handle.close()
-                break
-            remaining_s = period_s - (time.monotonic() - started_at)
-            if remaining_s > 0:
-                time.sleep(remaining_s)
+                limited = (
+                    report.executed_action.target_pose.position_xyz_m
+                    if report and report.executed_action
+                    else None
+                )
+                rtf = (
+                    observation.timestamp_ns
+                    / 1e9
+                    / max(time.monotonic() - started, 1e-9)
+                )
+                outcome = report.outcome.value if report else "none"
+                detail = report.detail if report else "no command"
+                lines = (
+                    teleoperator.controls_text,
+                    f"input: {teleoperator.latest_input}",
+                    f"requested: {requested}",
+                    f"limited: {limited}",
+                    f"measured: {measured}",
+                    f"timing: RTF={rtf:.2f}",
+                    f"safety: {outcome} ({detail})",
+                    f"task: {task.reason or 'running'}",
+                )
+                handle.set_texts(
+                    (
+                        None,
+                        mjtGridPos.mjGRID_TOPLEFT,
+                        "ACT Lab keyboard teleoperation",
+                        "\n".join(lines),
+                    )
+                )
+                handle.sync()
+                if teleoperator.quit_requested:
+                    handle.close()
+                    break
+                remaining = driver.control_period_s - (time.monotonic() - cycle)
+                if remaining > 0:
+                    time.sleep(remaining)
+        finally:
+            adapter.stop()
