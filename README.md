@@ -47,14 +47,12 @@ Keyboard teleoperation uses the same narrow X11 forwarding and safety path:
 docker compose --profile ui run --rm keyboard-teleop
 ```
 
-Tap `W/S` for world X, `A/D` for world Y, `R/F` for world Z, and `O/C` to
-open/close. Space stops and `Q` quits. Letter bindings are case-insensitive.
-MuJoCo's supported passive-viewer callback reports presses rather than held-key
-state, so holding a key does not provide continuous motion. Each press adds one
-configured target nudge; the safety controller may execute only part of that
-nudge before input becomes stale at 100 ms. The overlay distinguishes accepted
-events, target pose, actual pose, and the latest safety outcome. Tap repeatedly
-to jog; continuous hold-to-move control is intentionally deferred.
+Keep the MuJoCo viewer focused and hold either Shift key as the deadman. While
+holding Shift, hold `W/S` for world X, `A/D` for world Y, `R/F` for world Z,
+or `O/C` to open/close; `Q` quits. Releasing Shift, releasing every motion key,
+or losing viewer focus disables motion immediately. Letter bindings are
+case-insensitive, and diagonal translation is normalized to the configured
+speed.
 
 MuJoCo physics is CPU-based in this service. GPU rendering would change viewer
 rendering performance, not keyboard command cadence or controller response.

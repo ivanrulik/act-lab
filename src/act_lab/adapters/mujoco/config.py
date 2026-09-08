@@ -37,6 +37,8 @@ class CartesianControlConfig:
 class KeyboardConfig:
     translation_nudge_m: float
     gripper_nudge: float
+    translation_speed_m_s: float
+    gripper_speed_s: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +170,10 @@ class SimulationConfig:
                     keyboard, "translation_nudge_m"
                 ),
                 gripper_nudge=_positive_float(keyboard, "gripper_nudge"),
+                translation_speed_m_s=_positive_float(
+                    keyboard, "translation_speed_m_s"
+                ),
+                gripper_speed_s=_positive_float(keyboard, "gripper_speed_s"),
             ),
             expert=ExpertConfig(
                 approach_clearance_m=_positive_float(

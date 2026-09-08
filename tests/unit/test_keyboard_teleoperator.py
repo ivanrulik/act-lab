@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+import math
 from pathlib import Path
 
 import pytest
@@ -13,95 +13,84 @@ POSE = Pose("world", (0.4, 0.0, 0.6), (1.0, 0.0, 0.0, 0.0))
 
 
 def observation(
-    timestamp_ns: int = 0,
-    pose: Pose = POSE,
-    gripper: float = 0.5,
+    timestamp_ns: int = 0, pose: Pose = POSE, gripper: float = 0.5
 ) -> Observation:
     state = RobotState(timestamp_ns, (0.0,) * 6, (0.0,) * 6, pose, gripper)
     return Observation(timestamp_ns, state, ())
 
 
+def active(*keys: str) -> KeyboardTeleoperator:
+    keyboard = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
+    keyboard.update_focus(True)
+    keyboard.update_key("shift", True)
+    for key in keys:
+        keyboard.update_key(key, True)
+    return keyboard
+
+
 @pytest.mark.parametrize(
-    ("key", "delta"),
+    ("key", "axis", "sign"),
     [
-        ("W", (0.01, 0.0, 0.0)),
-        ("S", (-0.01, 0.0, 0.0)),
-        ("A", (0.0, 0.01, 0.0)),
-        ("D", (0.0, -0.01, 0.0)),
-        ("R", (0.0, 0.0, 0.01)),
-        ("F", (0.0, 0.0, -0.01)),
+        ("w", 0, 1),
+        ("s", 0, -1),
+        ("a", 1, 1),
+        ("d", 1, -1),
+        ("r", 2, 1),
+        ("f", 2, -1),
     ],
 )
-def test_every_translation_mapping_preserves_orientation(
-    key: str, delta: tuple[float, float, float]
+def test_held_translation_is_continuous(
+    key: str, axis: int, sign: int
 ) -> None:
-    teleoperator = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
-    teleoperator.on_key(ord(key))
-
-    action = teleoperator.poll(observation(20_000_000))
-
-    assert action.target_pose.position_xyz_m == pytest.approx(
-        tuple(a + b for a, b in zip(POSE.position_xyz_m, delta, strict=True))
+    keyboard = active(key)
+    first = keyboard.poll(observation(20_000_000))
+    second = keyboard.poll(observation(40_000_000))
+    expected = sign * CONFIG.keyboard.translation_speed_m_s / 50.0
+    assert first.enabled and second.enabled
+    assert first.target_pose.position_xyz_m[axis] == pytest.approx(
+        POSE.position_xyz_m[axis] + expected
     )
-    assert action.target_pose.quaternion_wxyz == POSE.quaternion_wxyz
-    assert action.timestamp_ns == 20_000_000
-    assert action.enabled
+    assert first.target_pose.quaternion_wxyz == POSE.quaternion_wxyz
+    assert second.timestamp_ns == 40_000_000
 
 
-def test_nudges_accumulate_and_gripper_keys_clip() -> None:
-    teleoperator = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
-    for key in "WWAOOC":
-        teleoperator.on_key(ord(key.lower()))
-
-    action = teleoperator.poll(observation(gripper=0.95))
-
-    assert action.target_pose.position_xyz_m == pytest.approx((0.42, 0.01, 0.6))
-    assert action.gripper_position == pytest.approx(0.9)
-    assert teleoperator.accepted_event_count == 6
-    assert teleoperator.latest_input == "C"
+def test_diagonal_input_is_normalized() -> None:
+    action = active("w", "a", "r").poll(observation())
+    displacement = math.dist(action.target_pose.position_xyz_m, POSE.position_xyz_m)
+    assert displacement == pytest.approx(CONFIG.keyboard.translation_speed_m_s / 50)
 
 
-def test_workspace_clipping_unknown_key_stop_and_quit() -> None:
-    limits = replace(CONFIG.control, workspace_x_m=(0.39, 0.405))
-    teleoperator = KeyboardTeleoperator(CONFIG.keyboard, limits)
-    teleoperator.on_key(ord("?"))
-    unknown = teleoperator.poll(observation(10))
-    assert not unknown.enabled
-    assert teleoperator.accepted_event_count == 0
-    assert teleoperator.latest_input == "none"
-
-    teleoperator.on_key(ord("W"))
-    teleoperator.on_key(ord("W"))
-    assert teleoperator.poll(observation(20)).target_pose.position_xyz_m[0] == 0.405
-
-    stopped_pose = Pose("world", (0.3, 0.2, 0.7), POSE.quaternion_wxyz)
-    teleoperator.on_key(ord(" "))
-    stopped = teleoperator.poll(observation(30, stopped_pose, 0.25))
-    assert not stopped.enabled
-    assert stopped.target_pose == stopped_pose
-    assert stopped.gripper_position == 0.25
-    assert teleoperator.latest_input == "Space (stop)"
-
-    teleoperator.on_key(ord("Q"))
-    quit_action = teleoperator.poll(observation(40, stopped_pose, 0.25))
-    assert teleoperator.quit_requested
-    assert not quit_action.enabled
-    assert teleoperator.latest_input == "Q (quit)"
+def test_deadman_motion_release_and_focus_loss_disable_next_poll() -> None:
+    keyboard = active("w")
+    assert keyboard.poll(observation()).enabled
+    keyboard.update_key("shift", False)
+    released = keyboard.poll(observation(20_000_000))
+    assert not released.enabled
+    assert released.target_pose == POSE
+    keyboard.update_key("shift", True)
+    keyboard.update_key("w", True)
+    keyboard.update_focus(False)
+    unfocused = keyboard.poll(observation(40_000_000))
+    assert not unfocused.enabled
+    assert "focus lost" in keyboard.latest_input
 
 
-def test_uppercase_and_lowercase_events_have_identical_results() -> None:
-    lowercase = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
-    uppercase = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
-    lowercase.on_key(ord("a"))
-    uppercase.on_key(ord("A"))
-
-    assert lowercase.poll(observation()) == uppercase.poll(observation())
+def test_gripper_and_quit_controls() -> None:
+    keyboard = active("o")
+    assert keyboard.poll(observation()).gripper_position > 0.5
+    keyboard.update_key("q", True)
+    assert keyboard.quit_requested
 
 
-def test_poll_without_new_event_retains_input_timestamp_for_watchdog() -> None:
-    teleoperator = KeyboardTeleoperator(CONFIG.keyboard, CONFIG.control)
-    teleoperator.on_key(ord("W"))
-    first = teleoperator.poll(observation(20_000_000))
-    repeated = teleoperator.poll(observation(100_000_000))
-
-    assert repeated == first
+def test_closed_gripper_target_is_latched_across_contact_deflection() -> None:
+    keyboard = active("c")
+    closed = keyboard.poll(observation()).gripper_position
+    keyboard.update_key("c", False)
+    keyboard.update_key("shift", False)
+    deflected_state = observation(20_000_000, gripper=closed + 0.1)
+    assert not keyboard.poll(deflected_state).enabled
+    keyboard.update_key("shift", True)
+    keyboard.update_key("w", True)
+    resumed = keyboard.poll(deflected_state)
+    assert resumed.enabled
+    assert resumed.gripper_position == pytest.approx(closed)

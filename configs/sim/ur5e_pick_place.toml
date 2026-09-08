@@ -45,6 +45,8 @@ ik_orientation_tolerance_rad = 0.02
 [keyboard]
 translation_nudge_m = 0.01
 gripper_nudge = 0.1
+translation_speed_m_s = 0.10
+gripper_speed_s = 1.0
 
 [expert]
 approach_clearance_m = 0.14
