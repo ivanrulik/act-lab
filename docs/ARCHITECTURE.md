@@ -82,7 +82,8 @@ state. This adapter guard complements application-owned intent and joint limits.
 Webcam capture and MediaPipe inference run in an adapter-owned background
 thread with a one-sample latest-value boundary. The control loop never waits on
 camera I/O. A framework-neutral RGB `CameraFrame` crosses the camera port;
-MediaPipe and OpenCV values do not. Calibration, relative mapping, filtering,
+MediaPipe and OpenCV values do not. Calibration, relative velocity mapping,
+adaptive filtering,
 and gesture clutching produce the same domain `Action` used by keyboard and the
 scripted expert.
 

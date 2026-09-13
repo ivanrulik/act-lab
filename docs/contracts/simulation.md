@@ -55,8 +55,9 @@ not operator or policy intent and does not implement `Robot.command(Action)`.
 The application `SafeCartesianRobot` translates domain Cartesian `Action`
 values through safety filtering before the MuJoCo driver emits these targets.
 The driver uses the end-effector site Jacobian, shortest-path quaternion error,
-and damped least squares with damping 0.05, at most 50 iterations, 2 mm
-position tolerance, and 0.02 rad orientation tolerance.
+and damped least squares with damping 0.05, at most 50 iterations, 0.1 mm
+position tolerance, and 0.001 rad orientation tolerance. End-to-end measured
+pose convergence is tested separately at 2 mm and 0.02 rad.
 
 Candidate targets are clipped inside model joint ranges with a 0.02 rad margin
 and checked with `mj_forward` before execution. Robot self-contact and robot
@@ -99,10 +100,14 @@ Compose `sim-ui` service forwards only the host's read-only X11/XWayland socket
 and uses Mesa software rendering; the headless `sim` service remains the CI and
 automation interface.
 
-`act-lab sim keyboard-teleop --seed 0` uses the passive viewer key callback and
+`act-lab sim keyboard-teleop --seed 0` uses optional background X11 key-state capture and
 overlays controls, accepted input count, target and actual poses, latest safety
 outcome with detail, and task state. Viewer and control threads synchronize
-access to shared MuJoCo state through the viewer lock. The callback exposes
-discrete presses, not held-key state; keyboard teleoperation is therefore
-tap-to-jog. Its opt-in Compose service has the same narrow X11 mount as
+access to shared MuJoCo state through the viewer lock. Shift is the held
+deadman, and focus loss or key release disables arm motion. The passive viewer
+callback is retained only for quitting. Its opt-in Compose service has the same narrow X11 mount as
 `sim-ui`.
+
+ADR 009 defines the measured-feedback response horizon and grasp-preserving
+hold. The gripper keeps its last accepted aperture during input loss, rather
+than removing squeeze by replacing its target with the contact-deflected opening.

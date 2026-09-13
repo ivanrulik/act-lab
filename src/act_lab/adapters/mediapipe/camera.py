@@ -39,6 +39,9 @@ class OpenCVCamera:
         if not self._capture.isOpened():
             raise OSError(f"unable to open camera or video source: {source}")
         if not recorded:
+            # Some V4L2 drivers ignore this request; when supported it prevents
+            # an internal FIFO from turning inference load into control lag.
+            self._capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             # Prefer uncompressed YUYV so live capture does not depend on
             # OpenCV's bundled libavcodec MJPEG decoder. Set it before
             # dimensions/FPS so V4L2 negotiates one coherent mode.
@@ -54,6 +57,20 @@ class OpenCVCamera:
             if source_fps > 0.0:
                 self._fps = max(1, round(source_fps))
         self._closed = False
+
+    @property
+    def negotiated_capture(self) -> dict[str, float]:
+        if self._recorded:
+            return {"fps": float(self._fps)}
+        return {
+            "width": float(self._capture.get(self._cv2.CAP_PROP_FRAME_WIDTH)),
+            "height": float(self._capture.get(self._cv2.CAP_PROP_FRAME_HEIGHT)),
+            "fps": float(self._capture.get(self._cv2.CAP_PROP_FPS)),
+        }
+
+    @property
+    def drop_obsolete_frames(self) -> bool:
+        return not self._recorded
 
     def capture(self) -> CameraFrame | None:
         if self._closed:

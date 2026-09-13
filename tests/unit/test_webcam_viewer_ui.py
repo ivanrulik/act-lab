@@ -30,6 +30,7 @@ def diagnostics(**changes: object) -> TeleopDiagnostics:
         "confidence": 0.95,
         "frame_age_ms": 12.0,
         "clutch_detected": True,
+        "clutch_score": 0.18,
         "clutch_active": True,
         "calibration_id": "calibration",
         "palm_xy": (0.6, 0.4),
@@ -37,6 +38,7 @@ def diagnostics(**changes: object) -> TeleopDiagnostics:
         "clutch_anchor_scale": 0.2,
         "depth_ratio": 1.08,
         "command_offset_xyz_m": (0.042, -0.008, 0.003),
+        "command_velocity_xyz_m_s": (0.12, -0.04, 0.01),
         "commanded_gripper_position": 0.46,
     }
     values.update(changes)
@@ -66,7 +68,7 @@ def test_hud_exposes_generated_command_and_safety_result() -> None:
     assert hud.banner == "ACTIVE | LIMITED"
     assert hud.show_target
     assert hud.target_xyz_m == target.position_xyz_m
-    assert any("X +042mm" in line for line in hud.lines)
+    assert any("X +120mm/s" in line for line in hud.lines)
     assert any("GRIPPER   46%" in line for line in hud.lines)
     assert any("1.080x (+8.0%)" in line for line in hud.lines)
     assert any("workspace clamp" in line for line in hud.lines)

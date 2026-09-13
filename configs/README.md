@@ -13,11 +13,14 @@ success thresholds, robot home state, and stable camera names. MJCF geometry
 and this configuration must agree; the adapter rejects a timestep mismatch.
 
 The same file owns PR 3 controller settings and PR 4 keyboard/expert settings.
-`[keyboard]` contains nudge sizes. `[expert]` contains waypoint clearances,
+`[control].pose_response_time_s` sets the measured-error correction horizon
+(0.10 s); speed and acceleration caps still apply. `[keyboard]` contains held
+translation/gripper speeds and legacy nudge sizes. `[expert]` contains waypoint clearances,
 tool offset, general/grasp tolerances, dwell counts, and gripper targets. These
 values are benchmark inputs and belong in result provenance.
 
-`teleop/webcam.toml` owns PR 5 capture requests, confidence and frame-age
-gates, gesture-clutch thresholds, calibration stability, Cartesian mapping,
-filtering, and pinch normalization. Camera device paths and model filesystem
+`teleop/webcam.toml` owns webcam capture requests, confidence and frame-age
+gates, hysteretic gesture thresholds, calibration stability, position/velocity
+mapping, response curves, adaptive filtering, and pinch normalization. Camera
+device paths and model filesystem
 paths are runtime arguments rather than versioned machine-specific values.

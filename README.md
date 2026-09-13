@@ -54,6 +54,9 @@ or losing viewer focus disables motion immediately. Letter bindings are
 case-insensitive, and diagonal translation is normalized to the configured
 speed.
 
+`Q` or `Shift+Q` closes the viewer and waits for rendering/input cleanup before
+exiting; the `--rm` keyboard container is then removed automatically.
+
 MuJoCo physics is CPU-based in this service. GPU rendering would change viewer
 rendering performance, not keyboard command cadence or controller response.
 
@@ -65,13 +68,16 @@ ACT_LAB_VIDEO_GID="$(stat -c '%g' /dev/video0)" \
   docker compose --profile teleop run --rm teleop
 ```
 
-Press `Enter` while holding a steady open hand to calibrate. Keep the middle, ring,
-and little fingers extended to clutch motion; fold any of them to stop and
-reposition. Move up/down for world X, right/left for world Y, and move your hand
-toward/away from the camera for world Z. Thumb/index pinch controls the gripper. `Q` exits. The MuJoCo
+Press `Enter` while holding a steady open hand to calibrate. Keep the middle,
+ring, and little fingers extended to clutch motion; fold them to stop and
+reposition. The hand acts like a three-axis analog stick: moving farther from
+the calibrated center commands faster motion, while staying near center provides
+fine control. Move up/down for world X, right/left for world Y, and move your
+hand toward/away from the camera for world Z. Thumb/index pinch closes or opens
+the gripper with hysteresis. `Q` exits. The MuJoCo
 viewer shows the annotated hand image, confidence, calibration, clutch, frame
 age, task status, and safety result. While clutching, the camera overlay shows
-the input anchor, dead zone, direction vector, and signed XYZ command. The 3D
+the input anchor, dead zone, direction vector, and signed XYZ velocity. The 3D
 view shows the requested end-effector target and an actual-to-target arrow;
 cyan means accepted, amber means safety-limited, and red means rejected. Camera
 frames are processed locally and are not retained.
@@ -84,6 +90,13 @@ docker compose run --rm dev sh -lc \
    act-lab sim webcam-teleop --video /tmp/hand.mp4 \
      --headless --auto-calibrate --json'
 ```
+
+Isolate controller execution without keyboard or camera input with
+`docker compose run --rm dev act-lab sim control-diagnostic --json`.
+The default is a reachable signed world-X displacement of −100 mm over 1.2 s.
+The report includes requested/limited/measured trajectories and speed/error
+metrics. Unreachable diagnostic endpoints are rejected before motion; +100 mm
+in X from the default home pose is not a valid isolation test.
 
 The deterministic privileged baseline is headless and reports per-seed results:
 

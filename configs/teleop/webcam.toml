@@ -10,7 +10,8 @@ min_presence_confidence = 0.60
 min_tracking_confidence = 0.60
 min_handedness_confidence = 0.60
 clutch_extension_margin = 0.10
-clutch_engage_frames = 3
+clutch_release_margin = 0.03
+clutch_engage_frames = 2
 
 [calibration]
 sample_frames = 15
@@ -18,15 +19,28 @@ max_anchor_spread = 0.035
 max_scale_spread = 0.10
 
 [mapping]
+mode = "velocity"
 # Screen-up drives robot +X; mirrored screen-right drives robot -Y.
 world_x_gain_m = -0.20
 world_y_gain_m = -0.15
 # Moving toward the camera drives robot -Z (down toward the table).
 world_z_gain_m = -0.15
-image_xy_dead_zone = 0.03
-depth_dead_zone = 0.035
+image_xy_dead_zone = 0.08
+depth_dead_zone = 0.06
 ema_alpha = 0.40
 # Depth comes from apparent palm size and needs more damping than screen motion.
 depth_ema_alpha = 0.30
-pinch_closed_ratio = 0.35
-pinch_open_ratio = 1.50
+# Scale the hand-derived velocity uniformly for more controllable fine motion.
+xy_max_velocity_m_s = 0.10
+z_max_velocity_m_s = 0.064
+xy_saturation = 0.80
+depth_saturation = 0.35
+response_exponent = 1.60
+max_target_lead_m = 0.04
+xy_min_cutoff_hz = 1.50
+xy_beta = 0.30
+depth_min_cutoff_hz = 1.00
+depth_beta = 0.15
+derivative_cutoff_hz = 1.00
+pinch_closed_ratio = 0.45
+pinch_open_ratio = 0.75

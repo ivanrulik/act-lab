@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import time
+from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -33,9 +35,14 @@ def run_webcam_session(
     if auto_calibrate:
         teleoperator.request_calibration()
     observation = robot.reset(seed)
+    initial_position = observation.robot.end_effector_pose.position_xyz_m
     counts = {outcome.value: 0 for outcome in CommandOutcome}
     completed_steps = 0
     termination = "step_limit"
+    session_started = time.monotonic()
+    latencies_ms: list[float] = []
+    task_completion_s: float | None = None
+    time_to_first_motion_s: float | None = None
     worker.start()
     try:
         if headless:
@@ -49,6 +56,18 @@ def run_webcam_session(
                 observation = _control_step(robot, teleoperator, observation, counts)
                 completed_steps += 1
                 diagnostics = teleoperator.diagnostics
+                if diagnostics.frame_age_ms is not None:
+                    latencies_ms.append(diagnostics.frame_age_ms)
+                if time_to_first_motion_s is None and math.dist(
+                    observation.robot.end_effector_pose.position_xyz_m,
+                    initial_position,
+                ) > 1e-4:
+                    time_to_first_motion_s = time.monotonic() - session_started
+                if (
+                    task_completion_s is None
+                    and driver.environment.task_state().success
+                ):
+                    task_completion_s = time.monotonic() - session_started
                 if diagnostics.source_status.startswith("worker_failure"):
                     termination = "worker_failure"
                     break
@@ -62,19 +81,28 @@ def run_webcam_session(
                         break
                 _pace(started_at, driver.control_period_s)
         else:
-            completed_steps, termination = _run_viewer(
+            (
+                completed_steps,
+                termination,
+                task_completion_s,
+                time_to_first_motion_s,
+                latencies_ms,
+            ) = _run_viewer(
                 driver,
                 robot,
                 teleoperator,
                 observation,
                 counts,
                 max_steps,
+                session_started,
+                initial_position,
             )
     finally:
         worker.stop()
     diagnostics = teleoperator.diagnostics
     report: dict[str, object] = {
         "calibration": teleoperator.calibration_snapshot,
+        "teleop_config": asdict(teleoperator.config),
         "environment_steps": completed_steps,
         "frames_seen": diagnostics.frames_seen,
         "tracking_losses": diagnostics.tracking_losses,
@@ -83,6 +111,20 @@ def run_webcam_session(
         "source_status": diagnostics.source_status,
         "teleop_state": diagnostics.state,
         "termination_reason": termination,
+        "wall_duration_s": time.monotonic() - session_started,
+        "task_completion_s": task_completion_s,
+        "time_to_first_motion_s": time_to_first_motion_s,
+        "active_control_duration_s": (
+            counts[CommandOutcome.APPLIED.value]
+            + counts[CommandOutcome.LIMITED.value]
+        )
+        * driver.control_period_s,
+        "capture_frames": worker.captured_frames,
+        "processed_frames": worker.processed_frames,
+        "dropped_frames": worker.dropped_frames,
+        "negotiated_capture": worker.capture_metadata,
+        "latency_ms_p50": _percentile(latencies_ms, 50.0),
+        "latency_ms_p95": _percentile(latencies_ms, 95.0),
     }
     if worker.failure is not None:
         raise RuntimeError(f"hand tracking worker failed: {worker.failure}")
@@ -111,7 +153,9 @@ def _run_viewer(
     observation: Observation,
     counts: dict[str, int],
     max_steps: int | None,
-) -> tuple[int, str]:
+    session_started: float,
+    initial_position: tuple[float, float, float],
+) -> tuple[int, str, float | None, float | None, list[float]]:
     import cv2
     import mujoco  # type: ignore[import-untyped]
     from mujoco import MjrRect, mjtGridPos, viewer
@@ -119,6 +163,9 @@ def _run_viewer(
     environment = driver.environment
     completed = 0
     termination = "viewer_closed"
+    task_completion_s: float | None = None
+    time_to_first_motion_s: float | None = None
+    latencies_ms: list[float] = []
     with viewer.launch_passive(
         environment._model,  # noqa: SLF001
         environment._data,  # noqa: SLF001
@@ -131,8 +178,25 @@ def _run_viewer(
                 task = environment.task_state()
             completed += 1
             diagnostics = teleoperator.diagnostics
+            if diagnostics.frame_age_ms is not None:
+                latencies_ms.append(diagnostics.frame_age_ms)
+            if time_to_first_motion_s is None and math.dist(
+                observation.robot.end_effector_pose.position_xyz_m,
+                initial_position,
+            ) > 1e-4:
+                time_to_first_motion_s = time.monotonic() - session_started
+            if task_completion_s is None and task.success:
+                task_completion_s = time.monotonic() - session_started
             report = robot.last_report
-            hud = build_viewer_hud(diagnostics, report, observation, task.reason)
+            wall_elapsed = max(time.monotonic() - session_started, 1e-9)
+            sim_elapsed = observation.timestamp_ns / 1_000_000_000.0
+            hud = build_viewer_hud(
+                diagnostics,
+                report,
+                observation,
+                task.reason,
+                real_time_factor=sim_elapsed / wall_elapsed,
+            )
             handle.set_texts(
                 (
                     None,
@@ -160,7 +224,13 @@ def _run_viewer(
             _pace(started_at, driver.control_period_s)
     if max_steps is not None and completed >= max_steps:
         termination = "step_limit"
-    return completed, termination
+    return (
+        completed,
+        termination,
+        task_completion_s,
+        time_to_first_motion_s,
+        latencies_ms,
+    )
 
 
 def _update_command_scene(mujoco: object, handle: object, hud: object) -> None:
@@ -212,3 +282,9 @@ def _pace(started_at: float, period_s: float) -> None:
     remaining = period_s - (time.monotonic() - started_at)
     if remaining > 0.0:
         time.sleep(remaining)
+
+
+def _percentile(values: list[float], percentage: float) -> float | None:
+    if not values:
+        return None
+    return float(np.percentile(np.asarray(values), percentage))
