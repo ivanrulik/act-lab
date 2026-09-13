@@ -94,7 +94,10 @@ class KeyboardTeleoperator:
         ]
         magnitude = math.sqrt(sum(value * value for value in direction))
         scale = (
-            self._config.translation_speed_m_s / magnitude / 50.0 if magnitude else 0.0
+            self._config.translation_speed_m_s
+            * max(1.0 / 50.0, self._limits.pose_response_time_s)
+            / magnitude
+            if magnitude else 0.0
         )
         bounds = (
             self._limits.workspace_x_m,
@@ -130,6 +133,7 @@ class X11KeyboardAdapter:
         self._teleoperator, self._stop = teleoperator, Event()
         self._listener: Any | None = None
         self._thread: Thread | None = None
+        self._display: Any | None = None
 
     def start(self) -> None:
         try:
@@ -140,6 +144,7 @@ class X11KeyboardAdapter:
                 "keyboard teleoperation requires the optional 'ui' dependencies"
             ) from error
         xdisplay = display.Display()
+        self._display = xdisplay
 
         def label(key: object) -> str | None:
             char = getattr(key, "char", None)
@@ -183,11 +188,38 @@ class X11KeyboardAdapter:
 
     def stop(self) -> None:
         self._stop.set()
+        self._teleoperator.update_focus(False)
         if self._listener is not None:
             self._listener.stop()
+            # pynput 1.8 sends disable on the connection blocked in XRecord.
+            # Use its separate stop connection to unblock the recording reply.
+            stop_display = getattr(self._listener, "_display_stop", None)
+            if stop_display is not None and self._listener.is_alive():
+                stop_display.record_disable_context(self._listener._context)
+                stop_display.flush()
+            self._listener.join(timeout=2.0)
         if self._thread is not None:
             self._thread.join(timeout=1.0)
-        self._teleoperator.update_focus(False)
+        if self._display is not None and (
+            self._thread is None or not self._thread.is_alive()
+        ):
+            self._display.close()
+            self._display = None
+
+
+def _close_viewer_and_wait(handle: Any, timeout_s: float = 5.0) -> None:
+    """Wait for MuJoCo 3.12's render teardown, not just its exit request.
+
+    is_running() becomes false as soon as close() requests exit. The pinned
+    viewer's weak reference expires only after render_loop/destroy return.
+    Waiting here prevents GLFW's interpreter-exit cleanup racing that thread.
+    """
+    handle.close()
+    deadline = time.monotonic() + timeout_s
+    while handle._sim() is not None:  # noqa: SLF001
+        if time.monotonic() >= deadline:
+            raise RuntimeError("MuJoCo viewer teardown exceeded the shutdown deadline")
+        time.sleep(0.01)
 
 
 def run_keyboard_session(
@@ -216,8 +248,8 @@ def run_keyboard_session(
         environment._data,
         key_callback=viewer_key,
     ) as handle:
-        adapter.start()
         try:
+            adapter.start()
             while handle.is_running() and (max_steps is None or completed < max_steps):
                 cycle = time.monotonic()
                 with handle.lock():
@@ -243,6 +275,14 @@ def run_keyboard_session(
                     / 1e9
                     / max(time.monotonic() - started, 1e-9)
                 )
+                commanded_speed = (
+                    report.commanded_cartesian_speed_m_s if report else 0.0
+                )
+                measured_speed = (
+                    report.measured_cartesian_speed_m_s if report else 0.0
+                )
+                tracking_error = report.tracking_error_m if report else 0.0
+                command_age = report.command_age_ms if report else 0.0
                 outcome = report.outcome.value if report else "none"
                 detail = report.detail if report else "no command"
                 lines = (
@@ -251,7 +291,10 @@ def run_keyboard_session(
                     f"requested: {requested}",
                     f"limited: {limited}",
                     f"measured: {measured}",
-                    f"timing: RTF={rtf:.2f}",
+                    f"speed: commanded={commanded_speed:.3f} "
+                    f"measured={measured_speed:.3f} m/s",
+                    f"tracking error: {tracking_error:.4f} m",
+                    f"timing: RTF={rtf:.2f} age={command_age:.0f} ms",
                     f"safety: {outcome} ({detail})",
                     f"task: {task.reason or 'running'}",
                 )
@@ -271,4 +314,7 @@ def run_keyboard_session(
                 if remaining > 0:
                     time.sleep(remaining)
         finally:
-            adapter.stop()
+            try:
+                adapter.stop()
+            finally:
+                _close_viewer_and_wait(handle)

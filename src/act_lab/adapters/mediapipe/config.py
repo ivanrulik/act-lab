@@ -20,10 +20,12 @@ class WebcamConfig:
     min_tracking_confidence: float
     min_handedness_confidence: float
     clutch_extension_margin: float
+    clutch_release_margin: float
     clutch_engage_frames: int
     calibration_sample_frames: int
     calibration_max_anchor_spread: float
     calibration_max_scale_spread: float
+    mapping_mode: str
     world_x_gain_m: float
     world_y_gain_m: float
     world_z_gain_m: float
@@ -31,6 +33,17 @@ class WebcamConfig:
     depth_dead_zone: float
     ema_alpha: float
     depth_ema_alpha: float
+    xy_max_velocity_m_s: float
+    z_max_velocity_m_s: float
+    xy_saturation: float
+    depth_saturation: float
+    response_exponent: float
+    max_target_lead_m: float
+    xy_min_cutoff_hz: float
+    xy_beta: float
+    depth_min_cutoff_hz: float
+    depth_beta: float
+    derivative_cutoff_hz: float
     pinch_closed_ratio: float
     pinch_open_ratio: float
 
@@ -50,20 +63,14 @@ class WebcamConfig:
             min_detection_confidence=_unit(tracking, "min_detection_confidence"),
             min_presence_confidence=_unit(tracking, "min_presence_confidence"),
             min_tracking_confidence=_unit(tracking, "min_tracking_confidence"),
-            min_handedness_confidence=_unit(
-                tracking, "min_handedness_confidence"
-            ),
-            clutch_extension_margin=_nonnegative(
-                tracking, "clutch_extension_margin"
-            ),
+            min_handedness_confidence=_unit(tracking, "min_handedness_confidence"),
+            clutch_extension_margin=_nonnegative(tracking, "clutch_extension_margin"),
+            clutch_release_margin=_nonnegative(tracking, "clutch_release_margin"),
             clutch_engage_frames=_positive_int(tracking, "clutch_engage_frames"),
             calibration_sample_frames=_positive_int(calibration, "sample_frames"),
-            calibration_max_anchor_spread=_positive(
-                calibration, "max_anchor_spread"
-            ),
-            calibration_max_scale_spread=_positive(
-                calibration, "max_scale_spread"
-            ),
+            calibration_max_anchor_spread=_positive(calibration, "max_anchor_spread"),
+            calibration_max_scale_spread=_positive(calibration, "max_scale_spread"),
+            mapping_mode=_choice(mapping, "mode", {"velocity", "position"}),
             world_x_gain_m=_finite(mapping, "world_x_gain_m"),
             world_y_gain_m=_finite(mapping, "world_y_gain_m"),
             world_z_gain_m=_finite(mapping, "world_z_gain_m"),
@@ -71,6 +78,17 @@ class WebcamConfig:
             depth_dead_zone=_nonnegative(mapping, "depth_dead_zone"),
             ema_alpha=_unit(mapping, "ema_alpha"),
             depth_ema_alpha=_unit(mapping, "depth_ema_alpha"),
+            xy_max_velocity_m_s=_positive(mapping, "xy_max_velocity_m_s"),
+            z_max_velocity_m_s=_positive(mapping, "z_max_velocity_m_s"),
+            xy_saturation=_positive(mapping, "xy_saturation"),
+            depth_saturation=_positive(mapping, "depth_saturation"),
+            response_exponent=_positive(mapping, "response_exponent"),
+            max_target_lead_m=_positive(mapping, "max_target_lead_m"),
+            xy_min_cutoff_hz=_positive(mapping, "xy_min_cutoff_hz"),
+            xy_beta=_nonnegative(mapping, "xy_beta"),
+            depth_min_cutoff_hz=_positive(mapping, "depth_min_cutoff_hz"),
+            depth_beta=_nonnegative(mapping, "depth_beta"),
+            derivative_cutoff_hz=_positive(mapping, "derivative_cutoff_hz"),
             pinch_closed_ratio=_nonnegative(mapping, "pinch_closed_ratio"),
             pinch_open_ratio=_positive(mapping, "pinch_open_ratio"),
         )
@@ -84,6 +102,12 @@ class WebcamConfig:
             raise ValueError("mapping EMA alpha values must be greater than zero")
         if self.pinch_closed_ratio >= self.pinch_open_ratio:
             raise ValueError("pinch_closed_ratio must be below pinch_open_ratio")
+        if self.clutch_release_margin >= self.clutch_extension_margin:
+            raise ValueError("clutch release margin must be below engage margin")
+        if self.xy_saturation <= self.image_xy_dead_zone:
+            raise ValueError("xy saturation must exceed the image dead zone")
+        if self.depth_saturation <= self.depth_dead_zone:
+            raise ValueError("depth saturation must exceed the depth dead zone")
         if self.image_xy_dead_zone >= 1.0 or self.depth_dead_zone >= 1.0:
             raise ValueError("mapping dead zones must be below one")
         if not any(
@@ -101,6 +125,14 @@ def _table(raw: dict[str, Any], name: str) -> dict[str, Any]:
     value = raw.get(name)
     if not isinstance(value, dict):
         raise ValueError(f"missing [{name}] table")
+    return value
+
+
+def _choice(table: dict[str, Any], name: str, choices: set[str]) -> str:
+    value = table.get(name)
+    if not isinstance(value, str) or value not in choices:
+        expected = ", ".join(sorted(choices))
+        raise ValueError(f"{name} must be one of: {expected}")
     return value
 
 

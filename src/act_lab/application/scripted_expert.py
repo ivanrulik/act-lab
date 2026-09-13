@@ -147,6 +147,8 @@ class ScriptedPickPlaceExpert:
         self, observation: Observation, task: PickPlaceTaskState
     ) -> None:
         del task
+        if self._phase is ExpertPhase.HOLD:
+            return
         target, gripper = self._target_for_phase()
         precise_phases = {
             ExpertPhase.APPROACH_CUBE,

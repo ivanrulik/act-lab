@@ -33,6 +33,7 @@ def build_viewer_hud(
     report: CommandReport | None,
     observation: Observation,
     task_reason: str | None,
+    real_time_factor: float | None = None,
 ) -> ViewerHud:
     """Build display-only state from domain and teleoperator diagnostics."""
     actual = observation.robot.end_effector_pose.position_xyz_m
@@ -59,27 +60,42 @@ def build_viewer_hud(
     banner = diagnostics.state.replace("_", " ").upper()
     if outcome is not None:
         banner = f"{banner} | {outcome.value.upper()}"
-    offset_mm = tuple(value * 1000.0 for value in diagnostics.command_offset_xyz_m)
+    velocity_mm_s = tuple(
+        value * 1000.0 for value in diagnostics.command_velocity_xyz_m_s
+    )
     pose_error_mm = tuple(
         (goal - measured) * 1000.0
         for goal, measured in zip(target, actual, strict=True)
     )
+    commanded_speed_mm_s = 1000.0 * (
+        report.commanded_cartesian_speed_m_s if report else 0.0
+    )
+    measured_speed_mm_s = 1000.0 * (
+        report.measured_cartesian_speed_m_s if report else 0.0
+    )
     lines = (
         "Enter: calibrate   Q: quit",
-        f"COMMAND  X {_signed_mm(offset_mm[0])}  {_centered_bar(offset_mm[0])}",
-        f"         Y {_signed_mm(offset_mm[1])}  {_centered_bar(offset_mm[1])}",
-        f"         Z {_signed_mm(offset_mm[2])}  {_centered_bar(offset_mm[2])}",
+        _velocity_line("VELOCITY X", velocity_mm_s[0]),
+        _velocity_line("         Y", velocity_mm_s[1]),
+        _velocity_line("         Z", velocity_mm_s[2]),
         f"GRIPPER  {round(100.0 * (gripper or 0.0)):3d}%  {_level_bar(gripper or 0.0)}",
-        "TARGET   " + _pose_text(target),
-        "ACTUAL   " + _pose_text(actual),
+        "REQUEST  " + _pose_text(target),
+        "LIMITED  " + (_pose_text(executed) if executed is not None else "none"),
+        "MEASURED " + _pose_text(actual),
         "ERROR    " + " ".join(_signed_mm(value) for value in pose_error_mm),
+        "SPEED    "
+        f"commanded={commanded_speed_mm_s:.0f}mm/s "
+        f"measured={measured_speed_mm_s:.0f}mm/s",
+        f"TIMING   RTF={real_time_factor or 0.0:.2f} "
+        f"age={report.command_age_ms if report else 0.0:.0f}ms",
         f"CLUTCH   detected={diagnostics.clutch_detected} "
-        f"active={diagnostics.clutch_active}",
+        f"active={diagnostics.clutch_active} "
+        f"score={diagnostics.clutch_score or 0.0:.2f}",
         f"TRACKING {diagnostics.source_status} "
         f"{diagnostics.confidence or 0.0:.2f} "
         f"{diagnostics.frame_age_ms or 0.0:.0f}ms",
         f"DEPTH    {_depth_text(diagnostics.depth_ratio, config_dead_zone=None)}",
-        f"SAFETY   {detail}",
+        f"SAFETY   {outcome.value if outcome else 'none'}: {detail}",
         f"TASK     {task_reason or 'running'}",
     )
     return ViewerHud(
@@ -137,7 +153,9 @@ def draw_camera_hud(
                 3,
                 tipLength=0.18,
             )
-    x_mm, y_mm, z_mm = (value * 1000.0 for value in diagnostics.command_offset_xyz_m)
+    x_mm, y_mm, z_mm = (
+        value * 1000.0 for value in diagnostics.command_velocity_xyz_m_s
+    )
     cv2.rectangle(image, (0, 0), (frame.width, 74), (15, 18, 24), -1)
     cv2.putText(
         image,
@@ -151,7 +169,7 @@ def draw_camera_hud(
     )
     cv2.putText(
         image,
-        f"X {x_mm:+.0f}  Y {y_mm:+.0f}  Z {z_mm:+.0f} mm",
+        f"X {x_mm:+.0f}  Y {y_mm:+.0f}  Z {z_mm:+.0f} mm/s",
         (10, 44),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.52,
@@ -210,6 +228,14 @@ def _level_bar(value: float) -> str:
 
 def _signed_mm(value: float) -> str:
     return f"{value:+04.0f}mm"
+
+
+def _signed_speed(value: float) -> str:
+    return f"{value:+04.0f}mm/s"
+
+
+def _velocity_line(label: str, value: float) -> str:
+    return f"{label} {_signed_speed(value)}  {_centered_bar(value)}"
 
 
 def _depth_text(ratio: float | None, config_dead_zone: float | None) -> str:

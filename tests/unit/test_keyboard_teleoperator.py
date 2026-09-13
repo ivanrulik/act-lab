@@ -45,7 +45,11 @@ def test_held_translation_is_continuous(
     keyboard = active(key)
     first = keyboard.poll(observation(20_000_000))
     second = keyboard.poll(observation(40_000_000))
-    expected = sign * CONFIG.keyboard.translation_speed_m_s / 50.0
+    expected = (
+        sign
+        * CONFIG.keyboard.translation_speed_m_s
+        * CONFIG.control.pose_response_time_s
+    )
     assert first.enabled and second.enabled
     assert first.target_pose.position_xyz_m[axis] == pytest.approx(
         POSE.position_xyz_m[axis] + expected
@@ -57,7 +61,9 @@ def test_held_translation_is_continuous(
 def test_diagonal_input_is_normalized() -> None:
     action = active("w", "a", "r").poll(observation())
     displacement = math.dist(action.target_pose.position_xyz_m, POSE.position_xyz_m)
-    assert displacement == pytest.approx(CONFIG.keyboard.translation_speed_m_s / 50)
+    assert displacement == pytest.approx(
+        CONFIG.keyboard.translation_speed_m_s * CONFIG.control.pose_response_time_s
+    )
 
 
 def test_deadman_motion_release_and_focus_loss_disable_next_poll() -> None:

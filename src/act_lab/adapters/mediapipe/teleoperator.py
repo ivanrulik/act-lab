@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 
 from act_lab.adapters.mediapipe.config import WebcamConfig
 from act_lab.adapters.mediapipe.hand_tracker import HandSignal
+from act_lab.adapters.mediapipe.one_euro import OneEuroFilter
 from act_lab.domain import Action, CameraFrame, Observation, Pose
 
 
@@ -27,6 +28,7 @@ class TeleopDiagnostics:
     confidence: float | None
     frame_age_ms: float | None
     clutch_detected: bool
+    clutch_score: float | None
     clutch_active: bool
     calibration_id: str | None
     palm_xy: tuple[float, float] | None
@@ -34,6 +36,7 @@ class TeleopDiagnostics:
     clutch_anchor_scale: float | None
     depth_ratio: float | None
     command_offset_xyz_m: tuple[float, float, float]
+    command_velocity_xyz_m_s: tuple[float, float, float]
     commanded_gripper_position: float | None
 
 
@@ -72,6 +75,23 @@ class WebcamTeleoperator:
         self._anchor_signal: HandSignal | None = None
         self._anchor_pose: Pose | None = None
         self._filtered_offset = (0.0, 0.0, 0.0)
+        self._command_velocity = (0.0, 0.0, 0.0)
+        self._last_source_timestamp_ns: int | None = None
+        self._target_pose: Pose | None = None
+        self._gripper = 0.0
+        self._filters = (
+            OneEuroFilter(
+                config.xy_min_cutoff_hz, config.xy_beta, config.derivative_cutoff_hz
+            ),
+            OneEuroFilter(
+                config.xy_min_cutoff_hz, config.xy_beta, config.derivative_cutoff_hz
+            ),
+            OneEuroFilter(
+                config.depth_min_cutoff_hz,
+                config.depth_beta,
+                config.derivative_cutoff_hz,
+            ),
+        )
         self._last_action: Action | None = None
         self._state = "uncalibrated"
         self._quit_requested = False
@@ -108,7 +128,12 @@ class WebcamTeleoperator:
                     if received_ns is not None
                     else None
                 ),
-                clutch_detected=signal.clutch if signal else False,
+                clutch_detected=(
+                    signal.clutch_score >= self._config.clutch_extension_margin
+                    if signal
+                    else False
+                ),
+                clutch_score=signal.clutch_score if signal else None,
                 clutch_active=self._clutch_active,
                 calibration_id=(
                     self._calibration.calibration_id if self._calibration else None
@@ -128,6 +153,7 @@ class WebcamTeleoperator:
                     else None
                 ),
                 command_offset_xyz_m=self._filtered_offset,
+                command_velocity_xyz_m_s=self._command_velocity,
                 commanded_gripper_position=(
                     self._last_action.gripper_position if self._last_action else None
                 ),
@@ -207,7 +233,12 @@ class WebcamTeleoperator:
                 return self._disable(observation, "uncalibrated")
             if signal.handedness != self._calibration.handedness:
                 return self._disable(observation, "handedness_changed")
-            if not signal.clutch:
+            clutch_released = (
+                self._clutch_active
+                and signal.clutch_score <= self._config.clutch_release_margin
+            )
+            clutch_engaged = signal.clutch_score >= self._config.clutch_extension_margin
+            if clutch_released or (not self._clutch_active and not clutch_engaged):
                 self._disengage_locked()
                 return self._disable(observation, "clutch_released")
             self._clutch_count += 1
@@ -219,6 +250,11 @@ class WebcamTeleoperator:
                 self._anchor_signal = signal
                 self._anchor_pose = observation.robot.end_effector_pose
                 self._filtered_offset = (0.0, 0.0, 0.0)
+                self._command_velocity = (0.0, 0.0, 0.0)
+                self._last_source_timestamp_ns = signal.source_timestamp_ns
+                self._target_pose = observation.robot.end_effector_pose
+                for input_filter in self._filters:
+                    input_filter.reset()
             assert self._anchor_signal is not None
             assert self._anchor_pose is not None
             action = self._map(signal, observation)
@@ -278,6 +314,7 @@ class WebcamTeleoperator:
                     calibration_id=calibration_id,
                 )
                 self._calibration_requested = False
+                self._gripper = observation.robot.gripper_position
                 self._calibration_samples.clear()
                 self._state = "ready"
             else:
@@ -286,24 +323,106 @@ class WebcamTeleoperator:
         return self._last_action
 
     def _map(self, signal: HandSignal, observation: Observation) -> Action:
+        if self._config.mapping_mode == "position":
+            return self._map_position(signal, observation)
+        return self._map_velocity(signal, observation)
+
+    def _input_components(self, signal: HandSignal) -> tuple[float, float, float]:
         assert self._anchor_signal is not None
-        assert self._anchor_pose is not None
         scale = self._anchor_signal.palm_scale
-        image_x = _dead_zone(
+        return (
             (signal.palm_x - self._anchor_signal.palm_x) / scale,
-            self._config.image_xy_dead_zone,
-        )
-        image_y = _dead_zone(
             (signal.palm_y - self._anchor_signal.palm_y) / scale,
-            self._config.image_xy_dead_zone,
-        )
-        # Log scale makes equal toward/away ratios produce equal and opposite
-        # displacement. Apparent palm size is the noisiest monocular signal,
-        # so it has its own dead zone and stronger low-pass filter below.
-        depth = _dead_zone(
             math.log(signal.apparent_scale / self._anchor_signal.apparent_scale),
-            self._config.depth_dead_zone,
         )
+
+    def _gripper_target(self, signal: HandSignal) -> float:
+        if signal.pinch_ratio <= self._config.pinch_closed_ratio:
+            self._gripper = 0.0
+        elif signal.pinch_ratio >= self._config.pinch_open_ratio:
+            self._gripper = 1.0
+        return self._gripper
+
+    def _map_velocity(self, signal: HandSignal, observation: Observation) -> Action:
+        assert self._target_pose is not None
+        raw_x, raw_y, raw_depth = self._input_components(signal)
+        filtered_x, filtered_y, filtered_depth = (
+            input_filter.filter(value, signal.source_timestamp_ns)
+            for input_filter, value in zip(
+                self._filters, (raw_x, raw_y, raw_depth), strict=True
+            )
+        )
+        velocity = (
+            _response(
+                filtered_y,
+                self._config.image_xy_dead_zone,
+                self._config.xy_saturation,
+                self._config.response_exponent,
+            )
+            * -self._config.xy_max_velocity_m_s,
+            _response(
+                filtered_x,
+                self._config.image_xy_dead_zone,
+                self._config.xy_saturation,
+                self._config.response_exponent,
+            )
+            * -self._config.xy_max_velocity_m_s,
+            _response(
+                filtered_depth,
+                self._config.depth_dead_zone,
+                self._config.depth_saturation,
+                self._config.response_exponent,
+            )
+            * -self._config.z_max_velocity_m_s,
+        )
+        previous_timestamp = self._last_source_timestamp_ns
+        dt = (
+            min(
+                0.1,
+                max(
+                    0.0,
+                    (signal.source_timestamp_ns - previous_timestamp) / 1_000_000_000,
+                ),
+            )
+            if previous_timestamp is not None
+            else 0.0
+        )
+        self._last_source_timestamp_ns = signal.source_timestamp_ns
+        requested_values = tuple(
+            value + speed * dt
+            for value, speed in zip(
+                self._target_pose.position_xyz_m, velocity, strict=True
+            )
+        )
+        requested = _limit_lead(
+            (requested_values[0], requested_values[1], requested_values[2]),
+            observation.robot.end_effector_pose.position_xyz_m,
+            self._config.max_target_lead_m,
+        )
+        self._target_pose = Pose("world", requested, self._target_pose.quaternion_wxyz)
+        self._command_velocity = velocity
+        offset = tuple(
+            target - actual
+            for target, actual in zip(
+                requested,
+                observation.robot.end_effector_pose.position_xyz_m,
+                strict=True,
+            )
+        )
+        self._filtered_offset = (offset[0], offset[1], offset[2])
+        return Action(
+            observation.timestamp_ns,
+            self._target_pose,
+            self._gripper_target(signal),
+            True,
+        )
+
+    def _map_position(self, signal: HandSignal, observation: Observation) -> Action:
+        assert self._anchor_pose is not None
+        raw_x, raw_y, raw_depth = self._input_components(signal)
+        image_x = _dead_zone(raw_x, self._config.image_xy_dead_zone)
+        image_y = _dead_zone(raw_y, self._config.image_xy_dead_zone)
+        depth = _dead_zone(raw_depth, self._config.depth_dead_zone)
         desired = (
             image_y * self._config.world_x_gain_m,
             image_x * self._config.world_y_gain_m,
@@ -331,13 +450,11 @@ class WebcamTeleoperator:
             position_xyz_m=(position[0], position[1], position[2]),
             quaternion_wxyz=self._anchor_pose.quaternion_wxyz,
         )
-        gripper = (signal.pinch_ratio - self._config.pinch_closed_ratio) / (
-            self._config.pinch_open_ratio - self._config.pinch_closed_ratio
-        )
+        self._command_velocity = (0.0, 0.0, 0.0)
         return Action(
             timestamp_ns=observation.timestamp_ns,
             target_pose=target_pose,
-            gripper_position=min(max(gripper, 0.0), 1.0),
+            gripper_position=self._gripper_target(signal),
             enabled=True,
         )
 
@@ -359,6 +476,11 @@ class WebcamTeleoperator:
         self._anchor_signal = None
         self._anchor_pose = None
         self._filtered_offset = (0.0, 0.0, 0.0)
+        self._command_velocity = (0.0, 0.0, 0.0)
+        self._last_source_timestamp_ns = None
+        self._target_pose = None
+        for input_filter in self._filters:
+            input_filter.reset()
 
 
 def _disabled_action(observation: Observation, timestamp_ns: int) -> Action:
@@ -377,15 +499,49 @@ def _dead_zone(value: float, threshold: float) -> float:
     return math.copysign((magnitude - threshold) / (1.0 - threshold), value)
 
 
+def _response(
+    value: float, dead_zone: float, saturation: float, exponent: float
+) -> float:
+    magnitude = abs(value)
+    if magnitude <= dead_zone:
+        return 0.0
+    normalized = min(1.0, (magnitude - dead_zone) / (saturation - dead_zone))
+    return math.copysign(normalized**exponent, value)
+
+
+def _limit_lead(
+    target: tuple[float, float, float],
+    actual: tuple[float, float, float],
+    maximum: float,
+) -> tuple[float, float, float]:
+    delta_values = tuple(
+        goal - current for goal, current in zip(target, actual, strict=True)
+    )
+    delta = (delta_values[0], delta_values[1], delta_values[2])
+    norm = math.sqrt(sum(value * value for value in delta))
+    if norm <= maximum:
+        return target
+    scale = maximum / norm
+    result = tuple(
+        current + value * scale for current, value in zip(actual, delta, strict=True)
+    )
+    return result[0], result[1], result[2]
+
+
 def _finite_signal(signal: HandSignal) -> bool:
-    return signal.palm_scale > 0.0 and signal.apparent_scale > 0.0 and all(
-        math.isfinite(value)
-        for value in (
-            signal.confidence,
-            signal.palm_x,
-            signal.palm_y,
-            signal.palm_scale,
-            signal.apparent_scale,
-            signal.pinch_ratio,
+    return (
+        signal.palm_scale > 0.0
+        and signal.apparent_scale > 0.0
+        and all(
+            math.isfinite(value)
+            for value in (
+                signal.confidence,
+                signal.palm_x,
+                signal.palm_y,
+                signal.palm_scale,
+                signal.apparent_scale,
+                signal.pinch_ratio,
+                signal.clutch_score,
+            )
         )
     )

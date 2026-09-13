@@ -27,6 +27,17 @@ class MujocoCartesianDriver:
         self._data = environment._data  # noqa: SLF001
         self._scratch = mujoco.MjData(self._model)
         self._joint_ids = environment._arm_joint_ids  # noqa: SLF001
+        self._velocity_actuator_ids = tuple(
+            self._named_id(mujoco.mjtObj.mjOBJ_ACTUATOR, f"{name}_velocity")
+            for name in (
+                "shoulder_pan",
+                "shoulder_lift",
+                "elbow",
+                "wrist_1",
+                "wrist_2",
+                "wrist_3",
+            )
+        )
         self._qpos_addresses = tuple(
             int(self._model.jnt_qposadr[joint_id]) for joint_id in self._joint_ids
         )
@@ -203,7 +214,9 @@ class MujocoCartesianDriver:
             return False
         return True
 
-    def step(self, joints: JointVector, gripper: float) -> RobotState:
+    def step(
+        self, joints: JointVector, joint_velocity: JointVector, gripper: float
+    ) -> RobotState:
         start_position = self._data.site_xpos[self._site_id].copy()
         current_joints = tuple(
             float(self._data.qpos[address]) for address in self._qpos_addresses
@@ -227,6 +240,10 @@ class MujocoCartesianDriver:
                 current + (target - current) * scale
                 for current, target in zip(current_joints, joints, strict=True)
             )
+            for actuator_id, velocity in zip(
+                self._velocity_actuator_ids, joint_velocity, strict=True
+            ):
+                self._data.ctrl[actuator_id] = velocity * scale
             state = self._environment.step(
                 ActuatorTargets(_joint_vector(scaled), gripper)
             ).robot
@@ -238,9 +255,38 @@ class MujocoCartesianDriver:
                     )
                 )
                 <= maximum_distance + 1e-9
+                and self._resulting_state_is_safe(state)
             ):
                 return state
-        return state
+        mujoco.mj_copyData(self._data, self._model, backup)
+        self._environment._physics_ticks = physics_ticks  # noqa: SLF001
+        self._environment._environment_steps = environment_steps  # noqa: SLF001
+        self._environment._settled_steps = settled_steps  # noqa: SLF001
+        for dof in self._dof_addresses:
+            self._data.qvel[dof] = 0.0
+        for actuator_id in self._velocity_actuator_ids:
+            self._data.ctrl[actuator_id] = 0.0
+        return self._environment.step(
+            ActuatorTargets(_joint_vector(current_joints), gripper)
+        ).robot
+
+    def _resulting_state_is_safe(self, state: RobotState) -> bool:
+        position = state.end_effector_pose.position_xyz_m
+        control = self._config.control
+        in_workspace = all(
+            lower - 1e-9 <= value <= upper + 1e-9
+            for value, (lower, upper) in zip(
+                position,
+                (
+                    control.workspace_x_m,
+                    control.workspace_y_m,
+                    control.workspace_z_m,
+                ),
+                strict=True,
+            )
+        )
+        joints = _joint_vector(tuple(state.joint_positions_rad))
+        return in_workspace and self.collision_free(joints, state.gripper_position)
 
     def close(self) -> None:
         self._environment.close()

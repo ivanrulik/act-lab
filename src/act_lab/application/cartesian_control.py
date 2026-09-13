@@ -22,6 +22,9 @@ Quaternion = tuple[float, float, float, float]
 
 class SafetyLimits(Protocol):
     @property
+    def pose_response_time_s(self) -> float: ...
+
+    @property
     def watchdog_timeout_ns(self) -> int: ...
 
     @property
@@ -35,6 +38,9 @@ class SafetyLimits(Protocol):
 
     @property
     def max_translation_velocity_m_s(self) -> float: ...
+
+    @property
+    def max_command_translation_velocity_m_s(self) -> float: ...
 
     @property
     def max_translation_acceleration_m_s2(self) -> float: ...
@@ -77,7 +83,9 @@ class CartesianDriver(Protocol):
 
     def collision_free(self, joints: JointVector, gripper: float) -> bool: ...
 
-    def step(self, joints: JointVector, gripper: float) -> RobotState: ...
+    def step(
+        self, joints: JointVector, joint_velocity: JointVector, gripper: float
+    ) -> RobotState: ...
 
 
 @dataclass(slots=True)
@@ -129,6 +137,8 @@ class SafeCartesianRobot:
                 state.gripper_position,
                 _joint_vector(state.joint_positions_rad),
             )
+        else:
+            self._sync_measured_state(state)
 
         timestamp_error = self._timestamp_error(action, state.timestamp_ns)
         if timestamp_error is not None:
@@ -170,19 +180,40 @@ class SafeCartesianRobot:
             gripper_position=gripper,
             enabled=True,
         )
-        resulting_state = self._driver.step(joints, gripper)
+        resulting_state = self._driver.step(joints, joint_velocity, gripper)
         assert self._history is not None
-        self._history.pose = target_pose
+        commanded_linear_velocity = self._history.linear_velocity
+        commanded_angular_velocity = self._history.angular_velocity
+        measured_speed = _translation_speed(state, resulting_state)
+        self._sync_measured_state(resulting_state)
+        self._history.linear_velocity = commanded_linear_velocity
+        self._history.angular_velocity = commanded_angular_velocity
         self._history.gripper = gripper
-        self._history.joint_positions = joints
         self._history.joint_velocity = joint_velocity
         limited = workspace_limited or pose_limited or gripper_limited or joints_limited
         outcome = CommandOutcome.LIMITED if limited else CommandOutcome.APPLIED
         detail = "command limited by safety envelope" if limited else "command applied"
         self._last_report = CommandReport(
-            outcome, action, executed, resulting_state, detail
+            outcome,
+            action,
+            executed,
+            resulting_state,
+            detail,
+            commanded_cartesian_speed_m_s=_norm(commanded_linear_velocity),
+            measured_cartesian_speed_m_s=measured_speed,
+            tracking_error_m=math.dist(
+                target_pose.position_xyz_m,
+                resulting_state.end_effector_pose.position_xyz_m,
+            ),
+            command_age_ms=(state.timestamp_ns - action.timestamp_ns) / 1_000_000.0,
         )
         return resulting_state
+
+    def _sync_measured_state(self, state: RobotState) -> None:
+        """Refresh position feedback without changing commanded rate history."""
+        assert self._history is not None
+        self._history.pose = state.end_effector_pose
+        self._history.joint_positions = _joint_vector(state.joint_positions_rad)
 
     def _timestamp_error(
         self, action: Action, now_ns: int
@@ -234,11 +265,16 @@ class SafeCartesianRobot:
         assert self._history is not None
         dt = self._driver.control_period_s
         delta = _subtract(target.position_xyz_m, self._history.pose.position_xyz_m)
-        desired_linear = _scale(delta, 1.0 / dt)
-        # Leave servo-tracking headroom so measured discrete-time motion also
-        # remains below the configured hard ceiling under MuJoCo dynamics.
-        tracking_safe_velocity = self._limits.max_translation_velocity_m_s * 0.5
-        linear = _limit_vector(desired_linear, tracking_safe_velocity)
+        # Correct measured error over a response horizon, not in one cycle:
+        # a one-cycle correction excites the lagging velocity/position servos.
+        response_time = max(dt, self._limits.pose_response_time_s)
+        desired_linear = _scale(delta, 1.0 / response_time)
+        # Command and measured-motion ceilings are explicit: the application
+        # shapes intent while the adapter independently guards observed motion.
+        linear = _limit_vector(
+            desired_linear,
+            self._limits.max_command_translation_velocity_m_s,
+        )
         linear = _limit_delta(
             linear,
             self._history.linear_velocity,
@@ -249,7 +285,7 @@ class SafeCartesianRobot:
         rotation_error = _quaternion_error_vector(
             target.quaternion_wxyz, self._history.pose.quaternion_wxyz
         )
-        desired_angular = _scale(rotation_error, 1.0 / dt)
+        desired_angular = _scale(rotation_error, 1.0 / response_time)
         angular = _limit_vector(
             desired_angular, self._limits.max_orientation_velocity_rad_s
         )
@@ -292,6 +328,8 @@ class SafeCartesianRobot:
             self._driver.joint_position_bounds_rad,
             strict=True,
         ):
+            lower = bounds[0] + self._limits.joint_bound_margin_rad
+            upper = bounds[1] - self._limits.joint_bound_margin_rad
             desired_velocity = (target_value - current) / dt
             velocity = min(
                 max(
@@ -306,8 +344,6 @@ class SafeCartesianRobot:
                 self._limits.max_joint_velocity_rad_s,
             )
             value = current + velocity * dt
-            lower = bounds[0] + self._limits.joint_bound_margin_rad
-            upper = bounds[1] - self._limits.joint_bound_margin_rad
             bounded = min(max(value, lower), upper)
             if not math.isclose(bounded, target_value, abs_tol=1e-12):
                 limited = True
@@ -323,15 +359,33 @@ class SafeCartesianRobot:
         detail: str,
     ) -> RobotState:
         assert self._history is not None
-        self._history = _MotionHistory(
-            state.end_effector_pose,
-            state.gripper_position,
-            _joint_vector(state.joint_positions_rad),
-        )
         joints = _joint_vector(state.joint_positions_rad)
-        resulting_state = self._driver.step(joints, state.gripper_position)
+        # Preserve the last accepted, rate-limited aperture to maintain grip
+        # force under contact deflection. Never consume the rejected payload.
+        gripper = self._history.gripper
+        resulting_state = self._driver.step(
+            joints, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), gripper
+        )
+        measured_speed = _translation_speed(state, resulting_state)
+        self._history = _MotionHistory(
+            resulting_state.end_effector_pose,
+            gripper,
+            _joint_vector(resulting_state.joint_positions_rad),
+        )
         self._last_report = CommandReport(
-            outcome, action, None, resulting_state, detail
+            outcome,
+            action,
+            None,
+            resulting_state,
+            detail,
+            measured_cartesian_speed_m_s=measured_speed,
+            tracking_error_m=math.dist(
+                state.end_effector_pose.position_xyz_m,
+                resulting_state.end_effector_pose.position_xyz_m,
+            ),
+            command_age_ms=max(
+                0.0, (state.timestamp_ns - action.timestamp_ns) / 1_000_000.0
+            ),
         )
         return resulting_state
 
@@ -356,6 +410,16 @@ def _scale(value: Vector3, factor: float) -> Vector3:
 
 def _norm(value: Vector3) -> float:
     return math.sqrt(sum(component * component for component in value))
+
+
+def _translation_speed(before: RobotState, after: RobotState) -> float:
+    dt_s = (after.timestamp_ns - before.timestamp_ns) / 1_000_000_000.0
+    if dt_s <= 0.0:
+        return 0.0
+    return math.dist(
+        before.end_effector_pose.position_xyz_m,
+        after.end_effector_pose.position_xyz_m,
+    ) / dt_s
 
 
 def _limit_vector(value: Vector3, maximum: float) -> Vector3:

@@ -48,7 +48,10 @@ class FakeCartesianDriver:
         del joints, gripper
         return self.is_collision_free
 
-    def step(self, joints: JointVector, gripper: float) -> RobotState:
+    def step(
+        self, joints: JointVector, joint_velocity: JointVector, gripper: float
+    ) -> RobotState:
+        del joint_velocity
         self.state = self._state(
             self.state.timestamp_ns + 20_000_000,
             joints,
@@ -65,6 +68,49 @@ class FakeCartesianDriver:
         gripper: float,
     ) -> RobotState:
         return RobotState(timestamp_ns, joints, (0.0,) * 6, pose, gripper)
+
+
+class LaggingCartesianDriver(FakeCartesianDriver):
+    def step(
+        self, joints: JointVector, joint_velocity: JointVector, gripper: float
+    ) -> RobotState:
+        del joint_velocity
+        old = self.state
+        fraction = 0.1
+        measured_values = tuple(
+            current + fraction * (target - current)
+            for current, target in zip(
+                old.joint_positions_rad, joints, strict=True
+            )
+        )
+        measured_joints: JointVector = (
+            measured_values[0],
+            measured_values[1],
+            measured_values[2],
+            measured_values[3],
+            measured_values[4],
+            measured_values[5],
+        )
+        measured_position = tuple(
+            current + fraction * (target - current)
+            for current, target in zip(
+                old.end_effector_pose.position_xyz_m,
+                self.pose_from_ik.position_xyz_m,
+                strict=True,
+            )
+        )
+        measured_pose = Pose(
+            "world",
+            measured_position,  # type: ignore[arg-type]
+            self.pose_from_ik.quaternion_wxyz,
+        )
+        self.state = self._state(
+            old.timestamp_ns + 20_000_000,
+            measured_joints,
+            measured_pose,
+            old.gripper_position + fraction * (gripper - old.gripper_position),
+        )
+        return self.state
 
 
 def make_robot() -> tuple[SafeCartesianRobot, FakeCartesianDriver]:
@@ -177,7 +223,9 @@ def test_workspace_clipping_uses_configured_boundary() -> None:
     driver = FakeCartesianDriver()
     limits = replace(
         CONFIG.control,
+        pose_response_time_s=0.02,
         max_translation_velocity_m_s=1_000.0,
+        max_command_translation_velocity_m_s=1_000.0,
         max_translation_acceleration_m_s2=1_000_000.0,
     )
     robot = SafeCartesianRobot(driver, limits)
@@ -234,3 +282,72 @@ def test_reset_clears_rate_and_watchdog_history() -> None:
     assert executed.target_pose.position_xyz_m[0] == pytest.approx(
         HOME_POSE.position_xyz_m[0] + first_delta
     )
+
+
+def test_limited_trajectory_is_recomputed_from_measured_feedback() -> None:
+    driver = LaggingCartesianDriver()
+    robot = SafeCartesianRobot(driver, CONFIG.control)
+    state = robot.reset(0).robot
+    target = Pose("world", (0.21, 0.0, 0.6), HOME_POSE.quaternion_wxyz)
+
+    state = robot.command(Action(state.timestamp_ns, target, 0.0, True))
+    assert state.end_effector_pose.position_xyz_m[0] == pytest.approx(0.20004)
+    state = robot.command(Action(state.timestamp_ns, target, 0.0, True))
+
+    assert robot.last_report is not None
+    assert robot.last_report.executed_action is not None
+    assert robot.last_report.executed_action.target_pose.position_xyz_m[0] == (
+        pytest.approx(0.20084)
+    )
+    assert robot.last_report.tracking_error_m == pytest.approx(0.00072)
+
+
+def test_disabled_input_during_lag_holds_measured_state_and_resets_rates() -> None:
+    driver = LaggingCartesianDriver()
+    robot = SafeCartesianRobot(driver, CONFIG.control)
+    state = robot.reset(0).robot
+    target = Pose("world", (0.3, 0.0, 0.6), HOME_POSE.quaternion_wxyz)
+    state = robot.command(Action(state.timestamp_ns, target, 0.0, True))
+
+    held = robot.command(Action(state.timestamp_ns, target, 0.0, False))
+    assert robot.last_report is not None
+    assert robot.last_report.outcome is CommandOutcome.DISABLED
+    assert robot.last_report.executed_action is None
+    reengaged = robot.command(
+        Action(
+            held.timestamp_ns,
+            held.end_effector_pose,
+            held.gripper_position,
+            True,
+        )
+    )
+
+    assert robot.last_report is not None
+    assert robot.last_report.commanded_cartesian_speed_m_s == pytest.approx(0.0)
+    assert reengaged.end_effector_pose.position_xyz_m == pytest.approx(
+        held.end_effector_pose.position_xyz_m
+    )
+
+
+@pytest.mark.parametrize("reason", ["disabled", "stale", "invalid", "ik", "collision"])
+def test_hold_retains_only_accepted_gripper_ramp_step(reason: str) -> None:
+    driver = LaggingCartesianDriver()
+    robot = SafeCartesianRobot(driver, CONFIG.control)
+    state = robot.reset(0).robot
+    state = robot.command(Action(state.timestamp_ns, HOME_POSE, 1.0, True))
+    assert state.gripper_position == pytest.approx(0.004)
+    timestamp = state.timestamp_ns
+    if reason == "stale":
+        timestamp -= CONFIG.control.watchdog_timeout_ns
+    if reason == "ik":
+        driver.ik_result = None
+    if reason == "collision":
+        driver.is_collision_free = False
+    state = robot.command(
+        Action(timestamp, HOME_POSE, 2.0 if reason == "invalid" else 0.0,
+               reason != "disabled")
+    )
+    # Last accepted ramp aperture was .04, despite measured deflection to .004.
+    assert state.gripper_position == pytest.approx(0.004 + 0.1 * (0.04 - 0.004))
+    robot.reset(0)
+    assert robot.command(action(enabled=False)).gripper_position == 0.0

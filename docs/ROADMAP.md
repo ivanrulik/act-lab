@@ -57,6 +57,10 @@ tracking loss, the 100 ms watchdog boundary, and recorded MediaPipe input.
 Live camera and X11 behavior remain environment-specific validation and must be
 reported separately when run.
 
+PR 5.1 replaces the default position mapper with velocity-style webcam control,
+adaptive filtering, hysteretic gestures, explicit command-speed limits, and
+latency/drop diagnostics. The original mapper remains available for comparison.
+
 Add MediaPipe capture/tracking, neutral-pose calibration, clutch, dead zones,
 filtering, confidence gating, pinch gripper mapping, diagnostics, and recorded
 video input for tests.
@@ -65,6 +69,14 @@ Acceptance: tracking loss stops motion within the watchdog deadline; physical
 camera access requires neither root nor a privileged container.
 
 ## PR 6 — Versioned MCAP episode recording
+
+Controller convergence, lifted-cube pause/resume tests, and the 20-seed scripted
+benchmark pass. The operator reports keyboard seeds 0–4 successful and successful
+live webcam pick/place plus clutch pause/resume. The operator closed this testing
+round with intermittent webcam frustration remaining; quantitative webcam timing
+and latency acceptance are not claimed. Follow-up: measured webcam usability
+benchmark and ergonomic tuning, informed by recorded failed/discarded attempts.
+See `controller-readiness.md` for the evidence and limitations.
 
 Add Protobuf schemas, shared monotonic timestamps, episode lifecycle, atomic
 finalization, provenance metadata, channel inspection, and recovery tests.

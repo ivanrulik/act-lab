@@ -16,11 +16,27 @@ _PALM = (0, 5, 9, 17)
 _APPARENT_SCALE_SPANS = ((0, 9), (5, 17), (5, 13), (9, 17))
 _CLUTCH_FINGERS = ((10, 12), (14, 16), (18, 20))
 _CONNECTIONS = (
-    (0, 1), (1, 2), (2, 3), (3, 4),
-    (0, 5), (5, 6), (6, 7), (7, 8),
-    (5, 9), (9, 10), (10, 11), (11, 12),
-    (9, 13), (13, 14), (14, 15), (15, 16),
-    (13, 17), (0, 17), (17, 18), (18, 19), (19, 20),
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (5, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (9, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+    (13, 17),
+    (0, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
 )
 
 
@@ -34,6 +50,7 @@ class HandSignal:
     palm_scale: float
     apparent_scale: float
     pinch_ratio: float
+    clutch_score: float
     clutch: bool
     preview: CameraFrame
 
@@ -91,12 +108,12 @@ class MediaPipeHandTracker:
             return None
         pinch_ratio = _distance(landmarks[4], landmarks[8]) / palm_scale
         wrist = landmarks[0]
-        clutch = all(
-            _distance(landmarks[tip], wrist)
-            > _distance(landmarks[pip], wrist)
-            + self._config.clutch_extension_margin * palm_scale
+        clutch_score = min(
+            (_distance(landmarks[tip], wrist) - _distance(landmarks[pip], wrist))
+            / palm_scale
             for pip, tip in _CLUTCH_FINGERS
         )
+        clutch = clutch_score >= self._config.clutch_extension_margin
         preview = _annotate(frame, landmarks, clutch)
         return HandSignal(
             source_timestamp_ns=frame.timestamp_ns,
@@ -107,6 +124,7 @@ class MediaPipeHandTracker:
             palm_scale=palm_scale,
             apparent_scale=apparent_scale,
             pinch_ratio=pinch_ratio,
+            clutch_score=clutch_score,
             clutch=clutch,
             preview=preview,
         )
@@ -146,9 +164,11 @@ def _annotate(
 ) -> CameraFrame:
     import cv2
 
-    pixels = np.frombuffer(frame.rgb_bytes, dtype=np.uint8).reshape(
-        frame.height, frame.width, 3
-    ).copy()
+    pixels = (
+        np.frombuffer(frame.rgb_bytes, dtype=np.uint8)
+        .reshape(frame.height, frame.width, 3)
+        .copy()
+    )
     points = tuple(
         (round(point[0] * frame.width), round(point[1] * frame.height))
         for point in landmarks
@@ -158,6 +178,4 @@ def _annotate(
         cv2.line(pixels, points[start], points[end], color, 2)
     for point in points:
         cv2.circle(pixels, point, 3, (255, 255, 255), -1)
-    return CameraFrame(
-        frame.timestamp_ns, frame.width, frame.height, pixels.tobytes()
-    )
+    return CameraFrame(frame.timestamp_ns, frame.width, frame.height, pixels.tobytes())

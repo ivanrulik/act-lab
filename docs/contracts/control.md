@@ -45,8 +45,16 @@ hard limit.
 intent, executed limited intent when applicable, resulting state, detail, and
 one outcome: `applied`, `limited`, `disabled`, `stale`, `invalid`,
 `ik_failure`, or `collision_stop`. Disabled, stale, invalid, non-convergent,
-and collision-causing commands hold the observed joint and gripper positions.
+and collision-causing commands hold observed arm joint positions with zero
+commanded velocity and cleared arm rate history. They retain the last accepted,
+rate-limited gripper aperture to preserve squeeze under contact deflection;
+rejected payloads cannot change it. Fingers may settle toward that aperture.
 These expected safety interventions do not raise exceptions.
+
+Cartesian and joint steps use measured feedback, not the previous requested
+position. Commanded velocities are retained separately for acceleration limits.
+Pose error is corrected over `pose_response_time_s` (0.10 s); commanded
+translation is capped at 0.125 m/s. See ADR 009 for servo and hold semantics.
 
 ## Teleoperation
 
@@ -57,21 +65,31 @@ with episode provenance.
 
 Webcam control requires `Enter` to collect 15 stable hand samples. Calibration
 records the median palm location and scale, detected handedness, current robot
-pose, and a stable identifier. Middle, ring, and little fingers extended for
-three consecutive frames engage motion; any loss of that gesture disengages
-immediately. Re-engagement anchors the current hand signal to the current robot
-pose so clutching never jumps to an old target.
+pose, and a stable identifier. Middle, ring, and little fingers confidently
+extended for two consecutive frames engage motion. A separate release threshold
+prevents marginal landmark jitter from chattering the clutch; a clear release
+disengages immediately. Re-engagement anchors the current hand signal to the
+current robot pose so clutching never jumps to an old target.
+
+Velocity mapping is the default. Calibrated hand displacement passes through a
+dead zone, saturation, nonlinear response curve, and timestamp-aware adaptive
+filter, then integrates into a short-horizon Cartesian target. Distance from
+neutral controls speed, allowing fine motion near the center and faster coarse
+travel near saturation. The original relative position mapper remains an
+explicit configuration option.
 
 Mirrored screen-right maps to world `-Y`, screen-up to world `+X`, and a larger
 palm scale maps to world `-Z`. The depth proxy uses the logarithm of a projected
 multi-span palm-size ratio, excluding MediaPipe's pose-relative landmark Z
 values, so equal motion toward and away from the camera is symmetric. It has a
-dedicated dead zone and depth-only smoothing. Orientation remains the calibrated
-robot orientation. Filtering
-applies before the normal safety envelope. Thumb/index distance normalized by
-palm width maps linearly between configured closed/open gripper thresholds.
+dedicated dead zone and depth-only filtering. Orientation remains the calibrated
+robot orientation. Filtering applies before the normal safety envelope.
+Thumb/index distance normalized by palm width uses hysteretic closed/open
+thresholds so the gripper does not chatter.
 
-Camera capture and inference run independently from the 50 Hz control loop.
+Camera capture and inference run independently from the 50 Hz control loop and
+share a one-frame latest-value mailbox. Frames that cannot be processed in time
+are counted and dropped rather than queued.
 Only a new valid hand sample refreshes the action timestamp using the current
 observation clock. Missing, older-than-80-ms, non-finite, low-confidence, or
 changed-handedness samples disable immediately; retained timestamps guarantee
@@ -83,11 +101,20 @@ configured episode-step timeout so operators can inspect the terminal status;
 only `Q`, closing the viewer, or an explicit CLI step limit ends the session.
 Its camera overlay displays the clutch anchor, image-plane dead zone, current
 hand displacement vector, raw palm-scale depth ratio, signed anchor-relative
-XYZ command, and state. The
+XYZ velocity command, clutch score, frame latency, and state. The
 3D view displays the requested end-effector target and an actual-to-target
 arrow. Target colors distinguish accepted, safety-limited, and rejected
 commands; the text HUD separately reports requested pose, actual pose, pose
 error, gripper command, tracking health, and the safety decision detail.
+
+Webcam usability validation uses two unscored practice runs followed by seeds
+0 through 4. Acceptance requires at least four successful pick/place attempts,
+a median successful completion time no greater than 30 seconds, every successful
+attempt below 45 seconds, p95 reported capture-to-action latency below 100 ms,
+and no unintended gripper transition or safety-bound violation. The report
+contains aggregate session metrics and resolved configuration, never camera
+frames. This manual result must not be claimed unless a physical camera and X11
+viewer were actually used.
 
 `Teleoperator.poll(Observation) -> Action` uses the observation's monotonic
 timestamp. With the viewer focused, either Shift key is a held deadman; `W/S`

@@ -17,6 +17,9 @@ class FakeCapture:
         self.settings.append((prop, value))
         return True
 
+    def get(self, _prop: int) -> float:
+        return 30.0
+
     def release(self) -> None:
         pass
 
@@ -32,6 +35,7 @@ def test_live_camera_selects_v4l2_and_negotiates_yuyv_first(monkeypatch) -> None
     fake_cv2 = SimpleNamespace(
         CAP_V4L2=200,
         CAP_PROP_FOURCC=6,
+        CAP_PROP_BUFFERSIZE=38,
         CAP_PROP_FRAME_WIDTH=3,
         CAP_PROP_FRAME_HEIGHT=4,
         CAP_PROP_FPS=5,
@@ -45,6 +49,7 @@ def test_live_camera_selects_v4l2_and_negotiates_yuyv_first(monkeypatch) -> None
 
     assert calls == [(0, fake_cv2.CAP_V4L2)]
     assert capture.settings == [
+        (fake_cv2.CAP_PROP_BUFFERSIZE, 1),
         (fake_cv2.CAP_PROP_FOURCC, 0x56595559),
         (fake_cv2.CAP_PROP_FRAME_WIDTH, 640),
         (fake_cv2.CAP_PROP_FRAME_HEIGHT, 480),
