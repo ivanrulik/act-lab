@@ -26,6 +26,17 @@ emits a disabled measured-pose hold on the next control cycle. `Q` is handled by
 both the X11 listener and MuJoCo's press callback so it reliably closes the
 viewer and process.
 
+Shutdown joins the input workers and closes the focus display. With pinned
+`pynput` 1.8, XRecord disable is sent on the listener's separate stop connection
+and flushed before joining; the recording connection is blocked awaiting replies.
+With pinned
+MuJoCo 3.12, `Handle.close()` only requests exit and `is_running()` immediately
+becomes false. The keyboard adapter therefore waits for the handle's internal
+simulation weak reference to expire after render destruction (with a five-second
+deadline), before allowing interpreter/GLFW cleanup. This version-specific seam
+must be checked on MuJoCo upgrades; it avoids racing GLFW termination against
+the still-running render thread.
+
 The X11 dependencies are confined to the `ui` optional dependency group and
 Docker target. Headless, training, evaluation, and noninteractive simulation
 profiles do not install or import them.
