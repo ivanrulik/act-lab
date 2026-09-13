@@ -11,11 +11,13 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class CartesianControlConfig:
+    pose_response_time_s: float
     watchdog_timeout_ms: int
     workspace_x_m: tuple[float, float]
     workspace_y_m: tuple[float, float]
     workspace_z_m: tuple[float, float]
     max_translation_velocity_m_s: float
+    max_command_translation_velocity_m_s: float
     max_translation_acceleration_m_s2: float
     max_orientation_velocity_rad_s: float
     max_orientation_acceleration_rad_s2: float
@@ -128,12 +130,16 @@ class SimulationConfig:
             render_height=_positive_int(render, "height"),
             cameras=_string_tuple(render, "cameras"),
             control=CartesianControlConfig(
+                pose_response_time_s=_positive_float(control, "pose_response_time_s"),
                 watchdog_timeout_ms=_positive_int(control, "watchdog_timeout_ms"),
                 workspace_x_m=_float_pair(control, "workspace_x_m"),
                 workspace_y_m=_float_pair(control, "workspace_y_m"),
                 workspace_z_m=_float_pair(control, "workspace_z_m"),
                 max_translation_velocity_m_s=_positive_float(
                     control, "max_translation_velocity_m_s"
+                ),
+                max_command_translation_velocity_m_s=_positive_float(
+                    control, "max_command_translation_velocity_m_s"
                 ),
                 max_translation_acceleration_m_s2=_positive_float(
                     control, "max_translation_acceleration_m_s2"
@@ -221,6 +227,13 @@ class SimulationConfig:
                 raise ValueError(f"{name} lower bound must be less than upper bound")
         if self.keyboard.gripper_nudge > 1.0:
             raise ValueError("gripper_nudge must be at most 1")
+        if (
+            self.control.max_command_translation_velocity_m_s
+            > self.control.max_translation_velocity_m_s
+        ):
+            raise ValueError(
+                "command translation velocity must not exceed the measured ceiling"
+            )
         if self.expert.gripper_tolerance > 1.0:
             raise ValueError("gripper_tolerance must be at most 1")
         if self.expert.closed_gripper >= self.expert.open_gripper:

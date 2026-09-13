@@ -37,7 +37,20 @@ def test_expert_validates_arguments(capsys: object) -> None:
     assert "min-success-rate must be in [0, 1]" in captured.err
 
 
-def test_expert_json_schema_and_exit_codes(capsys: object) -> None:
+def test_control_diagnostic_reports_reachable_motion_and_rejects_bad_target(
+    capsys: object,
+) -> None:
+    assert main(["sim", "control-diagnostic", "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
+    assert report["requested_distance_m"] == -0.1
+    assert report["measured_displacement_m"] >= 0.09
+    assert report["final_tracking_error_m"] < 0.002
+    assert main(["sim", "control-diagnostic", "--distance-m", "0.1"]) == 2
+    assert "not IK-reachable" in capsys.readouterr().err  # type: ignore[attr-defined]
+    assert main(["sim", "control-diagnostic", "--duration-s", "nan"]) == 2
+
+
+def test_expert_json_schema_and_exit_codes(capsys: object, tmp_path: Path) -> None:
     arguments = [
         "sim",
         "expert",
@@ -63,7 +76,13 @@ def test_expert_json_schema_and_exit_codes(capsys: object) -> None:
         "terminal_reason",
     }
 
-    arguments[arguments.index("0")] = "10"
+    config = tmp_path / "timeout.toml"
+    config.write_text(
+        Path("configs/sim/ur5e_pick_place.toml").read_text().replace(
+            "episode_steps = 500", "episode_steps = 1"
+        )
+    )
+    arguments.extend(["--config", str(config)])
     assert main(arguments) == 1
     failed = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
     assert failed["threshold_passed"] is False

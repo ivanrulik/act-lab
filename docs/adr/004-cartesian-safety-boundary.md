@@ -1,6 +1,7 @@
 # ADR 004: Application-owned Cartesian safety with adapter feasibility
 
 - Status: accepted
+- Partially superseded by ADR 009 for measured feedback and gripper holds.
 - Date: 2026-08-31
 
 ## Context

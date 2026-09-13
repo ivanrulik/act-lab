@@ -8,12 +8,86 @@ import mujoco
 import numpy as np
 import pytest
 
-from act_lab.adapters.mujoco import MujocoCartesianDriver, MujocoUR5eEnvironment
+from act_lab.adapters.mujoco import (
+    KeyboardTeleoperator,
+    MujocoCartesianDriver,
+    MujocoUR5eEnvironment,
+)
 from act_lab.adapters.mujoco.config import SimulationConfig
 from act_lab.application import SafeCartesianRobot
+from act_lab.application.scripted_expert import ExpertPhase, ScriptedPickPlaceExpert
 from act_lab.domain import Action, CommandOutcome, Pose, RobotState
 
 CONFIG_PATH = Path("configs/sim/ur5e_pick_place.toml")
+
+
+def test_held_keyboard_speed_and_release_with_real_servo() -> None:
+    config = SimulationConfig.load(CONFIG_PATH)
+    keyboard = KeyboardTeleoperator(config.keyboard, config.control)
+    keyboard.update_focus(True)
+    keyboard.update_key("shift", True)
+    keyboard.update_key("w", True)
+    with make_driver(config) as driver:
+        robot = SafeCartesianRobot(driver, config.control)
+        observation = robot.reset(0)
+        start = observation.robot.end_effector_pose.position_xyz_m
+        for _ in range(50):
+            robot.command(keyboard.poll(observation))
+            observation = robot.observe()
+        actual = observation.robot.end_effector_pose.position_xyz_m
+        assert 0.07 < actual[0] - start[0] < 0.12
+        keyboard.update_key("shift", False)
+        robot.command(keyboard.poll(observation))
+        assert robot.last_report is not None
+        assert robot.last_report.outcome is CommandOutcome.DISABLED
+        assert robot.last_report.commanded_cartesian_speed_m_s == 0.0
+        for _ in range(25):
+            robot.command(keyboard.poll(robot.observe()))
+        assert math.dist(
+            actual, robot.observe().robot.end_effector_pose.position_xyz_m
+        ) < 0.005
+
+
+@pytest.mark.parametrize("stale", [False, True])
+def test_lifted_cube_survives_input_loss_and_resumed_transit(stale: bool) -> None:
+    config = SimulationConfig.load(CONFIG_PATH)
+    with make_driver(config) as driver:
+        robot = SafeCartesianRobot(driver, config.control)
+        observation = robot.reset(0)
+        expert = ScriptedPickPlaceExpert(driver.environment, config.expert)
+        expert.reset(observation)
+        for _ in range(400):
+            robot.command(expert.poll(observation))
+            observation = robot.observe()
+            if expert.phase is ExpertPhase.TRANSIT:
+                break
+        assert expert.phase is ExpertPhase.TRANSIT
+        cube_z = driver.environment.task_state().cube_pose.position_xyz_m[2]
+        assert cube_z > config.cube_center_z_m + 0.04
+        held_pose = observation.robot.end_effector_pose
+        # An untrusted open command must not remove the accepted squeeze.
+        for _ in range(50):
+            timestamp = observation.timestamp_ns
+            if stale:
+                timestamp -= config.control.watchdog_timeout_ns
+            robot.command(Action(timestamp, held_pose, 1.0, enabled=stale))
+            observation = robot.observe()
+            assert robot.last_report is not None
+            assert robot.last_report.outcome is (
+                CommandOutcome.STALE if stale else CommandOutcome.DISABLED
+            )
+            assert math.dist(
+                held_pose.position_xyz_m,
+                observation.robot.end_effector_pose.position_xyz_m,
+            ) < 0.005
+            actual_z = driver.environment.task_state().cube_pose.position_xyz_m[2]
+            assert actual_z > cube_z - 0.01
+        # Resume arm motion while retaining the same closed-gripper intent.
+        for _ in range(25):
+            robot.command(expert.poll(observation))
+            observation = robot.observe()
+        actual_z = driver.environment.task_state().cube_pose.position_xyz_m[2]
+        assert actual_z > cube_z - 0.01
 
 
 def make_driver(config: SimulationConfig | None = None) -> MujocoCartesianDriver:
@@ -48,6 +122,7 @@ def test_control_configuration_has_documented_defaults() -> None:
     assert control.workspace_y_m == (-0.35, 0.6)
     assert control.workspace_z_m == (0.44, 1.0)
     assert control.max_translation_velocity_m_s == 0.25
+    assert control.max_command_translation_velocity_m_s == 0.125
     assert control.max_translation_acceleration_m_s2 == 1.0
     assert control.max_orientation_velocity_rad_s == 1.0
     assert control.max_orientation_acceleration_rad_s2 == 4.0
@@ -57,8 +132,8 @@ def test_control_configuration_has_documented_defaults() -> None:
     assert control.max_gripper_velocity_s == 2.0
     assert control.dls_damping == 0.05
     assert control.ik_max_iterations == 50
-    assert control.ik_position_tolerance_m == 0.002
-    assert control.ik_orientation_tolerance_rad == 0.02
+    assert control.ik_position_tolerance_m == 0.0001
+    assert control.ik_orientation_tolerance_rad == 0.001
 
 
 def test_full_pose_converges_from_home_within_controller_tolerances() -> None:
@@ -126,7 +201,9 @@ def test_unreachable_nonconvergent_and_collision_candidates_hold() -> None:
     base = SimulationConfig.load(CONFIG_PATH)
     permissive = replace(
         base.control,
+        pose_response_time_s=0.02,
         max_translation_velocity_m_s=100.0,
+        max_command_translation_velocity_m_s=100.0,
         max_translation_acceleration_m_s2=10_000.0,
         max_orientation_velocity_rad_s=100.0,
         max_orientation_acceleration_rad_s2=10_000.0,
@@ -276,3 +353,35 @@ def deterministic_sequence(seed: int) -> list[RobotState]:
 
 def test_identical_seed_and_actions_are_deterministic() -> None:
     assert deterministic_sequence(23) == deterministic_sequence(23)
+
+
+def test_sustained_100_mm_target_meets_speed_and_progress_acceptance() -> None:
+    with make_driver() as driver:
+        robot = SafeCartesianRobot(driver, driver.limits)
+        state = robot.reset(0).robot
+        start = state.end_effector_pose.position_xyz_m
+        target = Pose(
+            "world",
+            (start[0] - 0.1, start[1], start[2]),
+            state.end_effector_pose.quaternion_wxyz,
+        )
+        maximum_commanded = 0.0
+        maximum_measured = 0.0
+        for _ in range(60):
+            state = robot.command(Action(state.timestamp_ns, target, 0.0, True))
+            report = robot.last_report
+            assert report is not None
+            maximum_commanded = max(
+                maximum_commanded, report.commanded_cartesian_speed_m_s
+            )
+            maximum_measured = max(
+                maximum_measured, report.measured_cartesian_speed_m_s
+            )
+
+    progress = start[0] - state.end_effector_pose.position_xyz_m[0]
+    assert progress >= 0.09
+    assert math.dist(
+        state.end_effector_pose.position_xyz_m, target.position_xyz_m
+    ) < 0.01
+    assert maximum_commanded <= 0.125 + 1e-12
+    assert maximum_measured <= 0.25 + 1e-9

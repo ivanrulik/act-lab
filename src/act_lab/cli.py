@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
 import sys
@@ -64,6 +65,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("configs/sim/ur5e_pick_place.toml"),
     )
     control_smoke.add_argument("--json", action="store_true")
+    control_diagnostic = sim_commands.add_parser(
+        "control-diagnostic",
+        help="compare a sustained Cartesian target with measured motion",
+    )
+    control_diagnostic.add_argument("--seed", type=int, default=0)
+    control_diagnostic.add_argument(
+        "--distance-m", type=float, default=-0.1,
+        help="signed world-X displacement; default -0.1 is reachable from home",
+    )
+    control_diagnostic.add_argument("--duration-s", type=float, default=1.2)
+    control_diagnostic.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_pick_place.toml"),
+    )
+    control_diagnostic.add_argument("--json", action="store_true")
     view = sim_commands.add_parser("view", help="open the interactive MuJoCo viewer")
     view.add_argument("--seed", type=int, default=0)
     view.add_argument(
@@ -250,6 +267,105 @@ def _sim_control_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sim_control_diagnostic(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mujoco import MujocoCartesianDriver
+    from act_lab.application import SafeCartesianRobot
+    from act_lab.domain import Action, Pose
+
+    if not 0.0 < abs(args.distance_m) <= 0.25:
+        print("absolute distance-m must be in (0, 0.25]", file=sys.stderr)
+        return 2
+    if not math.isfinite(args.duration_s) or args.duration_s <= 0.0:
+        print("duration-s must be finite and positive", file=sys.stderr)
+        return 2
+    try:
+        with MujocoCartesianDriver.from_config_file(args.config) as driver:
+            robot = SafeCartesianRobot(driver, driver.limits)
+            state = robot.reset(args.seed).robot
+            initial = state.end_effector_pose
+            requested = Pose(
+                "world",
+                (
+                    initial.position_xyz_m[0] + args.distance_m,
+                    initial.position_xyz_m[1],
+                    initial.position_xyz_m[2],
+                ),
+                initial.quaternion_wxyz,
+            )
+            if driver.solve_ik(requested) is None:
+                raise ValueError(
+                    "diagnostic target is not IK-reachable from reset pose"
+                )
+            steps = max(1, round(args.duration_s / driver.control_period_s))
+            trajectory: list[dict[str, object]] = []
+            max_commanded_speed = 0.0
+            max_measured_speed = 0.0
+            for index in range(steps):
+                state = robot.command(
+                    Action(state.timestamp_ns, requested, state.gripper_position, True)
+                )
+                command_report = robot.last_report
+                if command_report is None:
+                    raise RuntimeError("safe controller did not produce a report")
+                executed = command_report.executed_action
+                trajectory.append(
+                    {
+                        "step": index + 1,
+                        "sim_time_s": state.timestamp_ns / 1_000_000_000.0,
+                        "safety_outcome": command_report.outcome.value,
+                        "safety_limited_xyz_m": (
+                            executed.target_pose.position_xyz_m
+                            if executed is not None
+                            else None
+                        ),
+                        "measured_xyz_m": state.end_effector_pose.position_xyz_m,
+                        "commanded_speed_m_s": (
+                            command_report.commanded_cartesian_speed_m_s
+                        ),
+                        "measured_speed_m_s": (
+                            command_report.measured_cartesian_speed_m_s
+                        ),
+                        "tracking_error_m": command_report.tracking_error_m,
+                    }
+                )
+                max_commanded_speed = max(
+                    max_commanded_speed,
+                    command_report.commanded_cartesian_speed_m_s,
+                )
+                max_measured_speed = max(
+                    max_measured_speed,
+                    command_report.measured_cartesian_speed_m_s,
+                )
+            displacement = math.dist(
+                initial.position_xyz_m, state.end_effector_pose.position_xyz_m
+            )
+            report = {
+                "seed": args.seed,
+                "requested_target_xyz_m": requested.position_xyz_m,
+                "final_measured_xyz_m": state.end_effector_pose.position_xyz_m,
+                "requested_distance_m": args.distance_m,
+                "measured_displacement_m": displacement,
+                "duration_s": steps * driver.control_period_s,
+                "max_commanded_speed_m_s": max_commanded_speed,
+                "max_measured_speed_m_s": max_measured_speed,
+                "final_tracking_error_m": math.dist(
+                    requested.position_xyz_m,
+                    state.end_effector_pose.position_xyz_m,
+                ),
+                "trajectory": trajectory,
+            }
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"controller diagnostic error: {error}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        for key, value in report.items():
+            if key != "trajectory":
+                print(f"{key}: {value}")
+    return 0
+
+
 def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
     from act_lab.adapters.mujoco import (
         KeyboardTeleoperator,
@@ -428,6 +544,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sim_rollout(args)
     if args.command == "sim" and args.sim_command == "control-smoke":
         return _sim_control_smoke(args)
+    if args.command == "sim" and args.sim_command == "control-diagnostic":
+        return _sim_control_diagnostic(args)
     if args.command == "sim" and args.sim_command == "view":
         return _sim_view(args)
     if args.command == "sim" and args.sim_command == "keyboard-teleop":

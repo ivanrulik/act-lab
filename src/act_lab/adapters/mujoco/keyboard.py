@@ -94,7 +94,10 @@ class KeyboardTeleoperator:
         ]
         magnitude = math.sqrt(sum(value * value for value in direction))
         scale = (
-            self._config.translation_speed_m_s / magnitude / 50.0 if magnitude else 0.0
+            self._config.translation_speed_m_s
+            * max(1.0 / 50.0, self._limits.pose_response_time_s)
+            / magnitude
+            if magnitude else 0.0
         )
         bounds = (
             self._limits.workspace_x_m,

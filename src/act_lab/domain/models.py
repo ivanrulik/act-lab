@@ -81,6 +81,10 @@ class CommandReport:
     executed_action: Action | None
     resulting_state: RobotState
     detail: str
+    commanded_cartesian_speed_m_s: float = 0.0
+    measured_cartesian_speed_m_s: float = 0.0
+    tracking_error_m: float = 0.0
+    command_age_ms: float = 0.0
 
     @property
     def requested_intent(self) -> Action:
