@@ -38,6 +38,7 @@ class TeleopDiagnostics:
     command_offset_xyz_m: tuple[float, float, float]
     command_velocity_xyz_m_s: tuple[float, float, float]
     commanded_gripper_position: float | None
+    source_timestamp_ns: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +158,7 @@ class WebcamTeleoperator:
                 commanded_gripper_position=(
                     self._last_action.gripper_position if self._last_action else None
                 ),
+                source_timestamp_ns=self._last_source_timestamp_ns,
             )
 
     @property

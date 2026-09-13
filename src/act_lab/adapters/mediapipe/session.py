@@ -158,7 +158,13 @@ def _run_viewer(
 ) -> tuple[int, str, float | None, float | None, list[float]]:
     import cv2
     import mujoco  # type: ignore[import-untyped]
-    from mujoco import MjrRect, mjtGridPos, viewer
+    from mujoco import MjrRect, mjtFontScale, mjtGridPos, viewer
+
+    from act_lab.adapters.mcap.session import recording_key, recording_status
+
+    def viewer_key(keycode: int) -> None:
+        recording_key(robot, keycode)
+        teleoperator.on_key(keycode)
 
     environment = driver.environment
     completed = 0
@@ -169,7 +175,7 @@ def _run_viewer(
     with viewer.launch_passive(
         environment._model,  # noqa: SLF001
         environment._data,  # noqa: SLF001
-        key_callback=teleoperator.on_key,
+        key_callback=viewer_key,
     ) as handle:
         while handle.is_running() and (max_steps is None or completed < max_steps):
             started_at = time.monotonic()
@@ -198,12 +204,17 @@ def _run_viewer(
                 real_time_factor=sim_elapsed / wall_elapsed,
             )
             handle.set_texts(
-                (
+                [(
                     None,
                     mjtGridPos.mjGRID_TOPLEFT,
                     hud.banner,
                     "\n".join(hud.lines),
-                )
+                ), (
+                    mjtFontScale.mjFONTSCALE_200,
+                    mjtGridPos.mjGRID_BOTTOMLEFT,
+                    recording_status(robot),
+                    "",
+                )]
             )
             _update_command_scene(mujoco, handle, hud)
             preview = teleoperator.preview

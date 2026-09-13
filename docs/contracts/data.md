@@ -19,6 +19,17 @@ Required provenance includes:
 
 ## Validation
 
+PR 6 implements `act_lab.recording.v1`; see [recording](../recording.md) and
+ADR 010 for channels, clock semantics, retention and atomic publication.
+Discarded attempts retain their data and reason. Recovered attempts are marked
+interrupted, preserve their source and require later quality validation.
+Scene images and measured results share the post-step simulation timestamp;
+requested intent retains its original timestamp. Webcam diagnostic and
+calibration snapshots are recorded separately; webcam pixels are not retained.
+Webcam acquisition provenance includes model content hash and live-camera ID or
+recorded-video content hash. Incomplete inspection results have no final episode
+outcome; task results are reported separately from terminal lifecycle labels.
+
 Validation detects missing streams, non-monotonic time, stale/dropped samples,
 NaNs, incompatible dimensions, invalid commands, tracking gaps, and inconsistent
 task labels. Rejection does not delete the raw episode.

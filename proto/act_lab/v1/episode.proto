@@ -1,0 +1,80 @@
+syntax = "proto3";
+package act_lab.recording.v1;
+
+message Pose {
+  string frame_id = 1;
+  repeated double position_xyz_m = 2;
+  repeated double quaternion_wxyz = 3;
+}
+message Action {
+  sint64 timestamp_ns = 1;
+  Pose target_pose = 2;
+  double gripper_position = 3;
+  bool enabled = 4;
+}
+message RobotState {
+  uint64 timestamp_ns = 1;
+  repeated double joint_positions_rad = 2;
+  repeated double joint_velocities_rad_s = 3;
+  Pose end_effector_pose = 4;
+  double gripper_position = 5;
+}
+message Observation {
+  uint64 timestamp_ns = 1;
+  RobotState robot = 2;
+  repeated string image_keys = 3;
+}
+message Command {
+  uint64 timestamp_ns = 1; // resulting state time; request retains source time
+  Action requested_action = 2;
+  Action executed_action = 3; // absent for rejected/disabled intent
+  RobotState resulting_state = 4;
+  string outcome = 5;
+  string detail = 6;
+  double commanded_cartesian_speed_m_s = 7;
+  double measured_cartesian_speed_m_s = 8;
+  double tracking_error_m = 9;
+  double command_age_ms = 10;
+}
+message Image {
+  uint64 timestamp_ns = 1;
+  string camera_id = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+  string encoding = 5; // rgb8, tightly packed rows
+  bytes data = 6;
+}
+message Event {
+  uint64 timestamp_ns = 1;
+  string episode_id = 2;
+  string kind = 3; // start, stop, discard, task, interrupted
+  string outcome = 4; // unknown, success, failure, discarded, interrupted
+  string reason = 5;
+}
+message Provenance {
+  uint64 timestamp_ns = 1;
+  string episode_id = 2;
+  uint32 schema_version = 3;
+  string application_version = 4;
+  string git_revision = 5;
+  string git_dirty = 6; // true, false, unknown
+  sint64 seed = 7;
+  string source = 8;
+  string robot_id = 9;
+  string task_id = 10;
+  repeated string camera_ids = 11;
+  string operator = 12;
+  string container_identity = 13;
+  string clock_id = 14;
+  uint64 host_monotonic_start_ns = 15;
+  string wall_start_utc = 16; // metadata only
+  string resolved_config_json = 17;
+  string rates_json = 18;
+  string calibration_json = 19;
+}
+message Diagnostics {
+  uint64 timestamp_ns = 1; // consumption time on episode clock
+  uint64 host_monotonic_ns = 2;
+  string values_json = 3; // source-clock diagnostics, no webcam pixels
+  string calibration_json = 4; // snapshot at consumption, including recalibration
+}

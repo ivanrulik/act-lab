@@ -21,7 +21,7 @@ RUN groupadd --gid 1000 actlab \
 # Mesa provides a software EGL implementation for reproducible headless rendering.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-        libegl1 libgl1 libgl1-mesa-dri libgles2 libglib2.0-0 \
+        libegl1 libgl1 libgl1-mesa-dri libgles2 libglib2.0-0 git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -30,6 +30,8 @@ RUN chown actlab:actlab /workspace
 FROM base AS runtime
 COPY pyproject.toml README.md ./
 COPY requirements ./requirements
+COPY proto ./proto
+COPY hatch_build.py ./
 COPY src ./src
 COPY configs ./configs
 RUN python -m pip install --no-cache-dir \
@@ -41,6 +43,8 @@ CMD ["doctor"]
 FROM base AS dev
 COPY pyproject.toml README.md compose.yaml ./
 COPY requirements ./requirements
+COPY proto ./proto
+COPY hatch_build.py ./
 COPY src ./src
 COPY tests ./tests
 COPY configs ./configs

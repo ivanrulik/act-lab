@@ -126,7 +126,8 @@ tooling and diagnosis only.
 - [x] Cartesian controller and safety envelope
 - [x] Keyboard teleoperation and deterministic scripted expert
 - [x] Webcam hand teleoperation
-- [ ] MCAP recording, validation, replay, and conversion
+- [x] Versioned MCAP episode recording and interrupted-file recovery
+- [ ] Validation, replay, and LeRobot conversion
 - [ ] ACT training notebook and CLI
 - [ ] Seeded closed-loop evaluation
 - [ ] Optional ROS 2 adapters and physical robot integration
@@ -145,6 +146,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Roadmap and PR boundaries](docs/ROADMAP.md)
 - [Definition of done](docs/DEFINITION_OF_DONE.md)
 - [Data contract](docs/contracts/data.md)
+- [Episode recording and recovery](docs/recording.md)
 - [Control and safety contract](docs/contracts/control.md)
 - [Simulation contract](docs/contracts/simulation.md)
 - [Experiment contract](docs/contracts/experiments.md)

@@ -89,6 +89,11 @@ scripted expert.
 
 ## Storage model
 
+The application RecordingRobot records the existing safe-control path through
+EpisodeSink. The MCAP adapter owns Protobuf encoding, durable finalization and
+prefix recovery. Scene images share measured-state timestamps; diagnostic and
+lifecycle channels remain separate from policy observations. See ADR 010.
+
 Raw MCAP logs are immutable acquisition evidence. Conversion produces a
 derived, reproducible LeRobotDataset. A manifest connects raw episode IDs,
 validation decisions, converter revision, resolved configuration, and derived
