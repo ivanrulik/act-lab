@@ -151,6 +151,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("configs/sim/ur5e_pick_place.toml"),
     )
     expert.add_argument("--json", action="store_true")
+    for command in (expert, keyboard, webcam):
+        command.add_argument("--record-dir", type=Path,
+                             help="opt in to MCAP scene/state recording")
+        command.add_argument("--operator", help="operator pseudonym")
+        command.add_argument("--outcome", default="auto",
+                             choices=("auto", "success", "failure", "discarded"))
+        command.add_argument("--reason", help="outcome or discard reason")
+    recording = subparsers.add_parser("recording", help="inspect or recover raw MCAP")
+    recording_commands = recording.add_subparsers(
+        dest="recording_command", required=True
+    )
+    for name in ("inspect", "recover"):
+        command = recording_commands.add_parser(name)
+        command.add_argument("path", type=Path)
     return parser
 
 
@@ -367,16 +381,17 @@ def _sim_control_diagnostic(args: argparse.Namespace) -> int:
 
 
 def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mcap.session import recording_robot
     from act_lab.adapters.mujoco import (
         KeyboardTeleoperator,
         MujocoCartesianDriver,
         run_keyboard_session,
     )
-    from act_lab.application import SafeCartesianRobot
-
     try:
-        with MujocoCartesianDriver.from_config_file(args.config) as driver:
-            robot = SafeCartesianRobot(driver, driver.limits)
+        with (
+            MujocoCartesianDriver.from_config_file(args.config) as driver,
+            recording_robot(driver, args, "keyboard", args.seed) as robot,
+        ):
             teleoperator = KeyboardTeleoperator(
                 driver.simulation_config.keyboard,
                 driver.limits,
@@ -395,6 +410,7 @@ def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
 
 
 def _sim_webcam_teleop(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mcap.session import recording_robot
     from act_lab.adapters.mediapipe import (
         HandTrackingWorker,
         MediaPipeHandTracker,
@@ -404,7 +420,6 @@ def _sim_webcam_teleop(args: argparse.Namespace) -> int:
         run_webcam_session,
     )
     from act_lab.adapters.mujoco import MujocoCartesianDriver
-    from act_lab.application import SafeCartesianRobot
 
     if args.max_steps is not None and args.max_steps <= 0:
         print("max-steps must be positive", file=sys.stderr)
@@ -417,6 +432,7 @@ def _sim_webcam_teleop(args: argparse.Namespace) -> int:
         return 2
     try:
         teleop_config = WebcamConfig.load(args.teleop_config)
+        teleoperator = WebcamTeleoperator(teleop_config)
         source = args.video if args.video is not None else args.camera
         with (
             OpenCVCamera(
@@ -428,9 +444,8 @@ def _sim_webcam_teleop(args: argparse.Namespace) -> int:
             ) as camera,
             MediaPipeHandTracker(args.model, teleop_config) as tracker,
             MujocoCartesianDriver.from_config_file(args.config) as driver,
+            recording_robot(driver, args, "webcam", args.seed, teleoperator) as robot,
         ):
-            robot = SafeCartesianRobot(driver, driver.limits)
-            teleoperator = WebcamTeleoperator(teleop_config)
             worker = HandTrackingWorker(camera, tracker, teleoperator.update)
             report = run_webcam_session(
                 driver,
@@ -451,8 +466,9 @@ def _sim_webcam_teleop(args: argparse.Namespace) -> int:
 
 
 def _sim_expert(args: argparse.Namespace) -> int:
+    from act_lab.adapters.mcap.session import recording_robot
     from act_lab.adapters.mujoco import MujocoCartesianDriver, SimulationConfig
-    from act_lab.application import SafeCartesianRobot, ScriptedPickPlaceExpert
+    from act_lab.application import ScriptedPickPlaceExpert
     from act_lab.domain import CommandOutcome
 
     if args.episodes <= 0:
@@ -465,8 +481,10 @@ def _sim_expert(args: argparse.Namespace) -> int:
         config = SimulationConfig.load(args.config)
         episodes: list[dict[str, object]] = []
         for seed in range(args.seed_start, args.seed_start + args.episodes):
-            with MujocoCartesianDriver.from_config_file(args.config) as driver:
-                robot = SafeCartesianRobot(driver, driver.limits)
+            with (
+                MujocoCartesianDriver.from_config_file(args.config) as driver,
+                recording_robot(driver, args, "expert", seed) as robot,
+            ):
                 observation = robot.reset(seed)
                 expert = ScriptedPickPlaceExpert(driver.environment, config.expert)
                 expert.reset(observation)
@@ -538,6 +556,19 @@ def _sim_expert(args: argparse.Namespace) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "recording":
+        from mcap.exceptions import McapError
+
+        from act_lab.adapters.mcap.inspection import inspect_episode, recover_episode
+
+        try:
+            result = (inspect_episode(args.path) if args.recording_command == "inspect"
+                      else {"recovered_path": str(recover_episode(args.path))})
+            print(json.dumps(result, indent=2, sort_keys=True))
+        except (OSError, ValueError, McapError) as error:
+            print(f"recording error: {error}", file=sys.stderr)
+            return 2
+        return 0
     if args.command == "doctor":
         return _doctor(as_json=args.json)
     if args.command == "sim" and args.sim_command == "rollout":

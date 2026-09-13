@@ -11,6 +11,7 @@ from act_lab.domain.models import (
     PickPlaceTaskState,
     RobotState,
 )
+from act_lab.domain.recording import EpisodeOutcome, EpisodeProvenance, EpisodeSample
 
 
 class Robot(Protocol):
@@ -38,6 +39,24 @@ class PickPlaceTaskStateSource(Protocol):
 
 
 class EpisodeSink(Protocol):
-    def append(self, observation: Observation, action: Action) -> None: ...
+    def start(self, provenance: EpisodeProvenance, timestamp_ns: int) -> str: ...
 
-    def close(self, *, success: bool) -> None: ...
+    def append(self, sample: EpisodeSample) -> None: ...
+
+    def event(
+        self, timestamp_ns: int, kind: str, outcome: EpisodeOutcome, reason: str
+    ) -> None: ...
+
+    def diagnostics(
+        self,
+        timestamp_ns: int,
+        host_monotonic_ns: int,
+        values_json: str,
+        calibration_json: str,
+    ) -> None: ...
+
+    def stop(self, outcome: EpisodeOutcome, reason: str) -> None: ...
+
+    def discard(self, reason: str) -> None: ...
+
+    def interrupt(self) -> None: ...

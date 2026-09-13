@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.25", "grpcio-tools==1.71.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -19,6 +19,9 @@ dependencies = [
   "mediapipe==1.0.1",
   # Directly imported for V4L2/video decoding and diagnostic drawing.
   "opencv-contrib-python==5.0.0.93",
+  # Versioned raw acquisition container and Protobuf wire encoding (ADR 010).
+  "mcap==1.3.0",
+  "protobuf==5.29.4",
 ]
 
 [project.optional-dependencies]
@@ -39,10 +42,14 @@ act-lab = "act_lab.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/act_lab"]
 
+[tool.hatch.build.hooks.custom]
+
 [tool.hatch.build]
 include = [
   "src/act_lab/**/*.py",
   "src/act_lab/adapters/mujoco/assets/**/*",
+  "proto/**/*.proto",
+  "hatch_build.py",
 ]
 
 [tool.pytest.ini_options]

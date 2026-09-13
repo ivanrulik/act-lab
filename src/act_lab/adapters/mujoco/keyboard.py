@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Callable
 from threading import Event, Lock, Thread
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +38,11 @@ class KeyboardTeleoperator:
     def quit_requested(self) -> bool:
         with self._lock:
             return self._quit_requested
+
+    @property
+    def focused(self) -> bool:
+        with self._lock:
+            return self._focused
 
     @property
     def target_pose(self) -> Pose | None:
@@ -129,11 +135,22 @@ class KeyboardTeleoperator:
 class X11KeyboardAdapter:
     """Capture releases globally and fail closed unless MuJoCo owns X11 focus."""
 
-    def __init__(self, teleoperator: KeyboardTeleoperator) -> None:
+    def __init__(
+        self, teleoperator: KeyboardTeleoperator,
+        recording_callback: Callable[[int], None] | None = None,
+    ) -> None:
         self._teleoperator, self._stop = teleoperator, Event()
         self._listener: Any | None = None
         self._thread: Thread | None = None
         self._display: Any | None = None
+        self._recording_callback = recording_callback
+
+    def handle_key(self, name: str, pressed: bool) -> None:
+        self._teleoperator.update_key(name, pressed)
+        recording_keys = {"f6": 295, "f7": 296, "f8": 297}
+        if (pressed and self._teleoperator.focused
+                and name in recording_keys and self._recording_callback is not None):
+            self._recording_callback(recording_keys[name])
 
     def start(self) -> None:
         try:
@@ -147,6 +164,9 @@ class X11KeyboardAdapter:
         self._display = xdisplay
 
         def label(key: object) -> str | None:
+            special = getattr(key, "name", None)
+            if special in {"f6", "f7", "f8"}:
+                return str(special)
             char = getattr(key, "char", None)
             return (
                 char.lower()
@@ -162,7 +182,7 @@ class X11KeyboardAdapter:
         def transition(key: object, pressed: bool) -> None:
             name = label(key)
             if name is not None:
-                self._teleoperator.update_key(name, pressed)
+                self.handle_key(name, pressed)
 
         self._listener = keyboard.Listener(
             on_press=lambda key: transition(key, True),
@@ -230,14 +250,20 @@ def run_keyboard_session(
     *,
     max_steps: int | None = None,
 ) -> None:
-    from mujoco import mjtGridPos, viewer  # type: ignore[import-untyped]
+    from mujoco import mjtFontScale, mjtGridPos, viewer  # type: ignore[import-untyped]
+
+    from act_lab.adapters.mcap.session import recording_key, recording_status
 
     if max_steps is not None and max_steps <= 0:
         raise ValueError("max_steps must be positive when provided")
     observation, environment = robot.reset(seed), driver.environment
-    started, completed, adapter = time.monotonic(), 0, X11KeyboardAdapter(teleoperator)
+    started, completed = time.monotonic(), 0
+    adapter = X11KeyboardAdapter(teleoperator, lambda key: recording_key(robot, key))
 
     def viewer_key(keycode: int) -> None:
+        from act_lab.adapters.mcap.session import recording_key
+
+        recording_key(robot, keycode)
         # MuJoCo's callback is sufficient for the press-only quit action and
         # provides a fallback if the global X11 listener misses the focused key.
         if keycode in {ord("q"), ord("Q")}:
@@ -299,12 +325,17 @@ def run_keyboard_session(
                     f"task: {task.reason or 'running'}",
                 )
                 handle.set_texts(
-                    (
+                    [(
                         None,
                         mjtGridPos.mjGRID_TOPLEFT,
                         "ACT Lab keyboard teleoperation",
                         "\n".join(lines),
-                    )
+                    ), (
+                        mjtFontScale.mjFONTSCALE_200,
+                        mjtGridPos.mjGRID_BOTTOMLEFT,
+                        recording_status(robot),
+                        "",
+                    )]
                 )
                 handle.sync()
                 if teleoperator.quit_requested:

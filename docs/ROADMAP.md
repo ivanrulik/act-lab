@@ -70,6 +70,12 @@ camera access requires neither root nor a privileged container.
 
 ## PR 6 — Versioned MCAP episode recording
 
+Status: implemented on the PR 6 feature branch; validation is reported in the
+implementing change. See `recording.md` and ADR 010. Multiple attempts within one
+viewer and asynchronous recording performance tuning are deferred follow-ups;
+current interactive commands record one attempt per run with function-key
+stop/outcome/discard controls.
+
 Controller convergence, lifted-cube pause/resume tests, and the 20-seed scripted
 benchmark pass. The operator reports keyboard seeds 0–4 successful and successful
 live webcam pick/place plus clutch pause/resume. The operator closed this testing
