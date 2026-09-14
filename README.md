@@ -127,7 +127,7 @@ tooling and diagnosis only.
 - [x] Keyboard teleoperation and deterministic scripted expert
 - [x] Webcam hand teleoperation
 - [x] Versioned MCAP episode recording and interrupted-file recovery
-- [ ] Validation, replay, and LeRobot conversion
+- [x] Validation, replay, episode-level splits, and LeRobot conversion
 - [ ] ACT training notebook and CLI
 - [ ] Seeded closed-loop evaluation
 - [ ] Optional ROS 2 adapters and physical robot integration
@@ -147,6 +147,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Definition of done](docs/DEFINITION_OF_DONE.md)
 - [Data contract](docs/contracts/data.md)
 - [Episode recording and recovery](docs/recording.md)
+- [Validation, replay, selection, and conversion](docs/data-pipeline.md)
 - [Control and safety contract](docs/contracts/control.md)
 - [Simulation contract](docs/contracts/simulation.md)
 - [Experiment contract](docs/contracts/experiments.md)

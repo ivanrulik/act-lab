@@ -56,6 +56,17 @@ CMD ["act-lab", "doctor"]
 FROM dev AS ci
 CMD ["pytest"]
 
+FROM dev AS data
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    --constraint requirements/constraints-data-py311.txt -e '.[dev,data]'
+USER actlab
+CMD ["act-lab", "recording", "--help"]
+
 FROM dev AS ui
 USER root
 # pynput's Linux backend depends on evdev, whose extension is built against

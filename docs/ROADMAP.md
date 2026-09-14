@@ -92,6 +92,11 @@ failed and discarded demonstrations remain traceable.
 
 ## PR 7 — Validation, replay, and LeRobot conversion
 
+Status: implemented on the PR 7 feature branch. Quality reports preserve legacy
+metadata warnings, selection manifests retain rejected attempts, and the
+LeRobotDataset v3 writer is isolated in the pinned CPU-only data image. See
+`data-pipeline.md` and ADR 011.
+
 Add quality rules, replay UI/CLI, deterministic resampling, episode selection
 manifest, episode-level data splits, LeRobotDataset conversion, and small test
 fixtures.
