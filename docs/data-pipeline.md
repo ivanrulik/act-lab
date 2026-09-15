@@ -14,10 +14,18 @@ or deleted.
 ./scripts/demo-data.sh inspect
 ```
 
-`record` creates five scripted pick-and-place attempts. `replay` opens the most
-recent scene-camera recording. `convert` selects valid successful attempts and
-writes `data/lerobot/pick-place`; `inspect` loads that directory through
+`record` opens the MuJoCo keyboard-control window and records one attempt. Press
+F6 to save success, F7 to save failure, or F8 to discard. Then `replay` opens the
+most recent scene-camera recording. `convert` selects valid successful attempts
+and writes `data/lerobot/pick-place`; `inspect` loads that directory through
 LeRobotDataset and prints its episodes, frames, and features.
+
+To generate five headless scripted attempts instead of controlling the robot,
+run:
+
+```bash
+./scripts/demo-data.sh record-auto
+```
 
 The manifest and output directory are intentionally not overwritten. To repeat
 conversion, choose new paths with the full commands below or deliberately remove

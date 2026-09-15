@@ -14,7 +14,7 @@ recordings() {
   shopt -s nullglob
   local files=(data/raw/*.mcap)
   if (( ${#files[@]} == 0 )); then
-    echo "error: no recordings found; run '$0 record' first" >&2
+    echo "error: no recordings found; run '$0 record' or '$0 record-auto' first" >&2
     exit 1
   fi
   printf '%s\n' "${files[@]}"
@@ -22,13 +22,18 @@ recordings() {
 
 case "${1:-help}" in
   record)
+    docker compose --profile ui run --rm keyboard-teleop \
+      act-lab sim keyboard-teleop --seed "${2:-0}" \
+      --record-dir data/raw --operator "${ACT_LAB_OPERATOR:-learner}"
+    ;;
+  record-auto)
     docker compose run --rm dev act-lab sim expert \
       --seed-start 0 --episodes "${2:-5}" --record-dir data/raw --json
     ;;
   replay)
     episode="${2:-$(latest_recording)}"
     if [[ -z "${episode}" ]]; then
-      echo "error: no recordings found; run '$0 record' first" >&2
+      echo "error: no recordings found; run '$0 record' or '$0 record-auto' first" >&2
       exit 1
     fi
     docker compose --profile ui run --rm keyboard-teleop \
@@ -52,6 +57,6 @@ case "${1:-help}" in
       'from lerobot.datasets.lerobot_dataset import LeRobotDataset; d = LeRobotDataset("local/act-lab-pick-place", root="data/lerobot/pick-place"); print(f"episodes: {d.num_episodes}\nframes: {len(d)}\nfeatures: {list(d.features)}"); print({key: getattr(value, "shape", value) for key, value in d[0].items()})'
     ;;
   *)
-    echo "usage: $0 {record [episodes]|replay [episode.mcap]|validate|convert|inspect}"
+    echo "usage: $0 {record [seed]|record-auto [episodes]|replay [episode.mcap]|validate|convert|inspect}"
     ;;
 esac
