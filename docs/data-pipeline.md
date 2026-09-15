@@ -4,6 +4,25 @@ Raw MCAP remains immutable. The commands below only create reports, replay
 exports, manifests, and derived datasets; rejected raw episodes are never moved
 or deleted.
 
+## Quick demo
+
+```bash
+./scripts/demo-data.sh record
+./scripts/demo-data.sh replay
+./scripts/demo-data.sh validate
+./scripts/demo-data.sh convert
+./scripts/demo-data.sh inspect
+```
+
+`record` creates five scripted pick-and-place attempts. `replay` opens the most
+recent scene-camera recording. `convert` selects valid successful attempts and
+writes `data/lerobot/pick-place`; `inspect` loads that directory through
+LeRobotDataset and prints its episodes, frames, and features.
+
+The manifest and output directory are intentionally not overwritten. To repeat
+conversion, choose new paths with the full commands below or deliberately remove
+the previous derived outputs. Raw MCAP files are never removed by the helper.
+
 ## Quality validation
 
 ```bash
