@@ -1,5 +1,6 @@
 """Small generated records exercise durability without operator camera fixtures."""
 
+import json
 from dataclasses import replace
 
 import pytest
@@ -299,3 +300,69 @@ def test_partial_task_success_is_not_a_finalized_episode_outcome(
     recovered = inspect_episode(recover_episode(sink.partial_path))
     assert recovered["outcome"] == "interrupted"
     assert recovered["last_task_outcome"] == "success"
+
+
+def test_quality_manifest_and_replay_cli(tmp_path, provenance, capsys):
+    from act_lab.cli import main
+
+    accepted = McapEpisodeSink(tmp_path / "raw")
+    accepted.start(provenance, 0)
+    for stamp in (20_000_000, 40_000_000, 60_000_000):
+        accepted.append(sample(stamp))
+    accepted.stop(EpisodeOutcome.SUCCESS, "settled")
+
+    rejected = McapEpisodeSink(tmp_path / "raw")
+    rejected.start(provenance, 0)
+    rejected.append(sample())
+    rejected.discard("operator rejected attempt")
+
+    assert main(["recording", "validate", str(accepted.final_path)]) == 0
+    validation = json.loads(capsys.readouterr().out)
+    assert validation["valid"]
+    assert validation["reports"][0]["training_eligible"]
+
+    replay = tmp_path / "replay"
+    assert (
+        main(
+            [
+                "recording",
+                "replay",
+                str(accepted.final_path),
+                "--camera",
+                "policy",
+                "--render-dir",
+                str(replay),
+                "--max-frames",
+                "2",
+            ]
+        )
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["camera_frames"] == 2
+    assert len(list(replay.glob("*.ppm"))) == 2
+
+    manifest = tmp_path / "selection.json"
+    assert (
+        main(
+            [
+                "recording",
+                "manifest",
+                str(accepted.final_path),
+                str(rejected.final_path),
+                "--output",
+                str(manifest),
+                "--validation-fraction",
+                "0.5",
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["selected"] == summary["rejected"] == 1
+    contents = json.loads(manifest.read_text())
+    assert {entry["split"] for entry in contents["episodes"] if entry["selected"]} <= {
+        "train",
+        "validation",
+    }
+    assert any(not entry["selected"] for entry in contents["episodes"])

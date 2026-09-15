@@ -60,6 +60,16 @@ services:
     environment:
       MUJOCO_GL: egl
 
+  data:
+    <<: *common
+    build:
+      context: .
+      target: data
+    profiles: ["data"]
+    command: act-lab recording --help
+    environment:
+      HF_HOME: /tmp/act-lab-huggingface
+
   notebook:
     <<: *common
     profiles: ["notebook"]
