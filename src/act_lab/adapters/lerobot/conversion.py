@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from act_lab.application.dataset import CONVERTER_VERSION, resample_episode
+from act_lab.application.training import storage_fingerprint
 from act_lab.domain.dataset import RecordedEpisode
 
 
@@ -137,15 +138,6 @@ def convert_episodes(
         dataset.save_episode()
     dataset.finalize()
     fingerprint = _fingerprint(converted, fps)
-    lineage.update(
-        converter_version=CONVERTER_VERSION,
-        dataset_fingerprint=fingerprint,
-        fps=fps,
-        source_episode_ids=[episode.episode_id for episode in converted],
-    )
-    (stage / "act_lab_lineage.json").write_text(
-        json.dumps(lineage, indent=2, sort_keys=True) + "\n"
-    )
     selected_entries = {
         str(entry["episode_id"]): entry.get("split")
         for entry in lineage.get("selection_manifest", {}).get("episodes", [])
@@ -161,6 +153,17 @@ def convert_episodes(
     (stage / "act_lab_splits.json").write_text(
         json.dumps({"unit": "episode", "splits": splits}, indent=2, sort_keys=True)
         + "\n"
+    )
+    lineage.update(
+        converter_version=CONVERTER_VERSION,
+        dataset_fingerprint=fingerprint,
+        fps=fps,
+        repo_id=repo_id,
+        source_episode_ids=[episode.episode_id for episode in converted],
+        storage_fingerprint=storage_fingerprint(stage),
+    )
+    (stage / "act_lab_lineage.json").write_text(
+        json.dumps(lineage, indent=2, sort_keys=True) + "\n"
     )
     os.rename(stage, output)
     return {

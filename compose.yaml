@@ -70,12 +70,45 @@ services:
     environment:
       HF_HOME: /tmp/act-lab-huggingface
 
+  train-cpu:
+    <<: *common
+    build:
+      context: .
+      target: train-cpu
+    profiles: ["training"]
+    command: act-lab train --help
+    environment:
+      CUDA_VISIBLE_DEVICES: ""
+      HF_HOME: /tmp/act-lab-huggingface
+
+  train-gpu:
+    <<: *common
+    build:
+      context: .
+      target: train-gpu
+    profiles: ["gpu"]
+    command: act-lab train --help
+    environment:
+      HF_HOME: /tmp/act-lab-huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   notebook:
     <<: *common
+    build:
+      context: .
+      target: train-cpu
     profiles: ["notebook"]
-    command: >-
-      sh -lc 'echo "Notebook dependencies arrive in the ACT training PR" &&
-      act-lab doctor'
+    command: jupyter lab --ip=0.0.0.0 --no-browser --ServerApp.token=
+    environment:
+      CUDA_VISIBLE_DEVICES: ""
+      HF_HOME: /tmp/act-lab-huggingface
     ports:
       - "127.0.0.1:8888:8888"
 

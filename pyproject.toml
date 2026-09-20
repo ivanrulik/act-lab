@@ -7,14 +7,14 @@ name = "act-lab"
 version = "0.1.0"
 description = "Container-first ACT imitation-learning workspace"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
 authors = [{ name = "ACT Lab contributors" }]
 dependencies = [
   # Official bindings and native engine for deterministic simulation.
   "mujoco==3.12.0",
   # Imported directly by the MuJoCo adapter for validated array conversion.
-  "numpy==2.3.2",
+  "numpy==2.2.6",
   # Hand landmark inference for the PR 5 device adapter.
   "mediapipe==1.0.1",
   # Directly imported for V4L2/video decoding and diagnostic drawing.
@@ -36,9 +36,16 @@ ui = [
   "python-xlib==0.33",
 ]
 data = [
-  # Public LeRobotDataset v3 writer only; ACT training remains deferred to PR 8.
-  # 0.5+ requires Python 3.12; 0.4.4 preserves the project's 3.11 baseline.
-  "lerobot==0.4.4",
+  # Dataset conversion and loading use the same pinned framework as training.
+  "lerobot[dataset]==0.6.1",
+]
+training = [
+  # Official ACT trainer, checkpoint state, and opt-in W&B integration.
+  "lerobot[training]==0.6.1",
+]
+notebook = [
+  "jupyterlab==4.4.9",
+  "matplotlib==3.10.7",
 ]
 
 [project.scripts]
@@ -63,12 +70,12 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 packages = ["act_lab"]

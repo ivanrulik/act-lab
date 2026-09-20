@@ -18,7 +18,7 @@ def _doctor(as_json: bool) -> int:
     report = {
         "act_lab_version": __version__,
         "python": platform.python_version(),
-        "python_supported": sys.version_info[:2] in {(3, 11), (3, 12)},
+        "python_supported": sys.version_info[:2] == (3, 12),
         "status": "ok",
     }
     if not report["python_supported"]:
@@ -71,7 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     control_diagnostic.add_argument("--seed", type=int, default=0)
     control_diagnostic.add_argument(
-        "--distance-m", type=float, default=-0.1,
+        "--distance-m",
+        type=float,
+        default=-0.1,
         help="signed world-X displacement; default -0.1 is reachable from home",
     )
     control_diagnostic.add_argument("--duration-s", type=float, default=1.2)
@@ -152,11 +154,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     expert.add_argument("--json", action="store_true")
     for command in (expert, keyboard, webcam):
-        command.add_argument("--record-dir", type=Path,
-                             help="opt in to MCAP scene/state recording")
+        command.add_argument(
+            "--record-dir", type=Path, help="opt in to MCAP scene/state recording"
+        )
         command.add_argument("--operator", help="operator pseudonym")
-        command.add_argument("--outcome", default="auto",
-                             choices=("auto", "success", "failure", "discarded"))
+        command.add_argument(
+            "--outcome",
+            default="auto",
+            choices=("auto", "success", "failure", "discarded"),
+        )
         command.add_argument("--reason", help="outcome or discard reason")
     recording = subparsers.add_parser("recording", help="inspect or recover raw MCAP")
     recording_commands = recording.add_subparsers(
@@ -202,6 +208,22 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--output", type=Path, required=True)
     convert.add_argument("--repo-id", required=True)
     convert.add_argument("--fps", type=int, default=25)
+    training = subparsers.add_parser("train", help="train or resume an ACT policy")
+    training_commands = training.add_subparsers(dest="train_command", required=True)
+    act = training_commands.add_parser("act", help="train ACT on a validated dataset")
+    act.add_argument("--dataset", type=Path, required=True)
+    act.add_argument("--output", type=Path, required=True)
+    act.add_argument("--device", choices=("cpu", "cuda"), required=True)
+    act.add_argument("--config", type=Path, default=Path("configs/training/act.toml"))
+    act.add_argument(
+        "--wandb-mode",
+        choices=("disabled", "offline", "online"),
+        default="disabled",
+    )
+    resume = training_commands.add_parser("resume", help="resume an ACT Lab run")
+    resume.add_argument("--run", type=Path, required=True)
+    resume.add_argument("--device", choices=("cpu", "cuda"), required=True)
+    resume.add_argument("--steps", type=int)
     return parser
 
 
@@ -424,6 +446,7 @@ def _sim_keyboard_teleop(args: argparse.Namespace) -> int:
         MujocoCartesianDriver,
         run_keyboard_session,
     )
+
     try:
         with (
             MujocoCartesianDriver.from_config_file(args.config) as driver,
@@ -770,6 +793,147 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
     )
 
 
+def _train_act(args: argparse.Namespace) -> int:
+    from act_lab.adapters.lerobot import train_act
+    from act_lab.application.training import (
+        RUN_MANIFEST,
+        atomic_json,
+        environment_identity,
+        git_identity,
+        load_act_config,
+        preflight_device,
+        utc_now,
+        verify_dataset,
+    )
+
+    try:
+        preflight_device(args.device)
+        config = load_act_config(args.config)
+        dataset = verify_dataset(args.dataset)
+        output = args.output.resolve()
+        if output.exists():
+            raise FileExistsError(f"run output already exists: {output}")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.mkdir()
+        manifest: dict[str, object] = {
+            "manifest_version": 1,
+            "policy": "act",
+            "status": "running",
+            "created_at": utc_now(),
+            "updated_at": utc_now(),
+            "completed_at": None,
+            "failure_reason": None,
+            "device": args.device,
+            "wandb": {"mode": args.wandb_mode, "run_id": None},
+            "configuration": config.to_dict(),
+            "config_source": str(args.config.resolve()),
+            "dataset": dataset.to_dict(),
+            "git": git_identity(Path.cwd()),
+            "environment": environment_identity(),
+            "reproducibility_note": (
+                "Fixed seeds and deterministic cuDNN reduce variance, but PyTorch does "
+                "not guarantee identical results across releases, platforms, or "
+                "CPU/GPU."
+            ),
+        }
+        atomic_json(output / RUN_MANIFEST, manifest)
+        try:
+            train_act(output, dataset, config, args.device, args.wandb_mode)
+        except BaseException as error:
+            manifest.update(
+                status="failed",
+                updated_at=utc_now(),
+                failure_reason=f"{type(error).__name__}: {error}",
+            )
+            atomic_json(output / RUN_MANIFEST, manifest)
+            raise
+        manifest.update(
+            status="completed", updated_at=utc_now(), completed_at=utc_now()
+        )
+        atomic_json(output / RUN_MANIFEST, manifest)
+        print(
+            json.dumps(
+                {"run": str(output), "status": "completed"}, indent=2, sort_keys=True
+            )
+        )
+        return 0
+    except (OSError, RuntimeError, TypeError, ValueError) as error:
+        print(f"training error: {error}", file=sys.stderr)
+        return 2
+
+
+def _train_resume(args: argparse.Namespace) -> int:
+    from act_lab.adapters.lerobot import checkpoint_step, latest_checkpoint, train_act
+    from act_lab.application.training import (
+        RUN_MANIFEST,
+        atomic_json,
+        preflight_device,
+        resume_config,
+        utc_now,
+        verify_dataset,
+    )
+    from act_lab.domain.training import ActTrainingConfig
+
+    try:
+        preflight_device(args.device)
+        run = args.run.resolve()
+        manifest_path = run / RUN_MANIFEST
+        if not manifest_path.is_file():
+            raise ValueError(f"not an ACT Lab training run: {run}")
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("manifest_version") != 1 or manifest.get("policy") != "act":
+            raise ValueError("unsupported or non-ACT run manifest")
+        if manifest.get("device") != args.device:
+            raise ValueError("resume device type must match the original run")
+        original = ActTrainingConfig(**manifest["configuration"])
+        config = resume_config(original, args.steps)
+        dataset = verify_dataset(Path(manifest["dataset"]["path"]))
+        if dataset.to_dict() != manifest["dataset"]:
+            raise ValueError("dataset identity changed since the original run")
+        checkpoint = latest_checkpoint(run)
+        step = checkpoint_step(checkpoint)
+        if config.steps <= step:
+            raise ValueError(
+                f"target steps {config.steps} must exceed checkpoint step {step}"
+            )
+        wandb = manifest.get("wandb", {})
+        wandb_mode = str(wandb.get("mode", "disabled"))
+        manifest.update(
+            status="running",
+            updated_at=utc_now(),
+            completed_at=None,
+            failure_reason=None,
+            configuration=config.to_dict(),
+            resumed_from_step=step,
+        )
+        atomic_json(manifest_path, manifest)
+        try:
+            train_act(
+                run, dataset, config, args.device, wandb_mode, checkpoint=checkpoint
+            )
+        except BaseException as error:
+            manifest.update(
+                status="failed",
+                updated_at=utc_now(),
+                failure_reason=f"{type(error).__name__}: {error}",
+            )
+            atomic_json(manifest_path, manifest)
+            raise
+        manifest.update(
+            status="completed", updated_at=utc_now(), completed_at=utc_now()
+        )
+        atomic_json(manifest_path, manifest)
+        print(
+            json.dumps(
+                {"run": str(run), "status": "completed"}, indent=2, sort_keys=True
+            )
+        )
+        return 0
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+        print(f"training resume error: {error}", file=sys.stderr)
+        return 2
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "recording":
@@ -811,6 +975,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "doctor":
         return _doctor(as_json=args.json)
+    if args.command == "train" and args.train_command == "act":
+        return _train_act(args)
+    if args.command == "train" and args.train_command == "resume":
+        return _train_resume(args)
     if args.command == "sim" and args.sim_command == "rollout":
         return _sim_rollout(args)
     if args.command == "sim" and args.sim_command == "control-smoke":

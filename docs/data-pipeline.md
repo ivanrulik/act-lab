@@ -121,7 +121,9 @@ canonical resampled values and image bytes. `act_lab_splits.json` maps each
 source episode and its LeRobot episode index to the frozen train or validation
 split. Existing output or partial paths are never overwritten.
 
-LeRobot 0.4.4 is pinned because it provides Dataset v3 while supporting the
-project's Python 3.11 baseline. Later LeRobot releases require Python 3.12. The
-data image pins CPU-only PyTorch because PR 7 converts data and does not train.
-ACT integration and explicit training device selection remain PR 8.
+LeRobot 0.6.1 is pinned with the repository's Python 3.12 baseline. Converter
+version 2 records a storage fingerprint over finalized dataset files in addition
+to the canonical logical fingerprint. Datasets produced by converter version 1
+must be regenerated from their immutable selection manifest. The data image
+pins CPU-only PyTorch, while separate training images pin CPU and CUDA 12.8
+builds. ACT Lab verifies both fingerprints before loading training episodes.
