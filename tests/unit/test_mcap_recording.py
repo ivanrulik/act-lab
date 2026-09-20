@@ -1,13 +1,15 @@
 """Small generated records exercise durability without operator camera fixtures."""
 
+import json
 from dataclasses import replace
 
 import pytest
 from mcap.reader import make_reader
 
+from act_lab.adapters.mcap.foxglove import export_foxglove
 from act_lab.adapters.mcap.inspection import inspect_episode, recover_episode
 from act_lab.adapters.mcap.recording import McapEpisodeSink
-from act_lab.adapters.mcap.schema import decode
+from act_lab.adapters.mcap.schema import decode, qualified_message_class
 from act_lab.domain.models import (
     Action,
     CameraFrame,
@@ -89,6 +91,38 @@ def test_round_trip_streams_rates_and_embedded_schema(tmp_path, provenance):
                 assert (
                     value.requested_action.timestamp_ns == message.log_time - 20_000_000
                 )
+
+
+def test_foxglove_export_preserves_raw_and_adds_standard_image(tmp_path, provenance):
+    sink = McapEpisodeSink(tmp_path)
+    sink.start(provenance, 0)
+    sink.append(sample())
+    sink.stop(EpisodeOutcome.SUCCESS, "settled")
+    raw_before = sink.final_path.read_bytes()
+    output = tmp_path / "episode.foxglove.mcap"
+
+    result = export_foxglove(sink.final_path, output)
+
+    assert sink.final_path.read_bytes() == raw_before
+    assert result["converted_images"] == 1
+    with output.open("rb") as source:
+        records = list(make_reader(source).iter_messages())
+    assert "/observation" in {channel.topic for _, channel, _ in records}
+    foxglove = next(
+        (schema, message)
+        for schema, channel, message in records
+        if channel.topic == "/foxglove/camera/policy"
+    )
+    assert foxglove[0].name == "foxglove.RawImage"
+    image = qualified_message_class("foxglove.RawImage").FromString(foxglove[1].data)
+    assert (image.width, image.height, image.step, image.encoding) == (
+        2,
+        1,
+        6,
+        "rgb8",
+    )
+    assert image.data == bytes((1, 2, 3, 4, 5, 6))
+    assert image.timestamp.nanos == 20_000_000
 
 
 @pytest.mark.parametrize("outcome", [EpisodeOutcome.FAILURE, EpisodeOutcome.DISCARDED])
@@ -299,3 +333,69 @@ def test_partial_task_success_is_not_a_finalized_episode_outcome(
     recovered = inspect_episode(recover_episode(sink.partial_path))
     assert recovered["outcome"] == "interrupted"
     assert recovered["last_task_outcome"] == "success"
+
+
+def test_quality_manifest_and_replay_cli(tmp_path, provenance, capsys):
+    from act_lab.cli import main
+
+    accepted = McapEpisodeSink(tmp_path / "raw")
+    accepted.start(provenance, 0)
+    for stamp in (20_000_000, 40_000_000, 60_000_000):
+        accepted.append(sample(stamp))
+    accepted.stop(EpisodeOutcome.SUCCESS, "settled")
+
+    rejected = McapEpisodeSink(tmp_path / "raw")
+    rejected.start(provenance, 0)
+    rejected.append(sample())
+    rejected.discard("operator rejected attempt")
+
+    assert main(["recording", "validate", str(accepted.final_path)]) == 0
+    validation = json.loads(capsys.readouterr().out)
+    assert validation["valid"]
+    assert validation["reports"][0]["training_eligible"]
+
+    replay = tmp_path / "replay"
+    assert (
+        main(
+            [
+                "recording",
+                "replay",
+                str(accepted.final_path),
+                "--camera",
+                "policy",
+                "--render-dir",
+                str(replay),
+                "--max-frames",
+                "2",
+            ]
+        )
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["camera_frames"] == 2
+    assert len(list(replay.glob("*.ppm"))) == 2
+
+    manifest = tmp_path / "selection.json"
+    assert (
+        main(
+            [
+                "recording",
+                "manifest",
+                str(accepted.final_path),
+                str(rejected.final_path),
+                "--output",
+                str(manifest),
+                "--validation-fraction",
+                "0.5",
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["selected"] == summary["rejected"] == 1
+    contents = json.loads(manifest.read_text())
+    assert {entry["split"] for entry in contents["episodes"] if entry["selected"]} <= {
+        "train",
+        "validation",
+    }
+    assert any(not entry["selected"] for entry in contents["episodes"])

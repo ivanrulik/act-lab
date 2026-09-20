@@ -97,7 +97,10 @@ lifecycle channels remain separate from policy observations. See ADR 010.
 Raw MCAP logs are immutable acquisition evidence. Conversion produces a
 derived, reproducible LeRobotDataset. A manifest connects raw episode IDs,
 validation decisions, converter revision, resolved configuration, and derived
-dataset fingerprint.
+dataset fingerprint. Domain recorded-episode and quality types remain free of
+MCAP and LeRobot values; their adapters decode and serialize at the outer edge.
+Selection and train/validation assignment operate on whole episode IDs. See ADR
+011.
 
 ## Deployment model
 

@@ -56,12 +56,25 @@ CMD ["act-lab", "doctor"]
 FROM dev AS ci
 CMD ["pytest"]
 
+FROM dev AS data
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    --constraint requirements/constraints-data-py311.txt -e '.[dev,data]'
+USER actlab
+CMD ["act-lab", "recording", "--help"]
+
 FROM dev AS ui
 USER root
 # pynput's Linux backend depends on evdev, whose extension is built against
 # the kernel userspace headers when no wheel is available for this platform.
+# OpenCV's Qt/XCB replay window also requires X11 session-management libraries.
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
+    && apt-get install --yes --no-install-recommends \
+        build-essential linux-libc-dev libsm6 libice6 \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m pip install --no-cache-dir \
     --constraint requirements/constraints-py311.txt -e '.[dev,ui]'

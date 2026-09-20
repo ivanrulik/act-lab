@@ -34,11 +34,23 @@ Validation detects missing streams, non-monotonic time, stale/dropped samples,
 NaNs, incompatible dimensions, invalid commands, tracking gaps, and inconsistent
 task labels. Rejection does not delete the raw episode.
 
+Only complete, quality-valid episodes with a success lifecycle label are
+training-eligible. A success/failure label that contradicts the last terminal
+task event is invalid. Earlier webcam recordings without the acquisition
+identity added late in PR 6 receive a visible warning but are not rejected solely
+for that historical omission. See [the data pipeline](../data-pipeline.md).
+
 ## Derived datasets
 
 Conversion to LeRobotDataset is deterministic for a given raw manifest,
 configuration, and converter revision. Dataset splits occur by episode, never
 by frame. The output records its source episode IDs and fingerprint.
+
+Selection manifests include every candidate, raw content hashes, quality
+reports, explicit selection decisions, and deterministic episode-level splits.
+Conversion must verify selected hashes and quality again. Resampling uses an
+integer-nanosecond grid, linear numeric interpolation, normalized action
+quaternions, and nearest RGB/discrete samples with earlier tie breaking.
 
 ## Retention
 

@@ -165,6 +165,43 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("inspect", "recover"):
         command = recording_commands.add_parser(name)
         command.add_argument("path", type=Path)
+    validate = recording_commands.add_parser(
+        "validate", help="apply training-quality rules to raw episodes"
+    )
+    validate.add_argument("paths", type=Path, nargs="+")
+    manifest = recording_commands.add_parser(
+        "manifest", help="validate, select, and split raw episodes"
+    )
+    manifest.add_argument("paths", type=Path, nargs="+")
+    manifest.add_argument("--output", type=Path, required=True)
+    manifest.add_argument("--validation-fraction", type=float, default=0.2)
+    manifest.add_argument("--split-seed", type=int, default=0)
+    manifest.add_argument(
+        "--include-episode",
+        action="append",
+        default=[],
+        help="select only these eligible episode IDs; repeat as needed",
+    )
+    replay = recording_commands.add_parser(
+        "replay", help="inspect or export synchronized scene frames"
+    )
+    replay.add_argument("path", type=Path)
+    replay.add_argument("--camera")
+    replay.add_argument("--render-dir", type=Path)
+    replay.add_argument("--max-frames", type=int)
+    replay.add_argument("--display", action="store_true")
+    foxglove = recording_commands.add_parser(
+        "foxglove", help="create a Foxglove-viewable MCAP derivative"
+    )
+    foxglove.add_argument("path", type=Path)
+    foxglove.add_argument("--output", type=Path, required=True)
+    convert = recording_commands.add_parser(
+        "convert", help="convert a frozen selection manifest to LeRobotDataset"
+    )
+    convert.add_argument("manifest", type=Path)
+    convert.add_argument("--output", type=Path, required=True)
+    convert.add_argument("--repo-id", required=True)
+    convert.add_argument("--fps", type=int, default=25)
     return parser
 
 
@@ -554,6 +591,185 @@ def _sim_expert(args: argparse.Namespace) -> int:
     return 0 if benchmark_report["threshold_passed"] else 1
 
 
+def _recording_validate(paths: list[Path]) -> tuple[list[dict[str, object]], bool]:
+    from dataclasses import asdict
+
+    from act_lab.adapters.mcap.reading import read_episode
+    from act_lab.application.dataset import validate_episode
+
+    reports = [asdict(validate_episode(read_episode(path))) for path in paths]
+    return reports, all(bool(report["valid"]) for report in reports)
+
+
+def _recording_manifest(args: argparse.Namespace) -> dict[str, object]:
+    from dataclasses import asdict
+
+    from act_lab.adapters.mcap.reading import read_episode
+    from act_lab.application.dataset import (
+        CONVERTER_VERSION,
+        file_sha256,
+        split_for_episode,
+        validate_episode,
+    )
+
+    if args.output.exists():
+        raise FileExistsError(f"manifest already exists: {args.output}")
+    entries: list[dict[str, object]] = []
+    episode_ids: set[str] = set()
+    for path in sorted(args.paths, key=lambda item: str(item)):
+        episode = read_episode(path)
+        report = validate_episode(episode)
+        if episode.episode_id and episode.episode_id in episode_ids:
+            raise ValueError(f"duplicate episode ID: {episode.episode_id}")
+        episode_ids.add(episode.episode_id)
+        requested = (
+            not args.include_episode or episode.episode_id in args.include_episode
+        )
+        selected = report.training_eligible and requested
+        entries.append(
+            {
+                "episode_id": episode.episode_id,
+                "path": os.path.relpath(path.resolve(), args.output.parent.resolve()),
+                "sha256": file_sha256(path),
+                "selected": selected,
+                "selection_reason": (
+                    "selected"
+                    if selected
+                    else "quality_or_outcome_rejected"
+                    if not report.training_eligible
+                    else "not_requested"
+                ),
+                "split": (
+                    split_for_episode(
+                        episode.episode_id,
+                        args.split_seed,
+                        args.validation_fraction,
+                    )
+                    if selected
+                    else None
+                ),
+                "quality": asdict(report),
+            }
+        )
+    unknown_ids = set(args.include_episode) - episode_ids
+    if unknown_ids:
+        raise ValueError(
+            "requested episode IDs were not found: " + ", ".join(sorted(unknown_ids))
+        )
+    manifest: dict[str, object] = {
+        "manifest_version": 1,
+        "converter_version": CONVERTER_VERSION,
+        "split": {
+            "method": "sha256(seed:episode_id)",
+            "seed": args.split_seed,
+            "validation_fraction": args.validation_fraction,
+            "unit": "episode",
+        },
+        "episodes": entries,
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    partial = args.output.with_name(args.output.name + ".partial")
+    partial.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    os.replace(partial, args.output)
+    return {
+        "manifest": str(args.output),
+        "candidates": len(entries),
+        "selected": sum(bool(entry["selected"]) for entry in entries),
+        "rejected": sum(not bool(entry["selected"]) for entry in entries),
+    }
+
+
+def _recording_replay(args: argparse.Namespace) -> dict[str, object]:
+    from act_lab.adapters.mcap.reading import read_episode
+
+    episode = read_episode(args.path)
+    if args.max_frames is not None and args.max_frames <= 0:
+        raise ValueError("max-frames must be positive")
+    camera_ids = sorted(
+        {image.camera_id for sample in episode.samples for image in sample.images}
+    )
+    camera = args.camera or (camera_ids[0] if camera_ids else None)
+    if camera is not None and camera not in camera_ids:
+        raise ValueError(f"camera {camera!r} not found; available: {camera_ids}")
+    frames = []
+    for sample in episode.samples:
+        image = next((item for item in sample.images if item.camera_id == camera), None)
+        if image is not None:
+            frames.append((sample.timestamp_ns, image))
+    if args.max_frames is not None:
+        frames = frames[: args.max_frames]
+    if args.render_dir is not None:
+        import numpy as np
+
+        args.render_dir.mkdir(parents=True, exist_ok=True)
+        for index, (_, image) in enumerate(frames):
+            pixels = np.frombuffer(image.rgb_bytes, dtype=np.uint8).reshape(
+                image.height, image.width, 3
+            )
+            _write_ppm(args.render_dir / f"{index:06d}.ppm", pixels)
+    if args.display:
+        import cv2
+        import numpy as np
+
+        for index, (timestamp_ns, image) in enumerate(frames):
+            pixels = np.frombuffer(image.rgb_bytes, dtype=np.uint8).reshape(
+                image.height, image.width, 3
+            )
+            cv2.imshow(
+                f"ACT Lab replay: {camera}", cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR)
+            )
+            next_timestamp_ns = (
+                frames[index + 1][0] if index + 1 < len(frames) else timestamp_ns
+            )
+            delay_ms = max(
+                1, min(1000, round((next_timestamp_ns - timestamp_ns) / 1e6))
+            )
+            if cv2.waitKey(delay_ms) & 0xFF in (ord("q"), 27):
+                break
+        cv2.destroyAllWindows()
+    return {
+        "episode_id": episode.episode_id,
+        "outcome": episode.outcome,
+        "samples": len(episode.samples),
+        "camera": camera,
+        "camera_frames": len(frames),
+        "first_timestamp_ns": episode.samples[0].timestamp_ns
+        if episode.samples
+        else None,
+        "last_timestamp_ns": episode.samples[-1].timestamp_ns
+        if episode.samples
+        else None,
+    }
+
+
+def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
+    from act_lab.adapters.lerobot import convert_episodes
+    from act_lab.adapters.mcap.reading import read_episode
+    from act_lab.application.dataset import file_sha256, validate_episode
+
+    manifest = json.loads(args.manifest.read_text())
+    if manifest.get("manifest_version") != 1:
+        raise ValueError("unsupported selection manifest version")
+    episodes = []
+    selected_entries = [entry for entry in manifest["episodes"] if entry["selected"]]
+    for entry in selected_entries:
+        path = (args.manifest.parent / entry["path"]).resolve()
+        if file_sha256(path) != entry["sha256"]:
+            raise ValueError(f"raw episode changed since selection: {path}")
+        episode = read_episode(path)
+        report = validate_episode(episode)
+        if episode.episode_id != entry["episode_id"] or not report.training_eligible:
+            raise ValueError(f"episode no longer passes selection: {path}")
+        episodes.append(episode)
+    return convert_episodes(
+        episodes,
+        args.output,
+        args.repo_id,
+        args.fps,
+        {"selection_manifest": manifest},
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "recording":
@@ -561,14 +777,38 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         from act_lab.adapters.mcap.inspection import inspect_episode, recover_episode
 
+        exit_code = 0
         try:
-            result = (inspect_episode(args.path) if args.recording_command == "inspect"
-                      else {"recovered_path": str(recover_episode(args.path))})
+            if args.recording_command == "inspect":
+                result = inspect_episode(args.path)
+            elif args.recording_command == "recover":
+                result = {"recovered_path": str(recover_episode(args.path))}
+            elif args.recording_command == "validate":
+                reports, valid = _recording_validate(args.paths)
+                result = {"valid": valid, "reports": reports}
+                exit_code = 0 if valid else 1
+            elif args.recording_command == "manifest":
+                result = _recording_manifest(args)
+            elif args.recording_command == "replay":
+                result = _recording_replay(args)
+            elif args.recording_command == "foxglove":
+                from act_lab.adapters.mcap.foxglove import export_foxglove
+
+                result = export_foxglove(args.path, args.output)
+            else:
+                result = _recording_convert(args)
             print(json.dumps(result, indent=2, sort_keys=True))
-        except (OSError, ValueError, McapError) as error:
+        except (
+            KeyError,
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+            McapError,
+        ) as error:
             print(f"recording error: {error}", file=sys.stderr)
             return 2
-        return 0
+        return exit_code
     if args.command == "doctor":
         return _doctor(as_json=args.json)
     if args.command == "sim" and args.sim_command == "rollout":

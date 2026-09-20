@@ -4,6 +4,9 @@
 field numbers; never reuse numbers or change meanings. Breaking changes require
 a new package/profile version and migration decision.
 
+`foxglove/RawImage.proto` mirrors Foxglove's standard image schema for derived
+inspection exports. It is not used as the authoritative raw acquisition schema.
+
 The build hook invokes pinned protoc to generate `act_lab_episode.desc`, installed
 with the package and embedded in each MCAP schema. Generated artifacts are not
 committed. Rebuild the Docker image after schema edits. See
