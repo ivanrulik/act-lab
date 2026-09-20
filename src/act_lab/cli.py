@@ -190,6 +190,11 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--render-dir", type=Path)
     replay.add_argument("--max-frames", type=int)
     replay.add_argument("--display", action="store_true")
+    foxglove = recording_commands.add_parser(
+        "foxglove", help="create a Foxglove-viewable MCAP derivative"
+    )
+    foxglove.add_argument("path", type=Path)
+    foxglove.add_argument("--output", type=Path, required=True)
     convert = recording_commands.add_parser(
         "convert", help="convert a frozen selection manifest to LeRobotDataset"
     )
@@ -786,6 +791,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = _recording_manifest(args)
             elif args.recording_command == "replay":
                 result = _recording_replay(args)
+            elif args.recording_command == "foxglove":
+                from act_lab.adapters.mcap.foxglove import export_foxglove
+
+                result = export_foxglove(args.path, args.output)
             else:
                 result = _recording_convert(args)
             print(json.dumps(result, indent=2, sort_keys=True))

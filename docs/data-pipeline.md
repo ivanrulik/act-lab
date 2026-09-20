@@ -10,6 +10,7 @@ or deleted.
 ./scripts/demo-data.sh record
 ./scripts/demo-data.sh replay
 ./scripts/demo-data.sh validate
+./scripts/demo-data.sh foxglove
 ./scripts/demo-data.sh convert
 ./scripts/demo-data.sh inspect
 ```
@@ -19,6 +20,11 @@ F6 to save success, F7 to save failure, or F8 to discard. Then `replay` opens th
 most recent scene-camera recording. `convert` selects valid successful attempts
 and writes `data/lerobot/pick-place`; `inspect` loads that directory through
 LeRobotDataset and prints its episodes, frames, and features.
+
+`foxglove` writes a derived MCAP under `runs/foxglove/`. Open that file in
+Foxglove and select `/foxglove/camera/policy` in an Image panel. The original
+raw MCAP is unchanged, and its observation, command, event, and diagnostic
+topics are copied into the derivative.
 
 To generate five headless scripted attempts instead of controlling the robot,
 run:
@@ -62,6 +68,15 @@ docker compose run --rm dev act-lab recording replay EPISODE.mcap \
 An interactive OpenCV window is available with `--display` in an appropriately
 configured display container; `q` or Escape closes it. Replay reads scene-camera
 frames only. Operator webcam pixels were never recorded.
+
+The UI image includes `libsm6` and `libice6` for OpenCV's Qt/XCB window. After a
+UI dependency change, rebuild with `docker compose --profile ui build
+keyboard-teleop`. Its opt-in window smoke check is:
+
+```bash
+docker compose --profile ui run --rm -e ACT_LAB_TEST_DISPLAY=1 \
+  keyboard-teleop pytest tests/integration/test_replay_display.py
+```
 
 ## Freeze selection and episode splits
 

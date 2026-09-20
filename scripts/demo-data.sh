@@ -43,6 +43,17 @@ case "${1:-help}" in
     mapfile -t files < <(recordings)
     docker compose run --rm dev act-lab recording validate "${files[@]}"
     ;;
+  foxglove)
+    episode="${2:-$(latest_recording)}"
+    if [[ -z "${episode}" ]]; then
+      echo "error: no recordings found; run '$0 record' or '$0 record-auto' first" >&2
+      exit 1
+    fi
+    output="runs/foxglove/$(basename "${episode}" .mcap).foxglove.mcap"
+    docker compose run --rm dev act-lab recording foxglove \
+      "${episode}" --output "${output}"
+    echo "Open ${output} in Foxglove and select /foxglove/camera/policy."
+    ;;
   convert)
     mapfile -t files < <(recordings)
     docker compose run --rm dev act-lab recording manifest "${files[@]}" \
@@ -57,6 +68,6 @@ case "${1:-help}" in
       'from lerobot.datasets.lerobot_dataset import LeRobotDataset; d = LeRobotDataset("local/act-lab-pick-place", root="data/lerobot/pick-place"); print(f"episodes: {d.num_episodes}\nframes: {len(d)}\nfeatures: {list(d.features)}"); print({key: getattr(value, "shape", value) for key, value in d[0].items()})'
     ;;
   *)
-    echo "usage: $0 {record [seed]|record-auto [episodes]|replay [episode.mcap]|validate|convert|inspect}"
+    echo "usage: $0 {record [seed]|record-auto [episodes]|replay [episode.mcap]|validate|foxglove [episode.mcap]|convert|inspect}"
     ;;
 esac

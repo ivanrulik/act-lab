@@ -22,14 +22,29 @@ def descriptor_bytes() -> bytes:
 
 
 @cache
+def foxglove_descriptor_bytes() -> bytes:
+    return Path(
+        str(distribution("act-lab").locate_file("act_lab_foxglove.desc"))
+    ).read_bytes()
+
+
+@cache
 def message_class(name: str) -> Any:
-    descriptors = descriptor_pb2.FileDescriptorSet.FromString(descriptor_bytes())
+    return qualified_message_class(f"act_lab.recording.v1.{name}")
+
+
+@cache
+def qualified_message_class(name: str) -> Any:
+    data = (
+        foxglove_descriptor_bytes()
+        if name.startswith("foxglove.")
+        else descriptor_bytes()
+    )
+    descriptors = descriptor_pb2.FileDescriptorSet.FromString(data)
     pool = descriptor_pool.DescriptorPool()
     for file in descriptors.file:
         pool.Add(file)
-    return message_factory.GetMessageClass(
-        pool.FindMessageTypeByName(f"act_lab.recording.v1.{name}")
-    )
+    return message_factory.GetMessageClass(pool.FindMessageTypeByName(name))
 
 
 def encode(name: str, values: dict[str, Any]) -> bytes:
