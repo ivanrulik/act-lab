@@ -36,6 +36,10 @@ docker compose --profile training run --rm train-cpu \
   --output runs/training/act-cpu --device cpu
 ```
 
+To validate the training feature first, run
+`./scripts/validate-training.sh check`, then
+`./scripts/validate-training.sh smoke data/lerobot/pick-place cpu`.
+
 Convenience wrappers open the interactive MuJoCo viewer through the host's
 X11/XWayland display and stop it from any working directory:
 
