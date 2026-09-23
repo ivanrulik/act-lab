@@ -94,6 +94,10 @@ def test_dataset_fingerprints_and_frozen_splits(tmp_path: Path) -> None:
     identity = verify_dataset(root)
     assert identity.train_episode_indices == (0,)
     assert identity.reserved_episode_indices == (1,)
+    # A run manifest is JSON, so tuple-backed domain data must round-trip into
+    # the same representation used by the resume identity check.
+    persisted_identity = json.loads(json.dumps(identity.to_dict()))
+    assert identity.to_dict() == persisted_identity
     (root / "data.bin").write_bytes(b"changed")
     with pytest.raises(ValueError, match="storage fingerprint"):
         verify_dataset(root)

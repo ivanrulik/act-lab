@@ -63,4 +63,17 @@ class DatasetIdentity:
     episode_count: int
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        # Dataset identities are persisted in JSON manifests. Emit JSON-native
+        # lists here so a freshly resolved identity compares equal to the
+        # identity loaded back from its manifest (JSON has no tuple type).
+        return {
+            "path": self.path,
+            "repo_id": self.repo_id,
+            "logical_fingerprint": self.logical_fingerprint,
+            "storage_fingerprint": self.storage_fingerprint,
+            "train_episode_ids": list(self.train_episode_ids),
+            "train_episode_indices": list(self.train_episode_indices),
+            "reserved_episode_ids": list(self.reserved_episode_ids),
+            "reserved_episode_indices": list(self.reserved_episode_indices),
+            "episode_count": self.episode_count,
+        }
