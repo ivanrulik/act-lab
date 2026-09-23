@@ -34,7 +34,15 @@ def episode() -> RecordedEpisode:
                 0.5,
                 True,
                 "applied",
-                (RecordedImage("policy", 1, 1, "rgb8", bytes((index, 2, 3))),),
+                (
+                    RecordedImage(
+                        "policy",
+                        2,
+                        2,
+                        "rgb8",
+                        bytes((index, 2, 3)) * 4,
+                    ),
+                ),
             )
         )
     return RecordedEpisode(
@@ -123,7 +131,7 @@ def test_conversion_round_trips_values_and_has_stable_fingerprint(
             frame["observation.state"],
             np.asarray((0.0,) * 6 + (0.5,), dtype=np.float32),
         )
-        assert frame["observation.images.policy"].shape == (1, 1, 3)
+        assert frame["observation.images.policy"].shape == (2, 2, 3)
         lineage = json.loads((tmp_path / name / "act_lab_lineage.json").read_text())
         assert lineage["source_episode_ids"] == ["episode-001"]
         splits = json.loads((tmp_path / name / "act_lab_splits.json").read_text())
@@ -151,4 +159,4 @@ def test_real_lerobot_dataset_round_trip_when_data_profile_is_installed(
         dataset[0]["observation.state"].numpy(),
         np.asarray((0.0,) * 6 + (0.5,), dtype=np.float32),
     )
-    assert tuple(dataset[0]["observation.images.policy"].shape) == (3, 1, 1)
+    assert tuple(dataset[0]["observation.images.policy"].shape) == (3, 2, 2)

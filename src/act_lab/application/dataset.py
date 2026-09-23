@@ -17,7 +17,7 @@ from act_lab.domain.dataset import (
     RecordedSample,
 )
 
-CONVERTER_VERSION = "1"
+CONVERTER_VERSION = "2"
 
 
 def validate_episode(episode: RecordedEpisode) -> QualityReport:

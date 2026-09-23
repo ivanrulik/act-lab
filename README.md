@@ -27,6 +27,19 @@ docker compose run --rm sim
 docker compose run --rm expert
 ```
 
+Validated datasets can be trained with an explicit device (see
+[the training guide](docs/training.md)):
+
+```bash
+docker compose --profile training run --rm train-cpu \
+  act-lab train act --dataset data/lerobot/pick-place \
+  --output runs/training/act-cpu --device cpu
+```
+
+To validate the training feature first, run
+`./scripts/validate-training.sh check`, then
+`./scripts/validate-training.sh smoke data/lerobot/pick-place cpu`.
+
 Convenience wrappers open the interactive MuJoCo viewer through the host's
 X11/XWayland display and stop it from any working directory:
 
@@ -128,7 +141,7 @@ tooling and diagnosis only.
 - [x] Webcam hand teleoperation
 - [x] Versioned MCAP episode recording and interrupted-file recovery
 - [x] Validation, replay, episode-level splits, and LeRobot conversion
-- [ ] ACT training notebook and CLI
+- [x] ACT training notebook and CLI
 - [ ] Seeded closed-loop evaluation
 - [ ] Optional ROS 2 adapters and physical robot integration
 
@@ -148,6 +161,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Data contract](docs/contracts/data.md)
 - [Episode recording and recovery](docs/recording.md)
 - [Validation, replay, selection, and conversion](docs/data-pipeline.md)
+- [ACT training and checkpoint recovery](docs/training.md)
 - [Control and safety contract](docs/contracts/control.md)
 - [Simulation contract](docs/contracts/simulation.md)
 - [Experiment contract](docs/contracts/experiments.md)

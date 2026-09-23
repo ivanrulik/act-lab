@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM python:3.11-slim-bookworm AS base
+FROM python:3.12-slim-bookworm AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -35,7 +35,7 @@ COPY hatch_build.py ./
 COPY src ./src
 COPY configs ./configs
 RUN python -m pip install --no-cache-dir \
-    --constraint requirements/constraints-py311.txt .
+    --constraint requirements/constraints-py312.txt .
 USER actlab
 ENTRYPOINT ["act-lab"]
 CMD ["doctor"]
@@ -48,8 +48,9 @@ COPY hatch_build.py ./
 COPY src ./src
 COPY tests ./tests
 COPY configs ./configs
+COPY notebooks ./notebooks
 RUN python -m pip install --no-cache-dir \
-    --constraint requirements/constraints-py311.txt -e '.[dev]'
+    --constraint requirements/constraints-py312.txt -e '.[dev]'
 USER actlab
 CMD ["act-lab", "doctor"]
 
@@ -62,10 +63,41 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m pip install --no-cache-dir \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    --constraint requirements/constraints-data-py311.txt -e '.[dev,data]'
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    --constraint requirements/constraints-training-cpu-py312.txt -e '.[dev,data]'
 USER actlab
 CMD ["act-lab", "recording", "--help"]
+
+FROM data AS train-cpu
+USER root
+RUN python -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    --constraint requirements/constraints-training-cpu-py312.txt \
+    -e '.[dev,training,notebook]'
+USER actlab
+CMD ["act-lab", "train", "--help"]
+
+FROM base AS train-gpu
+COPY pyproject.toml README.md compose.yaml ./
+COPY requirements ./requirements
+COPY proto ./proto
+COPY hatch_build.py ./
+COPY src ./src
+COPY tests ./tests
+COPY configs ./configs
+COPY notebooks ./notebooks
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    --extra-index-url https://pypi.org/simple \
+    --constraint requirements/constraints-training-cu128-py312.txt \
+    -e '.[dev,training,notebook]'
+USER actlab
+CMD ["act-lab", "train", "--help"]
 
 FROM dev AS ui
 USER root
@@ -77,5 +109,5 @@ RUN apt-get update \
         build-essential linux-libc-dev libsm6 libice6 \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m pip install --no-cache-dir \
-    --constraint requirements/constraints-py311.txt -e '.[dev,ui]'
+    --constraint requirements/constraints-py312.txt -e '.[dev,ui]'
 USER actlab

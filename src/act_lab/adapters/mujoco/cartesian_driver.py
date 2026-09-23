@@ -122,7 +122,9 @@ class MujocoCartesianDriver:
                 current_quaternion, self._scratch.site_xmat[self._site_id]
             )
             position_error = target_position - current_position
-            rotation_error = _quaternion_error(target_quaternion, current_quaternion)
+            rotation_error = _quaternion_error(
+                target_quaternion, current_quaternion  # type: ignore[arg-type]
+            )
             if (
                 float(np.linalg.norm(position_error))
                 <= control.ik_position_tolerance_m
@@ -366,4 +368,4 @@ def _quaternion_error(
     if magnitude < 1e-12:
         return np.zeros(3, dtype=np.float64)
     angle = 2.0 * math.atan2(magnitude, max(float(error[0]), 0.0))
-    return vector * (angle / magnitude)
+    return vector * (angle / magnitude)  # type: ignore[return-value]

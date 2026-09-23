@@ -24,3 +24,22 @@ jobs:
       - name: Runtime health
         run: docker run --rm act-lab-ci act-lab doctor --json
 
+  training-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CPU training image
+        run: docker build --target train-cpu --tag act-lab-train-cpu .
+      - name: Dataset and ACT training tests
+        run: >-
+          docker run --rm act-lab-train-cpu pytest
+          tests/unit/test_training.py
+          tests/unit/test_dataset_pipeline.py
+          tests/integration/test_act_training.py
+      - name: Execute teaching notebook
+        run: >-
+          docker run --rm act-lab-train-cpu
+          jupyter nbconvert --to notebook --execute
+          --ExecutePreprocessor.timeout=600
+          --output /tmp/act_training.executed.ipynb
+          notebooks/act_training.ipynb

@@ -8,3 +8,5 @@ consequences, and status.
 
 - [ADR 011](011-deterministic-episode-selection-and-conversion.md): deterministic
   quality selection, episode splits, resampling, and LeRobot conversion
+- [ADR 012](012-python-312-and-act-training.md): Python 3.12 migration and pinned
+  LeRobot ACT training/checkpoint integration

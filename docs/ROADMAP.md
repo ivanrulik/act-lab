@@ -106,6 +106,10 @@ episodes fail with actionable reports; no frame-level data leakage occurs.
 
 ## PR 8 — ACT training CLI and teaching notebook
 
+Status: implemented in the current working tree. Python 3.12 and LeRobot 0.6.1
+supersede ADR 011's compatibility pins; existing derived datasets require
+regeneration. See ADR 012 and `docs/training.md`.
+
 Integrate LeRobot ACT behind an adapter, add resolved training configuration,
 checkpoint/resume, dataset fingerprints, a tiny overfit test, and a notebook
 that calls production APIs.
