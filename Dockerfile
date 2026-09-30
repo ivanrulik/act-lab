@@ -25,7 +25,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
-RUN chown actlab:actlab /workspace
+RUN install -d -o actlab -g actlab /home/actlab/.cache \
+    && chown actlab:actlab /workspace
 
 FROM base AS runtime
 COPY pyproject.toml README.md ./
