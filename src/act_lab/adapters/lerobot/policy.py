@@ -33,12 +33,24 @@ class LeRobotACTPolicy:
             if (checkpoint / "pretrained_model").is_dir()
             else checkpoint
         )
-        self._policy = act_module.ACTPolicy.from_pretrained(str(model_path))
+        self._policy = act_module.ACTPolicy.from_pretrained(
+            str(model_path), device=device
+        )
+        if self._policy.config.device != device:
+            raise RuntimeError(
+                f"ACT checkpoint resolved device {self._policy.config.device!r}; "
+                f"requested {device!r}"
+            )
         self._policy.to(device)
         self._policy.eval()
         self._preprocessor, self._postprocessor = (
             policy_factory.make_pre_post_processors(
-                self._policy.config, pretrained_path=str(model_path)
+                self._policy.config,
+                pretrained_path=str(model_path),
+                preprocessor_overrides={
+                    "device_processor": {"device": device}
+                },
+                postprocessor_overrides={"device_processor": {"device": device}},
             )
         )
         self._torch = torch
