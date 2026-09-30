@@ -119,8 +119,12 @@ explicit GPU requests fail rather than silently fall back to CPU.
 
 ## PR 9 — Closed-loop evaluation
 
-Evaluate scripted and learned policies through the same safety/action path over
-held-out seeded initial conditions.
+Status: implemented in the current working tree. `act-lab sim evaluate` runs the
+scripted expert and a LeRobot ACT checkpoint on the same seed list, routes both
+through `SafeCartesianRobot`, and writes a durable report plus per-episode MP4s
+and failure records. The ACT device is explicit and CUDA requests fail closed.
+The evaluation seed range defaults to 10000 onward and must be disjoint from
+training demonstration seeds.
 
 Acceptance: reports include success, completion time, grasp/drop/limit events,
 confidence intervals, configuration, videos, and individual failure cases.
