@@ -15,7 +15,13 @@ from act_lab.domain import Action, Observation, Pose
 class LeRobotACTPolicy:
     """Translate ACT's normalized LeRobot interface into domain actions."""
 
-    def __init__(self, checkpoint: Path, device: str, cameras: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        checkpoint: Path,
+        device: str,
+        cameras: tuple[str, ...],
+        n_action_steps: int = 1,
+    ) -> None:
         try:
             torch = import_module("torch")
             act_module = import_module("lerobot.policies.act.modeling_act")
@@ -34,7 +40,7 @@ class LeRobotACTPolicy:
             else checkpoint
         )
         self._policy = act_module.ACTPolicy.from_pretrained(
-            str(model_path), device=device
+            str(model_path), device=device, n_action_steps=n_action_steps
         )
         if self._policy.config.device != device:
             raise RuntimeError(

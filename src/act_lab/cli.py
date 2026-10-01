@@ -162,6 +162,14 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--seed-start", type=int, default=10000)
     evaluate.add_argument("--episodes", type=int, default=20)
     evaluate.add_argument(
+        "--policy-hz",
+        type=int,
+        help=(
+            "ACT observation/action rate "
+            "(default: infer from training dataset metadata)"
+        ),
+    )
+    evaluate.add_argument(
         "--config", type=Path, default=Path("configs/sim/ur5e_pick_place.toml")
     )
     evaluate.add_argument("--output", type=Path, required=True)
@@ -670,7 +678,28 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                     checkpoint_digest.update(chunk)
         checkpoint_hash = checkpoint_digest.hexdigest()
         training_config = json.loads(training_config_path.read_text())
-        learned = LeRobotACTPolicy(args.checkpoint, args.device, config.cameras)
+        dataset_root = Path(training_config["dataset"]["root"])
+        dataset_info_path = dataset_root / "meta" / "info.json"
+        dataset_fps = None
+        if dataset_info_path.is_file():
+            dataset_fps = int(json.loads(dataset_info_path.read_text())["fps"])
+        policy_hz = args.policy_hz or dataset_fps
+        if policy_hz is None:
+            raise ValueError(
+                "cannot infer training dataset FPS from checkpoint; provide --policy-hz"
+            )
+        if policy_hz <= 0 or config.environment_hz % policy_hz != 0:
+            raise ValueError(
+                f"policy-hz ({policy_hz}) must be a positive divisor of "
+                f"simulation environment_hz ({config.environment_hz})"
+            )
+        policy_stride = config.environment_hz // policy_hz
+        learned = LeRobotACTPolicy(
+            args.checkpoint,
+            args.device,
+            config.cameras,
+            n_action_steps=1,
+        )
         args.output.mkdir(parents=True, exist_ok=True)
         all_results: dict[str, Any] = {}
         for policy_name in ("expert", "act"):
@@ -688,6 +717,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 observation = None
                 failure = None
                 completed_steps = 0
+                held_action = None
                 try:
                     with MujocoCartesianDriver.from_config_file(args.config) as driver:
                         robot = SafeCartesianRobot(driver, driver.limits)
@@ -713,19 +743,30 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                 raise RuntimeError(
                                     f"cannot create evaluation video: {video_path}"
                                 )
-                        for _ in range(config.episode_steps):
+                        for step_index in range(config.episode_steps):
                             completed_steps += 1
-                            action = (
-                                expert.poll(observation)
-                                if policy_name == "expert"
-                                else learned.act(
+                            if policy_name == "expert":
+                                action = expert.poll(observation)
+                            elif step_index % policy_stride == 0:
+                                held_action = learned.act(
                                     observation,
                                     {
                                         camera: driver.environment.render(camera)
                                         for camera in config.cameras
                                     },
                                 )
-                            )
+                                action = held_action
+                            elif held_action is not None:
+                                # Hold the policy-rate target while issuing a
+                                # fresh command at the simulation safety rate.
+                                action = type(held_action)(
+                                    timestamp_ns=observation.timestamp_ns,
+                                    target_pose=held_action.target_pose,
+                                    gripper_position=held_action.gripper_position,
+                                    enabled=held_action.enabled,
+                                )
+                            else:
+                                raise RuntimeError("ACT has no action to hold")
                             robot.command(action)
                             command_report = robot.last_report
                             if command_report is None:
@@ -836,6 +877,11 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 "checkpoint": str(args.checkpoint.resolve()),
                 "checkpoint_sha256": checkpoint_hash,
                 "device": args.device,
+                "policy_hz": policy_hz,
+                "environment_hz": config.environment_hz,
+                "policy_inference_stride": policy_stride,
+                "act_n_action_steps": 1,
+                "training_dataset_fps": dataset_fps,
                 "training_configuration": training_config,
             },
             "safety_path": "SafeCartesianRobot.command(Action)",

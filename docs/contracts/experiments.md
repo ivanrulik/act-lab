@@ -26,3 +26,9 @@ Preprocessing, state/action conventions, camera ordering, normalization, and
 control frequency must match training. A single successful video is an
 illustration, not evidence of policy quality.
 
+The evaluator infers ACT's policy frequency from the training dataset metadata,
+runs inference at that rate with one action per inference, and holds each target
+until the next policy tick. Every held target is retimestamped and sent through
+the safety controller at the simulation rate. The report records both rates.
+Use `--policy-hz` only when the training dataset metadata is unavailable or an
+explicit override is needed.
