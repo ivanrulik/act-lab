@@ -40,6 +40,21 @@ To validate the training feature first, run
 `./scripts/validate-training.sh check`, then
 `./scripts/validate-training.sh smoke data/lerobot/pick-place cpu`.
 
+Evaluate a trained checkpoint and the scripted expert on the same held-out
+seeded initial conditions (inside the training image, which includes LeRobot):
+
+```bash
+docker compose --profile training run --rm evaluate-cpu \
+  act-lab sim evaluate --checkpoint runs/training/act-cpu/lerobot/checkpoints/last \
+  --device cpu --seed-start 10000 --episodes 20 --output runs/evaluation/act-cpu
+```
+
+The report, individual failures, resolved simulation configuration, Wilson 95%
+success-rate intervals, event counts, and one video per policy/seed are saved
+under the output directory. Keep evaluation seeds disjoint from demonstration
+seeds. GPU evaluation can use `train-gpu` with `--device cuda`; CUDA is never
+silently replaced by CPU.
+
 Convenience wrappers open the interactive MuJoCo viewer through the host's
 X11/XWayland display and stop it from any working directory:
 

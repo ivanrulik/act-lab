@@ -81,6 +81,18 @@ services:
       CUDA_VISIBLE_DEVICES: ""
       HF_HOME: /tmp/act-lab-huggingface
 
+  evaluate-cpu:
+    <<: *common
+    build:
+      context: .
+      target: train-cpu
+    profiles: ["training"]
+    command: act-lab sim evaluate --help
+    environment:
+      CUDA_VISIBLE_DEVICES: ""
+      HF_HOME: /tmp/act-lab-huggingface
+      MUJOCO_GL: egl
+
   train-gpu:
     <<: *common
     build:

@@ -10,6 +10,7 @@ import platform
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from act_lab import __version__
 
@@ -153,6 +154,34 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("configs/sim/ur5e_pick_place.toml"),
     )
     expert.add_argument("--json", action="store_true")
+    evaluate = sim_commands.add_parser(
+        "evaluate", help="compare expert and learned ACT in closed-loop simulation"
+    )
+    evaluate.add_argument("--checkpoint", type=Path, required=True)
+    evaluate.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    evaluate.add_argument("--seed-start", type=int, default=10000)
+    evaluate.add_argument("--episodes", type=int, default=20)
+    evaluate.add_argument(
+        "--policy-hz",
+        type=int,
+        help=(
+            "ACT observation/action rate "
+            "(default: infer from training dataset metadata)"
+        ),
+    )
+    evaluate.add_argument(
+        "--config", type=Path, default=Path("configs/sim/ur5e_pick_place.toml")
+    )
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument(
+        "--video", action=argparse.BooleanOptionalAction, default=True
+    )
+    evaluate.add_argument(
+        "--trace-actions",
+        action="store_true",
+        help="write requested/executed actions and safety decisions per step",
+    )
+    evaluate.add_argument("--json", action="store_true")
     for command in (expert, keyboard, webcam):
         command.add_argument(
             "--record-dir", type=Path, help="opt in to MCAP scene/state recording"
@@ -614,6 +643,341 @@ def _sim_expert(args: argparse.Namespace) -> int:
     return 0 if benchmark_report["threshold_passed"] else 1
 
 
+def _sim_evaluate(args: argparse.Namespace) -> int:
+    import hashlib
+    from dataclasses import asdict
+    from datetime import UTC, datetime
+
+    import cv2
+
+    from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
+    from act_lab.adapters.mujoco import MujocoCartesianDriver, SimulationConfig
+    from act_lab.application import SafeCartesianRobot, ScriptedPickPlaceExpert
+    from act_lab.application.evaluation import summarize_episodes
+    from act_lab.domain import CommandOutcome
+
+    if args.episodes <= 0 or args.seed_start < 0:
+        print("episodes must be positive and seed-start nonnegative", file=sys.stderr)
+        return 2
+    try:
+        config = SimulationConfig.load(args.config)
+        if not args.checkpoint.is_dir():
+            raise ValueError(f"checkpoint directory does not exist: {args.checkpoint}")
+        checkpoint_root = args.checkpoint.resolve()
+        pretrained_root = checkpoint_root / "pretrained_model"
+        if pretrained_root.is_dir():
+            checkpoint_root = pretrained_root
+        training_config_path = checkpoint_root / "train_config.json"
+        if not training_config_path.is_file():
+            raise ValueError("checkpoint is missing pretrained_model/train_config.json")
+        checkpoint_digest = hashlib.sha256()
+        checkpoint_files = sorted(
+            path for path in checkpoint_root.rglob("*") if path.is_file()
+        )
+        for path in checkpoint_files:
+            checkpoint_digest.update(
+                path.relative_to(checkpoint_root).as_posix().encode()
+            )
+            with path.open("rb") as source:
+                while chunk := source.read(1024 * 1024):
+                    checkpoint_digest.update(chunk)
+        checkpoint_hash = checkpoint_digest.hexdigest()
+        training_config = json.loads(training_config_path.read_text())
+        dataset_root = Path(training_config["dataset"]["root"])
+        dataset_info_path = dataset_root / "meta" / "info.json"
+        dataset_fps = None
+        if dataset_info_path.is_file():
+            dataset_fps = int(json.loads(dataset_info_path.read_text())["fps"])
+        policy_hz = args.policy_hz or dataset_fps
+        if policy_hz is None:
+            raise ValueError(
+                "cannot infer training dataset FPS from checkpoint; provide --policy-hz"
+            )
+        if policy_hz <= 0 or config.environment_hz % policy_hz != 0:
+            raise ValueError(
+                f"policy-hz ({policy_hz}) must be a positive divisor of "
+                f"simulation environment_hz ({config.environment_hz})"
+            )
+        policy_stride = config.environment_hz // policy_hz
+        learned = LeRobotACTPolicy(
+            args.checkpoint,
+            args.device,
+            config.cameras,
+            n_action_steps=1,
+        )
+        args.output.mkdir(parents=True, exist_ok=True)
+        all_results: dict[str, Any] = {}
+        for policy_name in ("expert", "act"):
+            episode_results: list[dict[str, object]] = []
+            for seed in range(args.seed_start, args.seed_start + args.episodes):
+                video_path = args.output / "videos" / policy_name / f"seed-{seed}.mp4"
+                writer = None
+                trace_stream = None
+                trace_path = (
+                    args.output / "traces" / policy_name / f"seed-{seed}.jsonl"
+                )
+                events = {
+                    "grasp": 0,
+                    "drop": 0,
+                    "workspace_or_rate_limit": 0,
+                    "safety_rejection": 0,
+                }
+                lifted = False
+                observation = None
+                failure = None
+                completed_steps = 0
+                held_action = None
+                try:
+                    with MujocoCartesianDriver.from_config_file(args.config) as driver:
+                        robot = SafeCartesianRobot(driver, driver.limits)
+                        observation = robot.reset(seed)
+                        if policy_name == "act":
+                            learned.reset()
+                        expert = ScriptedPickPlaceExpert(
+                            driver.environment, config.expert
+                        )
+                        expert.reset(observation)
+                        if args.video:
+                            video_path.parent.mkdir(parents=True, exist_ok=True)
+                            first = driver.environment.render(config.cameras[0])
+                            height, width, _ = first.shape
+                            fourcc = cv2.VideoWriter.fourcc(*"mp4v")
+                            writer = cv2.VideoWriter(
+                                str(video_path),
+                                fourcc,
+                                config.environment_hz,
+                                (width, height),
+                            )
+                            if not writer.isOpened():
+                                raise RuntimeError(
+                                    f"cannot create evaluation video: {video_path}"
+                                )
+                        if args.trace_actions:
+                            trace_path.parent.mkdir(parents=True, exist_ok=True)
+                            trace_stream = trace_path.open("w", encoding="utf-8")
+                        command_outcomes = {
+                            outcome.value: 0 for outcome in CommandOutcome
+                        }
+                        for step_index in range(config.episode_steps):
+                            completed_steps += 1
+                            if policy_name == "expert":
+                                action = expert.poll(observation)
+                            elif step_index % policy_stride == 0:
+                                held_action = learned.act(
+                                    observation,
+                                    {
+                                        camera: driver.environment.render(camera)
+                                        for camera in config.cameras
+                                    },
+                                )
+                                action = held_action
+                            elif held_action is not None:
+                                # Hold the policy-rate target while issuing a
+                                # fresh command at the simulation safety rate.
+                                action = type(held_action)(
+                                    timestamp_ns=observation.timestamp_ns,
+                                    target_pose=held_action.target_pose,
+                                    gripper_position=held_action.gripper_position,
+                                    enabled=held_action.enabled,
+                                )
+                            else:
+                                raise RuntimeError("ACT has no action to hold")
+                            robot.command(action)
+                            command_report = robot.last_report
+                            if command_report is None:
+                                raise RuntimeError(
+                                    "safe controller produced no command report"
+                                )
+                            command_outcomes[command_report.outcome.value] += 1
+                            if command_report.outcome is CommandOutcome.LIMITED:
+                                events["workspace_or_rate_limit"] += 1
+                            elif command_report.outcome in {
+                                CommandOutcome.INVALID,
+                                CommandOutcome.STALE,
+                                CommandOutcome.IK_FAILURE,
+                                CommandOutcome.COLLISION_STOP,
+                            }:
+                                events["safety_rejection"] += 1
+                            if policy_name == "expert":
+                                expert.record_command_report(command_report)
+                            observation = robot.observe()
+                            if writer is not None:
+                                frame = driver.environment.render(config.cameras[0])
+                                writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                            task = driver.environment.task_state()
+                            if trace_stream is not None:
+                                trace_stream.write(
+                                    json.dumps(
+                                        {
+                                            "seed": seed,
+                                            "policy": policy_name,
+                                            "step": completed_steps,
+                                            "policy_inference": (
+                                                policy_name == "act"
+                                                and step_index % policy_stride == 0
+                                            ),
+                                            "outcome": command_report.outcome.value,
+                                            "detail": command_report.detail,
+                                            "requested_action": asdict(
+                                                command_report.requested_action
+                                            ),
+                                            "executed_action": (
+                                                asdict(command_report.executed_action)
+                                                if command_report.executed_action
+                                                is not None
+                                                else None
+                                            ),
+                                            "resulting_end_effector_pose": asdict(
+                                                command_report.resulting_state.end_effector_pose
+                                            ),
+                                            "cube_pose": asdict(task.cube_pose),
+                                            "commanded_speed_m_s": (
+                                                command_report.commanded_cartesian_speed_m_s
+                                            ),
+                                            "measured_speed_m_s": (
+                                                command_report.measured_cartesian_speed_m_s
+                                            ),
+                                            "tracking_error_m": (
+                                                command_report.tracking_error_m
+                                            ),
+                                        },
+                                        sort_keys=True,
+                                    )
+                                    + "\n"
+                                )
+                            cube_z = task.cube_pose.position_xyz_m[2]
+                            if not lifted and cube_z > config.cube_center_z_m + 0.025:
+                                lifted = True
+                                events["grasp"] += 1
+                            task_status = driver.environment.task_status()
+                            if (
+                                lifted
+                                and cube_z < config.cube_center_z_m + 0.025
+                                and task_status.cube_supported
+                                and not task_status.cube_in_tray
+                            ):
+                                events["drop"] += 1
+                                lifted = False
+                            if task.terminal or (
+                                policy_name == "expert" and expert.failure_reason
+                            ):
+                                break
+                        task = driver.environment.task_state()
+                        failure = (
+                            None
+                            if task.success
+                            else (
+                                task.reason
+                                or (
+                                    expert.failure_reason
+                                    if policy_name == "expert"
+                                    else None
+                                )
+                                or "step_limit"
+                            )
+                        )
+                        final_phase = (
+                            expert.phase.value if policy_name == "expert" else None
+                        )
+                        elapsed = observation.timestamp_ns / 1_000_000_000.0
+                        episode_results.append(
+                            {
+                                "seed": seed,
+                                "success": task.success,
+                                "completion_time_s": elapsed if task.success else None,
+                                "elapsed_time_s": elapsed,
+                                "steps": completed_steps,
+                                "failure_reason": failure,
+                                "final_phase": final_phase,
+                                "events": events,
+                                "command_outcomes": command_outcomes,
+                                "action_trace": (
+                                    str(trace_path.relative_to(args.output))
+                                    if args.trace_actions
+                                    else None
+                                ),
+                                "video": str(video_path.relative_to(args.output))
+                                if args.video
+                                else None,
+                                "final_cube_position_xyz_m": (
+                                    task.cube_pose.position_xyz_m
+                                ),
+                            }
+                        )
+                except (RuntimeError, ValueError, OSError) as error:
+                    episode_results.append(
+                        {
+                            "seed": seed,
+                            "success": False,
+                            "completion_time_s": None,
+                            "elapsed_time_s": (
+                                completed_steps / config.environment_hz
+                            ),
+                            "steps": completed_steps,
+                            "failure_reason": f"evaluation_error: {error}",
+                            "events": events,
+                            "action_trace": (
+                                str(trace_path.relative_to(args.output))
+                                if args.trace_actions
+                                else None
+                            ),
+                            "video": str(video_path.relative_to(args.output))
+                            if args.video
+                            else None,
+                        }
+                    )
+                finally:
+                    if writer is not None:
+                        writer.release()
+                    if trace_stream is not None:
+                        trace_stream.close()
+            all_results[policy_name] = {
+                "summary": summarize_episodes(episode_results),
+                "episodes": episode_results,
+            }
+        report = {
+            "schema_version": 1,
+            "created_at_utc": datetime.now(UTC).isoformat(),
+            "seed_start": args.seed_start,
+            "seed_count": args.episodes,
+            "seeds": list(range(args.seed_start, args.seed_start + args.episodes)),
+            "simulation_config": asdict(config),
+            "policy": {
+                "checkpoint": str(args.checkpoint.resolve()),
+                "checkpoint_sha256": checkpoint_hash,
+                "device": args.device,
+                "policy_hz": policy_hz,
+                "environment_hz": config.environment_hz,
+                "policy_inference_stride": policy_stride,
+                "act_n_action_steps": 1,
+                "training_dataset_fps": dataset_fps,
+                "training_configuration": training_config,
+            },
+            "safety_path": "SafeCartesianRobot.command(Action)",
+            "confidence_interval": "95% Wilson score",
+            "results": all_results,
+        }
+        report_path = args.output / "evaluation.json"
+        partial = report_path.with_suffix(".json.partial")
+        partial.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        partial.replace(report_path)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"evaluation error: {error}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(f"evaluation report: {report_path}")
+        for name, values in all_results.items():
+            summary = values["summary"]
+            print(
+                f"{name}: {summary['successes']}/{summary['episodes']} "
+                f"({summary['success_rate']:.1%}), 95% CI "
+                f"{summary['success_rate_ci_95']}"
+            )
+    return 0
+
+
 def _recording_validate(paths: list[Path]) -> tuple[list[dict[str, object]], bool]:
     from dataclasses import asdict
 
@@ -993,4 +1357,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sim_webcam_teleop(args)
     if args.command == "sim" and args.sim_command == "expert":
         return _sim_expert(args)
+    if args.command == "sim" and args.sim_command == "evaluate":
+        return _sim_evaluate(args)
     raise AssertionError(f"unhandled command: {args.command}")
