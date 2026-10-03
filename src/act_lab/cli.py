@@ -217,6 +217,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="select only these eligible episode IDs; repeat as needed",
     )
+    manifest.add_argument(
+        "--include-seed-range",
+        action="append",
+        default=[],
+        metavar="START:COUNT",
+        help="select eligible episodes by acquisition seed; repeat as needed",
+    )
+    manifest.add_argument(
+        "--include-source", help="require this acquisition source for selection"
+    )
     replay = recording_commands.add_parser(
         "replay", help="inspect or export synchronized scene frames"
     )
@@ -253,7 +263,98 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("--run", type=Path, required=True)
     resume.add_argument("--device", choices=("cpu", "cuda"), required=True)
     resume.add_argument("--steps", type=int)
+    experiment = subparsers.add_parser(
+        "experiment", help="inspect demonstration coverage and compare evaluations"
+    )
+    experiment_commands = experiment.add_subparsers(
+        dest="experiment_command", required=True
+    )
+    coverage = experiment_commands.add_parser(
+        "coverage", help="report selected cube spawn coverage by dataset split"
+    )
+    coverage.add_argument("--manifest", type=Path, required=True)
+    coverage.add_argument(
+        "--config", type=Path, default=Path("configs/sim/ur5e_pick_place.toml")
+    )
+    coverage.add_argument("--bins", type=int, default=4)
+    coverage.add_argument("--output", type=Path, required=True)
+    comparison = experiment_commands.add_parser(
+        "compare", help="compare two ACT evaluations on the same seeds"
+    )
+    comparison.add_argument("--baseline", type=Path, required=True)
+    comparison.add_argument("--candidate", type=Path, required=True)
+    comparison.add_argument("--output", type=Path, required=True)
     return parser
+
+
+def _experiment(args: argparse.Namespace) -> int:
+    from act_lab.application.experiment import compare_evaluations, coverage_report
+    from act_lab.application.training import atomic_json
+
+    try:
+        if args.output.exists():
+            raise FileExistsError(f"report already exists: {args.output}")
+        if args.experiment_command == "coverage":
+            from act_lab.adapters.mcap.inspection import inspect_episode
+            from act_lab.adapters.mujoco.config import SimulationConfig
+            from act_lab.adapters.mujoco.seed_geometry import cube_spawn_xy
+            from act_lab.application.dataset import file_sha256
+
+            manifest = json.loads(args.manifest.read_text())
+            if manifest.get("manifest_version") != 1:
+                raise ValueError("unsupported selection manifest version")
+            config = SimulationConfig.load(args.config)
+            episodes = []
+            for entry in manifest["episodes"]:
+                if not entry["selected"]:
+                    continue
+                path = (args.manifest.parent / entry["path"]).resolve()
+                if file_sha256(path) != entry["sha256"]:
+                    raise ValueError(f"raw episode changed since selection: {path}")
+                provenance = inspect_episode(path)["provenance"]
+                if (
+                    provenance is None
+                    or provenance["episode_id"] != entry["episode_id"]
+                ):
+                    raise ValueError(f"episode provenance mismatch: {path}")
+                if provenance["source"] != "expert":
+                    raise ValueError(f"selected episode is not scripted expert: {path}")
+                recorded_simulation = json.loads(provenance["resolved_config_json"])[
+                    "simulation"
+                ]
+                if recorded_simulation["cube_spawn_x_m"] != list(
+                    config.cube_spawn_x_m
+                ) or recorded_simulation["cube_spawn_y_m"] != list(
+                    config.cube_spawn_y_m
+                ):
+                    raise ValueError(f"recorded spawn bounds differ: {path}")
+                seed = provenance["seed"]
+                episodes.append(
+                    {
+                        "episode_id": entry["episode_id"],
+                        "seed": seed,
+                        "split": entry["split"],
+                        "cube_xy_m": cube_spawn_xy(seed, config),
+                    }
+                )
+            result = coverage_report(
+                episodes, config.cube_spawn_x_m, config.cube_spawn_y_m, bins=args.bins
+            )
+            result["selection_manifest"] = str(args.manifest)
+            result["simulation_config"] = str(args.config)
+        else:
+            baseline = json.loads(args.baseline.read_text())
+            candidate = json.loads(args.candidate.read_text())
+            result = compare_evaluations(baseline, candidate)
+            result["baseline_report"] = str(args.baseline)
+            result["candidate_report"] = str(args.candidate)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        atomic_json(args.output, result)
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        print(f"experiment error: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
 
 
 def _write_ppm(path: Path, frame: object) -> None:
@@ -998,19 +1099,28 @@ def _recording_manifest(args: argparse.Namespace) -> dict[str, object]:
         split_for_episode,
         validate_episode,
     )
+    from act_lab.application.experiment import episode_requested, parse_seed_ranges
 
     if args.output.exists():
         raise FileExistsError(f"manifest already exists: {args.output}")
     entries: list[dict[str, object]] = []
     episode_ids: set[str] = set()
+    seed_ranges = parse_seed_ranges(args.include_seed_range)
     for path in sorted(args.paths, key=lambda item: str(item)):
         episode = read_episode(path)
         report = validate_episode(episode)
         if episode.episode_id and episode.episode_id in episode_ids:
             raise ValueError(f"duplicate episode ID: {episode.episode_id}")
         episode_ids.add(episode.episode_id)
-        requested = (
-            not args.include_episode or episode.episode_id in args.include_episode
+        seed_value = episode.provenance.get("seed")
+        seed = seed_value if type(seed_value) is int else -1
+        requested = episode_requested(
+            episode.episode_id,
+            seed,
+            str(episode.provenance.get("source", "")),
+            args.include_episode,
+            seed_ranges,
+            args.include_source,
         )
         selected = report.training_eligible and requested
         entries.append(
@@ -1051,6 +1161,11 @@ def _recording_manifest(args: argparse.Namespace) -> dict[str, object]:
             "seed": args.split_seed,
             "validation_fraction": args.validation_fraction,
             "unit": "episode",
+        },
+        "selection": {
+            "episode_ids": args.include_episode,
+            "seed_ranges_start_count": args.include_seed_range,
+            "source": args.include_source,
         },
         "episodes": entries,
     }
@@ -1339,6 +1454,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "doctor":
         return _doctor(as_json=args.json)
+    if args.command == "experiment":
+        return _experiment(args)
     if args.command == "train" and args.train_command == "act":
         return _train_act(args)
     if args.command == "train" and args.train_command == "resume":

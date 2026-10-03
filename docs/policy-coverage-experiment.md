@@ -1,0 +1,107 @@
+# ACT policy coverage experiment
+
+This follow-up tests whether broader scripted demonstrations improve ACT's
+closed-loop grasp reliability. It uses the existing simulation, safe action
+path, MCAP validation, LeRobot conversion, training CLI, and paired evaluator.
+It does not change the camera layout, controller, policy architecture, or ROS
+boundary.
+
+## Baseline and seed protocol
+
+The clean PR 9 checkpoint is
+`runs/training/act-gpu-clean-retry/lerobot/checkpoints/last`. On diagnostic
+seeds 10000–10019 it succeeded 16/20 times after the gripper output clamp.
+Those seeds have informed this experiment and are a regression set, not an
+untouched final holdout. The original training demonstrations used seeds
+200–219, with 19 successful validated episodes, 14 assigned to train.
+
+Use seeds 300–359 for the new expert cohort. Keep both evaluation ranges
+10000–10019 and 11000–11099 out of all training demonstrations. Fix the
+fresh final comparison to 11000–11099 before viewing its results. Run both
+checkpoints on exactly those 100 seeds with the same simulation and policy
+execution settings. The comparison command rejects mismatched seeds,
+simulation configuration, safety path, or execution frequency.
+
+The simulator samples cube X from `[0.35, 0.52]` m and Y from
+`[-0.22, -0.08]` m. The original 14 training starts occupied 7/16 cells of a
+4×4 XY grid. Seeds 300–359 span all 16 cells before quality filtering. The
+coverage report must be inspected again after selection; a generated seed is
+not automatically a usable training demonstration.
+
+## Collect, validate, and convert
+
+Run every command from the repository root. Compose owns the runtime. Paths
+under `data/` and `runs/` are ignored, and existing datasets/runs must not be
+overwritten.
+
+```bash
+docker compose run --rm dev act-lab experiment coverage \
+  --manifest data/selection-pr9-clean.json \
+  --output runs/experiments/act-coverage/baseline-coverage.json
+
+docker compose run --rm dev act-lab sim expert \
+  --seed-start 300 --episodes 60 --record-dir data/raw --json \
+  > runs/experiments/act-coverage/expert-300-359.json
+
+docker compose run --rm dev act-lab recording manifest data/raw/*.mcap \
+  --include-source expert \
+  --include-seed-range 200:20 --include-seed-range 300:60 \
+  --validation-fraction 0.2 --split-seed 0 \
+  --output data/selection-act-coverage.json
+
+docker compose run --rm dev act-lab experiment coverage \
+  --manifest data/selection-act-coverage.json \
+  --output runs/experiments/act-coverage/candidate-coverage.json
+
+docker compose --profile data run --rm data act-lab recording convert \
+  data/selection-act-coverage.json \
+  --output data/lerobot/pick-place-act-coverage \
+  --repo-id local/act-lab-pick-place-act-coverage --fps 25
+```
+
+Review the expert report for failures, the manifest for quality rejection and
+train/validation assignment, and the candidate coverage grid before training.
+The manifest retains unselected and rejected candidates with their reasons.
+The coverage command verifies selected raw hashes and checks recorded seed,
+source, and spawn bounds. Its grid is descriptive; it is not a success metric.
+
+## Train and compare
+
+This is a new full training run, not a resume of the existing checkpoint.
+The current production configuration is 100,000 steps and previously took
+about 17 hours on the local GPU. CUDA requests fail rather than fall back to
+CPU.
+
+```bash
+docker compose --profile gpu run --rm train-gpu \
+  act-lab train act --dataset data/lerobot/pick-place-act-coverage \
+  --output runs/training/act-gpu-coverage --device cuda
+
+docker compose --profile gpu run --rm train-gpu \
+  act-lab sim evaluate \
+  --checkpoint runs/training/act-gpu-clean-retry/lerobot/checkpoints/last \
+  --device cuda --seed-start 11000 --episodes 100 \
+  --output runs/evaluation/act-baseline-11000
+
+docker compose --profile gpu run --rm train-gpu \
+  act-lab sim evaluate \
+  --checkpoint runs/training/act-gpu-coverage/lerobot/checkpoints/last \
+  --device cuda --seed-start 11000 --episodes 100 \
+  --output runs/evaluation/act-coverage-11000
+
+docker compose run --rm dev act-lab experiment compare \
+  --baseline runs/evaluation/act-baseline-11000/evaluation.json \
+  --candidate runs/evaluation/act-coverage-11000/evaluation.json \
+  --output runs/experiments/act-coverage/comparison-11000.json
+```
+
+The comparison reports each policy's Wilson 95% success interval, the paired
+success-rate difference with a deterministic 95% bootstrap interval, per-seed
+improvements and regressions, completion time among successes, and aggregate
+grasp/drop/limit/rejection events. Review the evaluation videos and individual
+failure records as well. A higher training success rate or lower training loss
+alone does not establish improvement. Report an inconclusive or negative result
+as such; do not add fresh-holdout seeds to the training set after seeing them.
+
+Only after the fresh comparison, rerun seeds 10000–10019 for the regression
+check. The PR 10 clean-clone release is a separate roadmap item.
