@@ -12,6 +12,11 @@ from numpy.typing import NDArray
 from act_lab.domain import Action, Observation, Pose
 
 
+def _bounded_gripper_position(value: float) -> float:
+    """Saturate small ACT extrapolations to the physical gripper range."""
+    return min(1.0, max(0.0, value))
+
+
 class LeRobotACTPolicy:
     """Translate ACT's normalized LeRobot interface into domain actions."""
 
@@ -109,6 +114,6 @@ class LeRobotACTPolicy:
                 position,
                 quaternion,
             ),
-            gripper_position=float(values[7]),
+            gripper_position=_bounded_gripper_position(float(values[7])),
             enabled=True,
         )

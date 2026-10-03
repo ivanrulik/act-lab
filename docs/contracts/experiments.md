@@ -32,3 +32,8 @@ until the next policy tick. Every held target is retimestamped and sent through
 the safety controller at the simulation rate. The report records both rates.
 Use `--policy-hz` only when the training dataset metadata is unavailable or an
 explicit override is needed.
+
+For failure analysis, `--trace-actions` writes one JSONL row per simulation
+step with requested and executed actions, the safety outcome and detail, robot
+end-effector pose, and cube pose. Aggregate command outcome counts are included
+in each episode report.

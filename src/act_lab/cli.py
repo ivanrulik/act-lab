@@ -176,6 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument(
         "--video", action=argparse.BooleanOptionalAction, default=True
     )
+    evaluate.add_argument(
+        "--trace-actions",
+        action="store_true",
+        help="write requested/executed actions and safety decisions per step",
+    )
     evaluate.add_argument("--json", action="store_true")
     for command in (expert, keyboard, webcam):
         command.add_argument(
@@ -707,6 +712,10 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
             for seed in range(args.seed_start, args.seed_start + args.episodes):
                 video_path = args.output / "videos" / policy_name / f"seed-{seed}.mp4"
                 writer = None
+                trace_stream = None
+                trace_path = (
+                    args.output / "traces" / policy_name / f"seed-{seed}.jsonl"
+                )
                 events = {
                     "grasp": 0,
                     "drop": 0,
@@ -743,6 +752,12 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                 raise RuntimeError(
                                     f"cannot create evaluation video: {video_path}"
                                 )
+                        if args.trace_actions:
+                            trace_path.parent.mkdir(parents=True, exist_ok=True)
+                            trace_stream = trace_path.open("w", encoding="utf-8")
+                        command_outcomes = {
+                            outcome.value: 0 for outcome in CommandOutcome
+                        }
                         for step_index in range(config.episode_steps):
                             completed_steps += 1
                             if policy_name == "expert":
@@ -773,6 +788,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                 raise RuntimeError(
                                     "safe controller produced no command report"
                                 )
+                            command_outcomes[command_report.outcome.value] += 1
                             if command_report.outcome is CommandOutcome.LIMITED:
                                 events["workspace_or_rate_limit"] += 1
                             elif command_report.outcome in {
@@ -789,6 +805,46 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                 frame = driver.environment.render(config.cameras[0])
                                 writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                             task = driver.environment.task_state()
+                            if trace_stream is not None:
+                                trace_stream.write(
+                                    json.dumps(
+                                        {
+                                            "seed": seed,
+                                            "policy": policy_name,
+                                            "step": completed_steps,
+                                            "policy_inference": (
+                                                policy_name == "act"
+                                                and step_index % policy_stride == 0
+                                            ),
+                                            "outcome": command_report.outcome.value,
+                                            "detail": command_report.detail,
+                                            "requested_action": asdict(
+                                                command_report.requested_action
+                                            ),
+                                            "executed_action": (
+                                                asdict(command_report.executed_action)
+                                                if command_report.executed_action
+                                                is not None
+                                                else None
+                                            ),
+                                            "resulting_end_effector_pose": asdict(
+                                                command_report.resulting_state.end_effector_pose
+                                            ),
+                                            "cube_pose": asdict(task.cube_pose),
+                                            "commanded_speed_m_s": (
+                                                command_report.commanded_cartesian_speed_m_s
+                                            ),
+                                            "measured_speed_m_s": (
+                                                command_report.measured_cartesian_speed_m_s
+                                            ),
+                                            "tracking_error_m": (
+                                                command_report.tracking_error_m
+                                            ),
+                                        },
+                                        sort_keys=True,
+                                    )
+                                    + "\n"
+                                )
                             cube_z = task.cube_pose.position_xyz_m[2]
                             if not lifted and cube_z > config.cube_center_z_m + 0.025:
                                 lifted = True
@@ -834,6 +890,12 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                 "failure_reason": failure,
                                 "final_phase": final_phase,
                                 "events": events,
+                                "command_outcomes": command_outcomes,
+                                "action_trace": (
+                                    str(trace_path.relative_to(args.output))
+                                    if args.trace_actions
+                                    else None
+                                ),
                                 "video": str(video_path.relative_to(args.output))
                                 if args.video
                                 else None,
@@ -854,6 +916,11 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                             "steps": completed_steps,
                             "failure_reason": f"evaluation_error: {error}",
                             "events": events,
+                            "action_trace": (
+                                str(trace_path.relative_to(args.output))
+                                if args.trace_actions
+                                else None
+                            ),
                             "video": str(video_path.relative_to(args.output))
                             if args.video
                             else None,
@@ -862,6 +929,8 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 finally:
                     if writer is not None:
                         writer.release()
+                    if trace_stream is not None:
+                        trace_stream.close()
             all_results[policy_name] = {
                 "summary": summarize_episodes(episode_results),
                 "episodes": episode_results,

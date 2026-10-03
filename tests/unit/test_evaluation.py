@@ -73,5 +73,18 @@ def test_evaluate_cli_uses_common_seed_range_and_required_checkpoint() -> None:
     assert args.sim_command == "evaluate"
     assert args.seed_start == 10000
     assert args.episodes == 7
+    assert not args.trace_actions
+    traced_args = build_parser().parse_args(
+        [
+            "sim",
+            "evaluate",
+            "--checkpoint",
+            "runs/checkpoint",
+            "--output",
+            "runs/eval",
+            "--trace-actions",
+        ]
+    )
+    assert traced_args.trace_actions
     with pytest.raises(SystemExit):
         build_parser().parse_args(["sim", "evaluate", "--output", "runs/eval"])
