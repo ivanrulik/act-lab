@@ -106,7 +106,7 @@ episodes fail with actionable reports; no frame-level data leakage occurs.
 
 ## PR 8 — ACT training CLI and teaching notebook
 
-Status: implemented in the current working tree. Python 3.12 and LeRobot 0.6.1
+Status: merged as GitHub PR #12. Python 3.12 and LeRobot 0.6.1
 supersede ADR 011's compatibility pins; existing derived datasets require
 regeneration. See ADR 012 and `docs/training.md`.
 
@@ -119,7 +119,7 @@ explicit GPU requests fail rather than silently fall back to CPU.
 
 ## PR 9 — Closed-loop evaluation
 
-Status: implemented in the current working tree. `act-lab sim evaluate` runs the
+Status: merged as GitHub PR #13. `act-lab sim evaluate` runs the
 scripted expert and a LeRobot ACT checkpoint on the same seed list, routes both
 through `SafeCartesianRobot`, and writes a durable report plus per-episode MP4s
 and failure records. The ACT device is explicit and CUDA requests fail closed.
@@ -128,6 +128,26 @@ training demonstration seeds.
 
 Acceptance: reports include success, completion time, grasp/drop/limit events,
 confidence intervals, configuration, videos, and individual failure cases.
+
+## PR 9.1 — ACT demonstration coverage experiment
+
+Status: implemented and locally validated on the PR 9.1 feature branch.
+Preserve the PR 9 checkpoint and diagnostic report, add
+inspectable training-start coverage and paired evaluation comparison reports,
+collect a separate seeded scripted-expert cohort, and train a new ACT run from
+a validated derived dataset. See `policy-coverage-experiment.md`.
+
+Acceptance: selection is frozen with raw hashes and episode-level splits;
+training and evaluation seeds are disjoint; baseline and candidate are compared
+on the same fresh held-out seeds with confidence intervals, safety events, and
+individual outcomes. Report negative or inconclusive results honestly. No ROS
+or hardware changes.
+
+The fresh 100-seed comparison improved ACT success from 67% to 96%, while IK
+rejections increased from 0 to 41 (the baseline had 8 collision stops).
+Follow-up PR 9.2: diagnose high-X/low-Y grasp failures and reduce unreachable
+policy targets without weakening `SafeCartesianRobot`; retain seed 11058 as an
+expert/simulator failure case. See `policy-coverage-experiment.md`.
 
 ## PR 10 — Reproducible learning release
 

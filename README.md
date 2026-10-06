@@ -11,9 +11,9 @@ The target platform is a simulated UR5e with a parallel-jaw gripper in MuJoCo.
 Webcam hand tracking is the initial teleoperation device. LeRobotDataset is the
 training representation and LeRobot's ACT implementation is the initial policy.
 
-This repository currently contains the **project scaffold and engineering
-contracts**. Milestones are deliberately implemented in small pull requests;
-see [the roadmap](docs/ROADMAP.md).
+The simulated acquisition, conversion, training, and closed-loop evaluation
+workflow is implemented. Milestones are deliberately kept in small pull
+requests; see [the roadmap](docs/ROADMAP.md).
 
 ## Quick start
 
@@ -157,7 +157,10 @@ tooling and diagnosis only.
 - [x] Versioned MCAP episode recording and interrupted-file recovery
 - [x] Validation, replay, episode-level splits, and LeRobot conversion
 - [x] ACT training notebook and CLI
-- [ ] Seeded closed-loop evaluation
+- [x] Seeded closed-loop evaluation
+- [x] ACT demonstration coverage experiment (see
+      [the experiment guide](docs/policy-coverage-experiment.md))
+- [ ] Reproducible learning release
 - [ ] Optional ROS 2 adapters and physical robot integration
 
 ## Data policy
