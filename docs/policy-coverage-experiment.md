@@ -105,3 +105,65 @@ as such; do not add fresh-holdout seeds to the training set after seeing them.
 
 Only after the fresh comparison, rerun seeds 10000–10019 for the regression
 check. The PR 10 clean-clone release is a separate roadmap item.
+
+## Local result, 2026-10-05
+
+The seed 300–359 expert cohort produced 59 successes and one failure (316).
+The frozen selection contains 78 quality-eligible successful expert episodes:
+58 train and 20 validation. Its 25 Hz LeRobot dataset has 16,118 frames and
+logical fingerprint
+`e00ef486fa0957b8aa939e009c8c5e260223109ab591b5693ce08cda3d2e4a87`.
+Training starts occupy 15/16 XY grid cells, versus 7/16 for the baseline.
+The new CUDA run completed 100,000 steps in about 27 hours 15 minutes and has
+a distinct checkpoint. The compared checkpoint SHA-256 values are
+`30af9368390b5ea0729e23bbb8403e497d96dbb0967f8bb1a5ec8e72c7d8c7c3`
+(baseline) and
+`d54662b9488d57b398822da73f4b163bdfa4f7d05070b5404b3d058e67e00743`
+(coverage).
+
+On the untouched comparison seeds 11000–11099, both checkpoints used the same
+25 Hz policy cadence, 50 Hz simulation rate, configuration, and safety path:
+
+| Metric | Baseline ACT | Coverage ACT |
+| --- | ---: | ---: |
+| Successes | 67/100 | 96/100 |
+| 95% Wilson success interval | 57.3–75.4% | 90.2–98.4% |
+| Mean completion time among successes | 8.46 s | 8.66 s |
+| Grasp events | 72 | 96 |
+| Drop events | 3 | 0 |
+| Safety rejections | 8 collision stops | 41 IK failures |
+
+The paired success difference is **+29 percentage points**, with a
+deterministic paired bootstrap 95% interval of **+20 to +38 points**. The
+candidate succeeds on 29 seeds where the baseline fails and regresses on none
+for task success. The scripted expert succeeds on 99/100; its seed 11058 fails
+with an IK error. The completion-time means include different successful
+subsets and are descriptive, not a paired speed comparison.
+
+The candidate fails to grasp on seeds 11008, 11012, 11058, and 11062, all by
+timeout. They start near the high-X, low-Y side of the cube spawn area. Their
+action traces contain 9, 10, 1, and 16 rejected IK commands, respectively.
+The remaining 5 IK rejections occur in successful candidate episodes. The
+safety controller rejects these commands; they are not executed. The higher
+IK rejection count is a real regression in target feasibility and needs a
+separate diagnosis before treating this checkpoint as a default policy.
+
+After the fresh comparison, the original diagnostic seeds 10000–10019 were
+rerun: coverage ACT succeeds on 19/20 versus the baseline's earlier 16/20.
+Seed 10007 still times out without a grasp; this regression-set run has zero
+safety rejections.
+
+Local, ignored artifacts are at:
+
+- `data/selection-act-coverage.json` and
+  `data/lerobot/pick-place-act-coverage/`;
+- `runs/training/act-gpu-coverage/`;
+- `runs/evaluation/act-baseline-11000/` and
+  `runs/evaluation/act-coverage-11000/`, including videos and failure records;
+- `runs/experiments/act-coverage/comparison-11000.json`;
+- `runs/evaluation/act-coverage-regression-10000/` and
+  `runs/evaluation/act-coverage-trace-{11008,11012,11058,11062}/`.
+
+These recordings, datasets, checkpoints, and reports remain outside Git under
+the repository's data policy. Their publication and clean-clone workflow
+belong to PR 10.

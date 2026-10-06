@@ -131,7 +131,8 @@ confidence intervals, configuration, videos, and individual failure cases.
 
 ## PR 9.1 — ACT demonstration coverage experiment
 
-Status: in progress. Preserve the PR 9 checkpoint and diagnostic report, add
+Status: implemented and locally validated on the PR 9.1 feature branch.
+Preserve the PR 9 checkpoint and diagnostic report, add
 inspectable training-start coverage and paired evaluation comparison reports,
 collect a separate seeded scripted-expert cohort, and train a new ACT run from
 a validated derived dataset. See `policy-coverage-experiment.md`.
@@ -141,6 +142,12 @@ training and evaluation seeds are disjoint; baseline and candidate are compared
 on the same fresh held-out seeds with confidence intervals, safety events, and
 individual outcomes. Report negative or inconclusive results honestly. No ROS
 or hardware changes.
+
+The fresh 100-seed comparison improved ACT success from 67% to 96%, while IK
+rejections increased from 0 to 41 (the baseline had 8 collision stops).
+Follow-up PR 9.2: diagnose high-X/low-Y grasp failures and reduce unreachable
+policy targets without weakening `SafeCartesianRobot`; retain seed 11058 as an
+expert/simulator failure case. See `policy-coverage-experiment.md`.
 
 ## PR 10 — Reproducible learning release
 

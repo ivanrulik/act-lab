@@ -158,7 +158,7 @@ tooling and diagnosis only.
 - [x] Validation, replay, episode-level splits, and LeRobot conversion
 - [x] ACT training notebook and CLI
 - [x] Seeded closed-loop evaluation
-- [ ] ACT demonstration coverage experiment (see
+- [x] ACT demonstration coverage experiment (see
       [the experiment guide](docs/policy-coverage-experiment.md))
 - [ ] Reproducible learning release
 - [ ] Optional ROS 2 adapters and physical robot integration
