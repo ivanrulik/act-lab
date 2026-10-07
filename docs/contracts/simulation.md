@@ -55,7 +55,7 @@ not operator or policy intent and does not implement `Robot.command(Action)`.
 The application `SafeCartesianRobot` translates domain Cartesian `Action`
 values through safety filtering before the MuJoCo driver emits these targets.
 The driver uses the end-effector site Jacobian, shortest-path quaternion error,
-and damped least squares with damping 0.05, at most 50 iterations, 0.1 mm
+and damped least squares with damping 0.05, at most 200 iterations, 0.2 mm
 position tolerance, and 0.001 rad orientation tolerance. End-to-end measured
 pose convergence is tested separately at 2 mm and 0.02 rad.
 
