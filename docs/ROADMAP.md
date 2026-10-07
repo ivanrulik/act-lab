@@ -131,7 +131,7 @@ confidence intervals, configuration, videos, and individual failure cases.
 
 ## PR 9.1 — ACT demonstration coverage experiment
 
-Status: implemented and locally validated on the PR 9.1 feature branch.
+Status: merged as GitHub PR #14.
 Preserve the PR 9 checkpoint and diagnostic report, add
 inspectable training-start coverage and paired evaluation comparison reports,
 collect a separate seeded scripted-expert cohort, and train a new ACT run from
@@ -148,6 +148,23 @@ rejections increased from 0 to 41 (the baseline had 8 collision stops).
 Follow-up PR 9.2: diagnose high-X/low-Y grasp failures and reduce unreachable
 policy targets without weakening `SafeCartesianRobot`; retain seed 11058 as an
 expert/simulator failure case. See `policy-coverage-experiment.md`.
+
+## PR 9.2 — High-X/low-Y target feasibility
+
+Status: implemented and locally validated on the PR 9.2 feature branch. Replay
+of the failed action traces found near-tolerance IK misses. The MuJoCo solver
+now allows a 0.2 mm position residual and 200 iterations, with the same
+application safety and collision checks. See `policy-target-feasibility.md`.
+
+On the previously inspected seeds 11000–11099, the unchanged coverage ACT
+checkpoint succeeds on 97/100 instead of 96/100 and produces 2 instead of 41
+IK rejections. Three previous failures recover, two previous successes regress,
+and seed 11058 still misses its grasp. The +1 percentage-point paired success
+difference has a 95% bootstrap interval of −3 to +5 points, so task-success
+improvement is inconclusive. The expert now succeeds on seed 11058 under the
+revised solver settings. Preserve its earlier failure in the PR 9.1 report as
+historical evidence. Follow-up: investigate the three remaining policy failures
+without adding these inspected seeds to training.
 
 ## PR 10 — Reproducible learning release
 

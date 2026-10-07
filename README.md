@@ -160,6 +160,8 @@ tooling and diagnosis only.
 - [x] Seeded closed-loop evaluation
 - [x] ACT demonstration coverage experiment (see
       [the experiment guide](docs/policy-coverage-experiment.md))
+- [x] High-X/low-Y IK feasibility follow-up (see
+      [the regression report](docs/policy-target-feasibility.md))
 - [ ] Reproducible learning release
 - [ ] Optional ROS 2 adapters and physical robot integration
 
@@ -180,6 +182,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Episode recording and recovery](docs/recording.md)
 - [Validation, replay, selection, and conversion](docs/data-pipeline.md)
 - [ACT training and checkpoint recovery](docs/training.md)
+- [ACT coverage and target-feasibility regressions](docs/policy-target-feasibility.md)
 - [Control and safety contract](docs/contracts/control.md)
 - [Simulation contract](docs/contracts/simulation.md)
 - [Experiment contract](docs/contracts/experiments.md)
