@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter_ns
 from types import TracebackType
 
 import mujoco  # type: ignore[import-untyped]
@@ -15,17 +17,44 @@ from act_lab.application.cartesian_control import JointVector
 from act_lab.domain import Observation, Pose, RobotState
 
 
+@dataclass(frozen=True, slots=True)
+class IKDiagnostics:
+    """Adapter-local numerical results; wall time never controls the solve."""
+
+    iterations: int
+    converged: bool
+    position_residual_m: float
+    orientation_residual_rad: float
+    duration_ns: int | None
+
+
 class MujocoCartesianDriver:
     """IK and predicted-contact checks around one deterministic environment."""
 
     def __init__(
-        self, environment: MujocoUR5eEnvironment, config: SimulationConfig
+        self,
+        environment: MujocoUR5eEnvironment,
+        config: SimulationConfig,
+        *,
+        profile: bool = False,
     ) -> None:
         self._environment = environment
         self._config = config
         self._model = environment._model  # noqa: SLF001
         self._data = environment._data  # noqa: SLF001
         self._scratch = mujoco.MjData(self._model)
+        self._step_backup = mujoco.MjData(self._model)
+        self._jacobian_position = np.zeros((3, self._model.nv), dtype=np.float64)
+        self._jacobian_rotation = np.zeros((3, self._model.nv), dtype=np.float64)
+        self._jacobian = np.empty((6, 6), dtype=np.float64)
+        self._ik_error = np.empty(6, dtype=np.float64)
+        self._ik_quaternion = np.empty(4, dtype=np.float64)
+        self._damped_system = np.empty((6, 6), dtype=np.float64)
+        self._damped_factor = np.empty((6, 6), dtype=np.float64)
+        self._damped_solution = np.empty(6, dtype=np.float64)
+        self._profile = profile
+        self.profile_totals_ns = {"ik": 0, "collision": 0, "step": 0}
+        self.last_ik_diagnostics: IKDiagnostics | None = None
         self._joint_ids = environment._arm_joint_ids  # noqa: SLF001
         self._velocity_actuator_ids = tuple(
             self._named_id(mujoco.mjtObj.mjOBJ_ACTUATOR, f"{name}_velocity")
@@ -44,6 +73,8 @@ class MujocoCartesianDriver:
         self._dof_addresses = tuple(
             int(self._model.jnt_dofadr[joint_id]) for joint_id in self._joint_ids
         )
+        self._qpos_indices = np.asarray(self._qpos_addresses)
+        self._joint_ranges = self._model.jnt_range[list(self._joint_ids)].copy()
         self._site_id = environment._end_effector_site_id  # noqa: SLF001
         self._left_finger_qpos = int(
             self._model.jnt_qposadr[environment._left_finger_joint_id]  # noqa: SLF001
@@ -100,40 +131,54 @@ class MujocoCartesianDriver:
     def reset(self, seed: int) -> Observation:
         observation = self._environment.reset(seed)
         self._copy_state_to_scratch()
+        self.last_ik_diagnostics = None
+        self.clear_profile()
         return observation
+
+    def clear_profile(self) -> None:
+        for key in self.profile_totals_ns:
+            self.profile_totals_ns[key] = 0
 
     def observe(self) -> Observation:
         return self._environment.observe()
 
     def solve_ik(self, target_pose: Pose) -> JointVector | None:
+        started = perf_counter_ns() if self._profile else None
         self._copy_state_to_scratch()
         target_position = np.asarray(target_pose.position_xyz_m, dtype=np.float64)
-        target_quaternion = np.asarray(
-            target_pose.quaternion_wxyz, dtype=np.float64
-        )
-        jacobian_position = np.zeros((3, self._model.nv), dtype=np.float64)
-        jacobian_rotation = np.zeros((3, self._model.nv), dtype=np.float64)
+        target_quaternion = np.asarray(target_pose.quaternion_wxyz, dtype=np.float64)
+        jacobian_position = self._jacobian_position
+        jacobian_rotation = self._jacobian_rotation
+        jacobian = self._jacobian
         control = self._config.control
+        regularizer = (control.dls_damping**2) * np.eye(6)
+        lower_bounds = self._joint_ranges[:, 0] + control.joint_bound_margin_rad
+        upper_bounds = self._joint_ranges[:, 1] - control.joint_bound_margin_rad
 
+        current_quaternion = self._ik_quaternion
+        error = self._ik_error
         for iteration in range(control.ik_max_iterations + 1):
-            current_position = self._scratch.site_xpos[self._site_id].copy()
-            current_quaternion = np.empty(4, dtype=np.float64)
+            current_position = self._scratch.site_xpos[self._site_id]
             mujoco.mju_mat2Quat(
                 current_quaternion, self._scratch.site_xmat[self._site_id]
             )
             position_error = target_position - current_position
             rotation_error = _quaternion_error(
-                target_quaternion, current_quaternion  # type: ignore[arg-type]
+                target_quaternion,  # type: ignore[arg-type]
+                current_quaternion,
             )
+            position_residual = math.sqrt(float(position_error.dot(position_error)))
+            orientation_residual = math.sqrt(float(rotation_error.dot(rotation_error)))
             if (
-                float(np.linalg.norm(position_error))
-                <= control.ik_position_tolerance_m
-                and float(np.linalg.norm(rotation_error))
-                <= control.ik_orientation_tolerance_rad
+                position_residual <= control.ik_position_tolerance_m
+                and orientation_residual <= control.ik_orientation_tolerance_rad
             ):
                 values = tuple(
                     float(self._scratch.qpos[address])
                     for address in self._qpos_addresses
+                )
+                self._record_ik(
+                    iteration, True, position_residual, orientation_residual, started
                 )
                 return _joint_vector(values)
             if iteration == control.ik_max_iterations:
@@ -146,34 +191,73 @@ class MujocoCartesianDriver:
                 jacobian_rotation,
                 self._site_id,
             )
-            jacobian = np.vstack(
-                (
-                    jacobian_position[:, self._dof_addresses],
-                    jacobian_rotation[:, self._dof_addresses],
-                )
-            )
-            error = np.concatenate((position_error, rotation_error))
-            regularizer = (control.dls_damping**2) * np.eye(6)
-            delta = jacobian.T @ np.linalg.solve(
-                jacobian @ jacobian.T + regularizer, error
-            )
-            delta_norm = float(np.linalg.norm(delta))
+            jacobian[:3] = jacobian_position[:, self._dof_addresses]
+            jacobian[3:] = jacobian_rotation[:, self._dof_addresses]
+            error[:3] = position_error
+            error[3:] = rotation_error
+            system = self._damped_system
+            np.matmul(jacobian, jacobian.T, out=system)
+            system += regularizer
+            delta = jacobian.T @ self._solve_damped_system(system, error)
+            delta_norm = math.sqrt(float(delta.dot(delta)))
             if delta_norm > 0.25:
                 delta *= 0.25 / delta_norm
-            for index, (joint_id, address) in enumerate(
-                zip(self._joint_ids, self._qpos_addresses, strict=True)
-            ):
-                lower, upper = self._model.jnt_range[joint_id]
-                margin = control.joint_bound_margin_rad
-                self._scratch.qpos[address] = np.clip(
-                    self._scratch.qpos[address] + delta[index],
-                    lower + margin,
-                    upper - margin,
-                )
-            mujoco.mj_forward(self._model, self._scratch)
+            projected = self._scratch.qpos[self._qpos_indices] + delta
+            np.maximum(projected, lower_bounds, out=projected)
+            np.minimum(projected, upper_bounds, out=projected)
+            self._scratch.qpos[self._qpos_indices] = projected
+            self._update_ik_kinematics()
+        self._record_ik(
+            iteration, False, position_residual, orientation_residual, started
+        )
         return None
 
+    def _solve_damped_system(
+        self,
+        system: np.ndarray[tuple[int, ...], np.dtype[np.float64]],
+        error: np.ndarray[tuple[int, ...], np.dtype[np.float64]],
+    ) -> np.ndarray[tuple[int, ...], np.dtype[np.float64]]:
+        # Damping makes J J^T + lambda^2 I positive definite. MuJoCo avoids
+        # general-purpose NumPy/LAPACK dispatch for this small 6x6 system.
+        factor = self._damped_factor
+        np.copyto(factor, system)
+        if mujoco.mju_cholFactor(factor, 0.0) != 6:
+            return np.asarray(np.linalg.solve(system, error), dtype=np.float64)
+        result = self._damped_solution
+        mujoco.mju_cholSolve(result, factor, error)
+        return result
+
+    def _update_ik_kinematics(self) -> None:
+        # These are the minimal stages required by mj_jacSite after changing qpos.
+        # Full contact/dynamics evaluation remains in collision_free and step.
+        mujoco.mj_kinematics(self._model, self._scratch)
+        mujoco.mj_comPos(self._model, self._scratch)
+
+    def _record_ik(
+        self,
+        iterations: int,
+        converged: bool,
+        position: float,
+        orientation: float,
+        started: int | None,
+    ) -> None:
+        duration = perf_counter_ns() - started if started is not None else None
+        self.last_ik_diagnostics = IKDiagnostics(
+            iterations, converged, position, orientation, duration
+        )
+        if duration is not None:
+            self.profile_totals_ns["ik"] += duration
+
     def collision_free(self, joints: JointVector, gripper: float) -> bool:
+        if not self._profile:
+            return self._collision_free(joints, gripper)
+        started = perf_counter_ns()
+        try:
+            return self._collision_free(joints, gripper)
+        finally:
+            self.profile_totals_ns["collision"] += perf_counter_ns() - started
+
+    def _collision_free(self, joints: JointVector, gripper: float) -> bool:
         self._copy_state_to_scratch()
         for address, value in zip(self._qpos_addresses, joints, strict=True):
             self._scratch.qpos[address] = value
@@ -219,18 +303,30 @@ class MujocoCartesianDriver:
     def step(
         self, joints: JointVector, joint_velocity: JointVector, gripper: float
     ) -> RobotState:
+        if not self._profile:
+            return self._step(joints, joint_velocity, gripper)
+        started = perf_counter_ns()
+        try:
+            return self._step(joints, joint_velocity, gripper)
+        finally:
+            # Includes resulting-state collision checks; collision time is also
+            # reported separately and must not be added again to this total.
+            self.profile_totals_ns["step"] += perf_counter_ns() - started
+
+    def _step(
+        self, joints: JointVector, joint_velocity: JointVector, gripper: float
+    ) -> RobotState:
         start_position = self._data.site_xpos[self._site_id].copy()
         current_joints = tuple(
             float(self._data.qpos[address]) for address in self._qpos_addresses
         )
-        backup = mujoco.MjData(self._model)
+        backup = self._step_backup
         mujoco.mj_copyData(backup, self._model, self._data)
         physics_ticks = self._environment._physics_ticks  # noqa: SLF001
         environment_steps = self._environment._environment_steps  # noqa: SLF001
         settled_steps = self._environment._settled_steps  # noqa: SLF001
         maximum_distance = (
-            self._config.control.max_translation_velocity_m_s
-            * self.control_period_s
+            self._config.control.max_translation_velocity_m_s * self.control_period_s
         )
         for scale in (1.0, 0.5, 0.25, 0.125, 0.0):
             if scale != 1.0:
@@ -249,16 +345,11 @@ class MujocoCartesianDriver:
             state = self._environment.step(
                 ActuatorTargets(_joint_vector(scaled), gripper)
             ).robot
-            if (
-                float(
-                    np.linalg.norm(
-                        np.asarray(state.end_effector_pose.position_xyz_m)
-                        - start_position
-                    )
+            if float(
+                np.linalg.norm(
+                    np.asarray(state.end_effector_pose.position_xyz_m) - start_position
                 )
-                <= maximum_distance + 1e-9
-                and self._resulting_state_is_safe(state)
-            ):
+            ) <= maximum_distance + 1e-9 and self._resulting_state_is_safe(state):
                 return state
         mujoco.mj_copyData(self._data, self._model, backup)
         self._environment._physics_ticks = physics_ticks  # noqa: SLF001
@@ -364,7 +455,7 @@ def _quaternion_error(
     if error[0] < 0.0:
         error *= -1.0
     vector = error[1:]
-    magnitude = float(np.linalg.norm(vector))
+    magnitude = math.sqrt(float(vector.dot(vector)))
     if magnitude < 1e-12:
         return np.zeros(3, dtype=np.float64)
     angle = 2.0 * math.atan2(magnitude, max(float(error[0]), 0.0))

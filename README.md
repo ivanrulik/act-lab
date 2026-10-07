@@ -160,7 +160,7 @@ tooling and diagnosis only.
 - [x] Seeded closed-loop evaluation
 - [x] ACT demonstration coverage experiment (see
       [the experiment guide](docs/policy-coverage-experiment.md))
-- [x] High-X/low-Y IK feasibility follow-up (see
+- [x] High-X/low-Y IK feasibility and control timing follow-up (see
       [the regression report](docs/policy-target-feasibility.md))
 - [ ] Reproducible learning release
 - [ ] Optional ROS 2 adapters and physical robot integration

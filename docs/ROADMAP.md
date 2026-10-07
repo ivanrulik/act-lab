@@ -154,7 +154,13 @@ expert/simulator failure case. See `policy-coverage-experiment.md`.
 Status: implemented and locally validated on the PR 9.2 feature branch. Replay
 of the failed action traces found near-tolerance IK misses. The MuJoCo solver
 now allows a 0.2 mm position residual and 200 iterations, with the same
-application safety and collision checks. See `policy-target-feasibility.md`.
+application safety and collision checks. The timing follow-up reuses buffers,
+updates only kinematics within IK, and uses a small Cholesky solve. A matched
+1,500-cycle synthetic benchmark reduced paced work p99 from 44.64 to 13.78 ms;
+two optimized cycles still exceeded 20 ms, so this is not a hard real-time
+guarantee or interactive-camera validation. The repeated CUDA regression
+preserves all 100 per-seed success/failure assignments, 97 ACT successes, and
+two IK rejections. See `policy-target-feasibility.md`.
 
 On the previously inspected seeds 11000–11099, the unchanged coverage ACT
 checkpoint succeeds on 97/100 instead of 96/100 and produces 2 instead of 41

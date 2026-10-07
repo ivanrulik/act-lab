@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import replace
 from pathlib import Path
@@ -19,6 +20,134 @@ from act_lab.application.scripted_expert import ExpertPhase, ScriptedPickPlaceEx
 from act_lab.domain import Action, CommandOutcome, Pose, RobotState
 
 CONFIG_PATH = Path("configs/sim/ur5e_pick_place.toml")
+
+
+def test_optional_driver_profiling_preserves_state_and_reports_bounded_ik() -> None:
+    config = SimulationConfig.load(CONFIG_PATH)
+    sequences = []
+    for profile in (False, True):
+        with MujocoCartesianDriver(
+            MujocoUR5eEnvironment(config), config, profile=profile
+        ) as driver:
+            robot = SafeCartesianRobot(driver, config.control)
+            initial = robot.reset(11012)
+            pose = initial.robot.end_effector_pose
+            target = Pose(
+                "world", (pose.position_xyz_m[0] - 0.02, *pose.position_xyz_m[1:]),
+                pose.quaternion_wxyz,
+            )
+            states = []
+            for _ in range(20):
+                observation = robot.observe()
+                states.append(
+                    robot.command(Action(observation.timestamp_ns, target, 1.0, True))
+                )
+                diagnostics = driver.last_ik_diagnostics
+                assert diagnostics is not None and diagnostics.converged
+                assert 0 <= diagnostics.iterations <= config.control.ik_max_iterations
+                assert (
+                    diagnostics.position_residual_m
+                    <= config.control.ik_position_tolerance_m
+                )
+                assert (
+                    diagnostics.orientation_residual_rad
+                    <= config.control.ik_orientation_tolerance_rad
+                )
+                assert (diagnostics.duration_ns is not None) == profile
+            sequences.append(states)
+            if profile:
+                assert all(value > 0 for value in driver.profile_totals_ns.values())
+            robot.reset(11012)
+            assert driver.last_ik_diagnostics is None
+            assert not any(driver.profile_totals_ns.values())
+    assert sequences[0] == sequences[1]
+
+
+@pytest.mark.parametrize("numpy_reference", [False, True])
+def test_optimized_ik_matches_reference(numpy_reference: bool) -> None:
+    class FullForwardDriver(MujocoCartesianDriver):
+        def _update_ik_kinematics(self) -> None:
+            mujoco.mj_forward(self._model, self._scratch)
+
+        def _solve_damped_system(self, system, error):
+            if numpy_reference:
+                return np.linalg.solve(system, error)
+            return super()._solve_damped_system(system, error)
+
+    config = SimulationConfig.load(CONFIG_PATH)
+    fixture = json.loads(Path("tests/fixtures/control/ik_boundary.json").read_text())
+    results = []
+    for driver_type in (MujocoCartesianDriver, FullForwardDriver):
+        with driver_type(MujocoUR5eEnvironment(config), config) as driver:
+            driver.reset(fixture["seed"])
+            for address, value in zip(
+                driver._qpos_addresses, fixture["joints"], strict=True
+            ):
+                driver._data.qpos[address] = value
+            mujoco.mj_forward(driver._model, driver._data)
+            rng = np.random.default_rng(23)
+            targets = [
+                driver.observe().robot.end_effector_pose,
+                Pose("world", tuple(fixture["position"]), tuple(fixture["quaternion"])),
+                Pose("world", (0.8, 0.6, 1.0), (1.0, 0.0, 0.0, 0.0)),
+            ]
+            home = targets[0]
+            for _ in range(20):
+                targets.append(Pose(
+                    "world",
+                    tuple(
+                        np.asarray(home.position_xyz_m) + rng.uniform(-0.02, 0.02, 3)
+                    ),
+                    home.quaternion_wxyz,
+                ))
+            answers = []
+            for target in targets:
+                joints = driver.solve_ik(target)
+                answers.append((joints, driver.last_ik_diagnostics))
+            robot = SafeCartesianRobot(driver, config.control)
+            states = []
+            for target in targets:
+                observation = robot.observe()
+                states.append((
+                    robot.command(Action(observation.timestamp_ns, target, 1.0, True)),
+                    robot.last_report,
+                ))
+            results.append((answers, states))
+    if not numpy_reference:
+        assert results[0] == results[1]
+    else:
+        for (actual, diagnostic), (expected, reference_diagnostic) in zip(
+            results[0][0], results[1][0], strict=True
+        ):
+            assert diagnostic is not None and reference_diagnostic is not None
+            assert diagnostic.iterations == reference_diagnostic.iterations
+            assert diagnostic.converged == reference_diagnostic.converged
+            assert diagnostic.position_residual_m == pytest.approx(
+                reference_diagnostic.position_residual_m, abs=1e-12
+            )
+            assert diagnostic.orientation_residual_rad == pytest.approx(
+                reference_diagnostic.orientation_residual_rad, abs=1e-12
+            )
+            if expected is None:
+                assert actual is None
+            else:
+                assert actual == pytest.approx(expected, abs=1e-12)
+        for (actual, report), (expected, reference_report) in zip(
+            results[0][1], results[1][1], strict=True
+        ):
+            assert report is not None and reference_report is not None
+            assert report.outcome == reference_report.outcome
+            assert actual.joint_positions_rad == pytest.approx(
+                expected.joint_positions_rad, abs=1e-10
+            )
+            assert actual.end_effector_pose.position_xyz_m == pytest.approx(
+                expected.end_effector_pose.position_xyz_m, abs=1e-10
+            )
+    assert results[0][0][1][0] is not None  # recorded boundary converges
+    assert results[0][0][2][0] is None  # infeasible pose still fails closed
+    failed = results[0][0][2][1]
+    assert failed is not None and not failed.converged
+    assert failed.iterations == config.control.ik_max_iterations
 
 
 def test_held_keyboard_speed_and_release_with_real_servo() -> None:
