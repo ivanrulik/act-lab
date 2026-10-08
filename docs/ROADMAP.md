@@ -190,13 +190,21 @@ MCAP-to-LeRobot data lifecycle.
 
 ### PR 11 — ROS 2 contracts
 
-Define ROS topics, QoS, frames, clock behavior, watchdog behavior, and
-conversions at the domain boundary. ROS messages and clocks remain adapter
-types and must not enter `act_lab.domain`.
+Implemented on `feature/pr11-ros2-contracts`: generated v1 command/state/report
+interfaces, topic QoS, primitive codecs, episode/sequence checks, simulation
+clock offset, steady receipt/progress guards, and shared safe holds. An isolated
+Jazzy Compose profile runs serialization and two-process DDS fault tests against
+a deterministic fake driver. See [the executable contract and safety review](contracts/ros2.md)
+and ADR 013. ROS messages/clocks remain adapter types outside `act_lab.domain`.
 
-Acceptance: the contract defines stale and lost-command behavior; frame and
-timestamp conversions have automated tests; local simulation, conversion,
-training, and evaluation still run without ROS 2.
+Acceptance: required ROS-free checks plus the separate ROS job pass; local
+simulation and learning images build/run without ROS. No MuJoCo motion through
+ROS or hardware is claimed. Source timestamps survive repeated polling; pause,
+reset, replay, loss, future/stale intent, and recovery have executable evidence.
+
+Deferred: moving ROS adapters/external clock-state authority binding in PR 13,
+ROS recording in PR 14, hardware in PR 15–16. System-clock synchronization and
+multi-producer arbitration require later scoped contract extensions.
 
 ### PR 12 — CRISP feasibility spike and decision
 

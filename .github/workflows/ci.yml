@@ -43,3 +43,22 @@ jobs:
           --ExecutePreprocessor.timeout=600
           --output /tmp/act_training.executed.ipynb
           notebooks/act_training.ipynb
+
+  ros2-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated Jazzy interfaces and runtime
+        run: docker compose --profile ros2-contracts build ros2-contracts
+      - name: Required generated serialization and DDS fault tests
+        run: >-
+          docker compose --profile ros2-contracts run --rm ros2-contracts
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/ros2
+      - name: Record executable contract evidence
+        run: >-
+          docker compose --profile ros2-contracts run --rm ros2-contracts
+          python -m act_lab.cli ros2 contract-smoke --json > ros2-contract-smoke.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ros2-contract-evidence
+          path: ros2-contract-smoke.json
