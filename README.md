@@ -29,6 +29,18 @@ safe recovery. [The ROS contract](docs/contracts/ros2.md) documents interfaces,
 dependencies, tests, and the safety review. MuJoCo motion through ROS and hardware
 integration remain later roadmap work. Simulation and learning remain ROS-free.
 
+## Optional CRISP feasibility assessment
+
+```bash
+docker compose --profile crisp-feasibility run --build --rm crisp-feasibility \
+  act-lab ros2 crisp-feasibility --output runs/crisp-feasibility --json
+```
+
+This stationary mock effort bench compares both pinned controller modes and
+records a completed no-go for the assessed filter configuration. It does not move
+the simulator or authorize hardware. See [the report](docs/reports/crisp-feasibility.md)
+and [reproduction and safety rules](docs/contracts/crisp-feasibility.md).
+
 ## Quick start
 
 Requirements: Docker Engine with Docker Compose v2.

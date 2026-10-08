@@ -62,3 +62,26 @@ jobs:
         with:
           name: ros2-contract-evidence
           path: ros2-contract-smoke.json
+
+  crisp-feasibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned CRISP and stationary mock bench
+        run: docker compose --profile crisp-feasibility build crisp-feasibility
+      - name: Required lifecycle DDS guard and compensation tests
+        run: >-
+          docker compose --profile crisp-feasibility run --rm --user "$(id -u):$(id -g)" crisp-feasibility
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/crisp
+      - name: Record feasibility evidence without shared runner timing qualification
+        run: >-
+          docker compose --profile crisp-feasibility run --rm --user "$(id -u):$(id -g)" crisp-feasibility
+          act-lab ros2 crisp-feasibility --output runs/crisp-feasibility --ci-timing --json
+          > crisp-feasibility.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crisp-feasibility-evidence
+          path: |
+            runs/crisp-feasibility/
+            crisp-feasibility.json

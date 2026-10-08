@@ -13,3 +13,6 @@ consequences, and status.
 
 - [ADR 013](013-ros2-executable-contracts.md): optional Jazzy executable contracts,
   simulation epoch mapping, replay guards, and independent steady watchdogs
+
+- [ADR 014](014-crisp-feasibility-and-controller-decision.md): pinned stationary
+  CRISP assessment, test-only effort guard, no-go for the assessed configuration

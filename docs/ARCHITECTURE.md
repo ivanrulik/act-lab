@@ -123,3 +123,15 @@ steady receipt/progress guards prevent replay and enabled intent during pause.
 The [ROS contract](contracts/ros2.md) includes QoS and a dedicated fault/safety
 matrix. ADR 013 extends ADR 003 without changing domain ports. Default simulation,
 conversion, training, and evaluation remain ROS-independent.
+
+
+## Optional CRISP feasibility bench
+
+PR 12 adds `ros2/act_lab_crisp_bench` and the isolated `crisp-feasibility`
+Compose profile. It loads unmodified pinned controller code against stationary
+UR5e mock interfaces. Python authorizations reuse the inbox and shared safety
+application; an independent C++ test gate records raw and inhibited effort.
+It is not a production robot adapter or physical stop/hold implementation.
+The assessed filter=1 configuration produces a no-go; controller selection and
+moving ROS/MuJoCo integration remain deferred. See [ADR 014](adr/014-crisp-feasibility-and-controller-decision.md)
+and the [bench contract, dependency rationale and safety matrix](contracts/crisp-feasibility.md).
