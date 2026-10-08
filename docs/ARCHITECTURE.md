@@ -21,7 +21,7 @@ external frameworks and devices
 ```
 
 The domain defines observations, actions, robot state, and ports. Adapters
-translate MuJoCo, MediaPipe, MCAP, LeRobot, and eventually ROS 2 types at the
+translate MuJoCo, MediaPipe, MCAP, LeRobot, and optional ROS 2 types at the
 boundary. Framework objects must not leak into domain contracts.
 
 ## Data flow
@@ -110,7 +110,16 @@ host permissions. The host owns source and artifacts; images own dependencies.
 
 ## ROS 2 boundary
 
-ROS 2 is planned but not required by the core. It becomes valuable for
-distributed processes, standard visualization, and physical UR integration.
-ROS messages will be translated by adapters into the same domain contracts used
-by local MuJoCo. Training and dataset inspection remain ROS-independent.
+PR 11 supplies optional generated ROS interfaces and executable contracts in
+`ros2/act_lab_interfaces` and `adapters/ros2`. Codecs/inbox require only domain
+models; generated messages and rclpy load lazily in the isolated Jazzy image.
+Callbacks store complete intent, while the control thread polls the inbox and
+executes through `SafeCartesianRobot`. The demonstrator uses a stationary fake
+driver and two DDS processes; ROS-driven MuJoCo motion remains later work.
+
+Simulation time maps to ROS time with a one-second offset. The clock/state
+authority owns the episode UUID; source timestamp/sequence checks and independent
+steady receipt/progress guards prevent replay and enabled intent during pause.
+The [ROS contract](contracts/ros2.md) includes QoS and a dedicated fault/safety
+matrix. ADR 013 extends ADR 003 without changing domain ports. Default simulation,
+conversion, training, and evaluation remain ROS-independent.

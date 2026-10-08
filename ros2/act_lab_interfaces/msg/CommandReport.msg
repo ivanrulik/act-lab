@@ -1,0 +1,13 @@
+std_msgs/Header header
+string episode_id
+uint64 command_sequence
+string outcome
+CartesianCommand requested_command
+bool has_executed_command
+CartesianCommand executed_command
+RobotState resulting_state
+string detail
+float64 commanded_cartesian_speed_m_s
+float64 measured_cartesian_speed_m_s
+float64 tracking_error_m
+float64 command_age_ms

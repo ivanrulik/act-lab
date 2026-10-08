@@ -65,7 +65,7 @@ include = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --ignore=tests/ros2"
 testpaths = ["tests"]
 
 [tool.ruff]

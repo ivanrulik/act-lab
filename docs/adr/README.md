@@ -10,3 +10,6 @@ consequences, and status.
   quality selection, episode splits, resampling, and LeRobot conversion
 - [ADR 012](012-python-312-and-act-training.md): Python 3.12 migration and pinned
   LeRobot ACT training/checkpoint integration
+
+- [ADR 013](013-ros2-executable-contracts.md): optional Jazzy executable contracts,
+  simulation epoch mapping, replay guards, and independent steady watchdogs

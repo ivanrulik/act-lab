@@ -284,6 +284,12 @@ def build_parser() -> argparse.ArgumentParser:
     comparison.add_argument("--baseline", type=Path, required=True)
     comparison.add_argument("--candidate", type=Path, required=True)
     comparison.add_argument("--output", type=Path, required=True)
+    ros2 = subparsers.add_parser("ros2", help="Optional ROS 2 contracts")
+    ros_commands = ros2.add_subparsers(dest="ros2_command", required=True)
+    contract = ros_commands.add_parser(
+        "contract-smoke", help="Two-process DDS contracts"
+    )
+    contract.add_argument("--json", action="store_true")
     return parser
 
 
@@ -1452,6 +1458,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"recording error: {error}", file=sys.stderr)
             return 2
         return exit_code
+    if args.command == "ros2":
+        from act_lab.adapters.ros2.smoke import run_smoke
+
+        try:
+            result = run_smoke()
+        except (RuntimeError, ValueError, ImportError) as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        print(
+            json.dumps(result, indent=2)
+            if args.json
+            else f"ROS 2 contracts: {result['status']} ({len(result['cases'])} cases)"
+        )
+        return 0
     if args.command == "doctor":
         return _doctor(as_json=args.json)
     if args.command == "experiment":
@@ -1477,3 +1497,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "sim" and args.sim_command == "evaluate":
         return _sim_evaluate(args)
     raise AssertionError(f"unhandled command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

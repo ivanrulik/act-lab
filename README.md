@@ -15,6 +15,20 @@ The simulated acquisition, conversion, training, and closed-loop evaluation
 workflow is implemented. Milestones are deliberately kept in small pull
 requests; see [the roadmap](docs/ROADMAP.md).
 
+## Optional ROS 2 executable contracts
+
+```bash
+docker compose --profile ros2-contracts build ros2-contracts
+docker compose --profile ros2-contracts run --rm ros2-contracts
+```
+
+This runs generated interfaces over Fast DDS between separate processes with an
+explicit simulation clock and a deterministic fake driver behind shared safety.
+The JSON demonstrates command conversion, replay/loss/pause/reset guards, and
+safe recovery. [The ROS contract](docs/contracts/ros2.md) documents interfaces,
+dependencies, tests, and the safety review. MuJoCo motion through ROS and hardware
+integration remain later roadmap work. Simulation and learning remain ROS-free.
+
 ## Quick start
 
 Requirements: Docker Engine with Docker Compose v2.
