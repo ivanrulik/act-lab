@@ -1,0 +1,49 @@
+# Native ROS dependencies only; no ACT, MuJoCo, Gym, or Franka runtime.
+FROM ros:jazzy-ros-base-noble@sha256:066420e07f60aa18262f2479981def87ebcfcec42eefb0c0c57c4a46098348ca
+RUN apt-get update && apt-get install --yes --no-install-recommends \
+    build-essential cmake git python3-colcon-common-extensions python3-venv \
+    ros-jazzy-controller-interface ros-jazzy-hardware-interface \
+    ros-jazzy-pinocchio ros-jazzy-generate-parameter-library ros-jazzy-realtime-tools \
+    ros-jazzy-ament-cmake-gtest ros-jazzy-xacro ros-jazzy-rmw-fastrtps-cpp \
+    ros-jazzy-geometry-msgs ros-jazzy-sensor-msgs nlohmann-json3-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv --system-site-packages /opt/act-lab-venv \
+    && /opt/act-lab-venv/bin/pip install --no-cache-dir pytest==8.4.2
+RUN mkdir -p /opt/crisp/src && cd /opt/crisp/src \
+    && git clone https://github.com/learnsyslab/crisp_controllers.git \
+    && cd crisp_controllers && git checkout 0279dc8f1196dab6a2b2cd5af853dd3d4dc3a969 \
+    && test "$(git rev-parse HEAD)" = 0279dc8f1196dab6a2b2cd5af853dd3d4dc3a969
+RUN cd /opt/crisp/src \
+    && git clone https://github.com/UniversalRobots/Universal_Robots_ROS2_Description.git ur_description \
+    && cd ur_description && git checkout 6b639c2efd9f4f12da858a72cf1a9e40da365ed8 \
+    && test "$(git rev-parse HEAD)" = 6b639c2efd9f4f12da858a72cf1a9e40da365ed8
+RUN git clone https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git /opt/ur-driver-audit \
+    && cd /opt/ur-driver-audit && git checkout f6997bd4a0eee8d58198b696caf034009ab4de1e \
+    && test "$(git rev-parse HEAD)" = f6997bd4a0eee8d58198b696caf034009ab4de1e
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/crisp \
+    && colcon build --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release \
+      -DENABLE_NATIVE_OPTIMIZATION=OFF -DUSE_PRECOMPILED_HEADERS=ON \
+      -DBUILD_TESTING=ON -DPython3_EXECUTABLE=/usr/bin/python3
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/crisp && . install/setup.sh \
+    && xacro src/ur_description/urdf/ur.urdf.xacro name:=ur5e ur_type:=ur5e tf_prefix:='' > /opt/crisp/ur5e.urdf \
+    && dpkg-query -W > /opt/crisp/packages.txt \
+    && c++ --version > /opt/crisp/compiler.txt
+COPY ros2/act_lab_crisp_bench /opt/bench/src/act_lab_crisp_bench
+RUN . /opt/ros/jazzy/setup.sh && . /opt/crisp/install/setup.sh && cd /opt/bench \
+    && colcon build --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release
+COPY scripts/ros2-act-lab.sh /usr/local/bin/act-lab
+COPY scripts/crisp-entrypoint.sh /usr/local/bin/crisp-entrypoint
+RUN chmod 0755 /usr/local/bin/act-lab /usr/local/bin/crisp-entrypoint
+COPY src /workspace/src
+COPY tests /workspace/tests
+COPY configs /workspace/configs
+COPY pyproject.toml /workspace/
+ENV PATH=/opt/act-lab-venv/bin:$PATH PYTHONPATH=/workspace/src \
+    RMW_IMPLEMENTATION=rmw_fastrtps_cpp ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST ROS_DOMAIN_ID=43 \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HOME=/home/ubuntu \
+    ROS_LOG_DIR=/tmp/act-lab-ros-logs
+WORKDIR /workspace
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/crisp-entrypoint"]
+CMD ["act-lab", "ros2", "crisp-feasibility", "--output", "runs/crisp-feasibility", "--json"]

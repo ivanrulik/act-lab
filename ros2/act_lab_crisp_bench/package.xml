@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>act_lab_crisp_bench</name><version>0.1.0</version>
+  <description>Stationary, mocked-effort CRISP feasibility bench</description>
+  <maintainer email="maintainers@example.com">ACT Lab contributors</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>controller_interface</depend><depend>hardware_interface</depend>
+  <depend>pluginlib</depend><depend>rclcpp</depend><depend>geometry_msgs</depend>
+  <depend>pinocchio</depend><depend>nlohmann_json</depend>
+  <exec_depend>crisp_controllers</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

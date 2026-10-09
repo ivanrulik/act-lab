@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv --system-site-packages /opt/act-lab-venv \
     && /opt/act-lab-venv/bin/pip install --no-cache-dir pytest==8.4.2
-COPY ros2 /opt/act-lab-ros/src
+COPY ros2/act_lab_interfaces /opt/act-lab-ros/src/act_lab_interfaces
 RUN . /opt/ros/jazzy/setup.sh && cd /opt/act-lab-ros \
     && colcon build --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3 \
     && dpkg-query -W > /opt/act-lab-ros/packages.txt

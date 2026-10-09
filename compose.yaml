@@ -11,6 +11,20 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  crisp-feasibility:
+    build:
+      context: .
+      dockerfile: Dockerfile.crisp
+    profiles: ["crisp-feasibility"]
+    working_dir: /workspace
+    init: true
+    volumes:
+      - .:/workspace
+    environment:
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      ROS_DOMAIN_ID: "43"
+
   ros2-contracts:
     build:
       context: .

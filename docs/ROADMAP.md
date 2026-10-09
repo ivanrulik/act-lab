@@ -208,22 +208,23 @@ multi-producer arbitration require later scoped contract extensions.
 
 ### PR 12 — CRISP feasibility spike and decision
 
-Evaluate a pinned CRISP revision in an isolated Docker Compose profile. Record
-its license and dependency rationale, and test its action semantics, control
-frequency, gravity and friction conventions, watchdog behavior, and
-compatibility with the official UR5e `ros2_control` effort interface. Do not
-adopt CRISP merely because its demos run on another manipulator.
+Implemented on `feature/pr12-crisp-feasibility`: the pinned real controller
+plugin runs both Cartesian impedance and operational-space modes through lifecycle,
+separate-process DDS and stationary UR5e mock effort interfaces. The isolated
+profile records native safety gaps, test-only independent gate assertions,
+compensation comparisons, timing and source/model/runtime provenance.
 
-Acceptance: a reproducible report compares CRISP requirements with ACT Lab's
-control and safety contracts, exercises command loss and stale targets without
-hardware, and records a go/no-go decision in an ADR. A no-go result preserves
-the ROS contract and selects or defers an alternative controller without
-changing the learning pipeline.
+Decision: **no-go for both assessed filter=1 configurations** because target
+history is frozen, failing numeric pose response. Controller selection is deferred;
+PR 11 and local learning workflows remain intact. No alternative controller is
+introduced in this PR. See [ADR 014](adr/014-crisp-feasibility-and-controller-decision.md),
+[the local report](reports/crisp-feasibility.md), and
+[the bench contract/safety matrix](contracts/crisp-feasibility.md).
 
-Reference: the official Universal Robots driver documents its
-[joint-torque interface](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/rolling/doc/ur_robot_driver/ur_robot_driver/doc/usage/force_torque_control.html),
-including PolyScope requirements and the safety responsibilities of direct
-torque control.
+Deferred prerequisite to PR 13: review corrected filter semantics/configuration,
+rerun qualification, and reconcile model/world frame and workspace assumptions.
+Production watchdog/stop/hold, moving dynamics, hardware and recording remain
+later roadmap work.
 
 ### PR 13 — CRISP simulation adapter
 

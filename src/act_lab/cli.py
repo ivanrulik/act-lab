@@ -290,6 +290,16 @@ def build_parser() -> argparse.ArgumentParser:
         "contract-smoke", help="Two-process DDS contracts"
     )
     contract.add_argument("--json", action="store_true")
+    crisp = ros_commands.add_parser(
+        "crisp-feasibility", help="Pinned stationary CRISP controller assessment"
+    )
+    crisp.add_argument("--output", type=Path, default=Path("runs/crisp-feasibility"))
+    crisp.add_argument("--json", action="store_true")
+    crisp.add_argument(
+        "--ci-timing",
+        action="store_true",
+        help="Record shared-runner timing without qualification thresholds",
+    )
     return parser
 
 
@@ -1459,17 +1469,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         return exit_code
     if args.command == "ros2":
-        from act_lab.adapters.ros2.smoke import run_smoke
-
         try:
-            result = run_smoke()
-        except (RuntimeError, ValueError, ImportError) as error:
+            if args.ros2_command == "crisp-feasibility":
+                from act_lab.adapters.ros2.crisp import run_feasibility
+
+                result = run_feasibility(args.output, enforce_timing=not args.ci_timing)
+            else:
+                from act_lab.adapters.ros2.smoke import run_smoke
+
+                result = run_smoke()
+        except (RuntimeError, ValueError, ImportError, OSError) as error:
             print(str(error), file=sys.stderr)
             return 1
         print(
             json.dumps(result, indent=2)
             if args.json
-            else f"ROS 2 contracts: {result['status']} ({len(result['cases'])} cases)"
+            else (
+                f"CRISP feasibility: {result['decision']['outcome']}"
+                if args.ros2_command == "crisp-feasibility"
+                else (
+                    f"ROS 2 contracts: {result['status']} "
+                    f"({len(result['cases'])} cases)"
+                )
+            )
         )
         return 0
     if args.command == "doctor":
