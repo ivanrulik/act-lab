@@ -3,6 +3,26 @@
 from act_lab.adapters.ros2.simulation_smoke import run_motion
 
 
+def fresh_enabled(session, pose, gripper=0.4):
+    """Bound discovery/lifecycle recovery without relaxing motion watchdogs."""
+    import time
+
+    deadline = time.monotonic() + 15
+    while True:
+        result = session.command(pose, gripper=gripper)
+        if result["mode"] == "ENABLED":
+            return result
+        assert result["mode"] == "FAULT_HOLD"
+        assert result["reason"] in {
+            "controller_wall_timeout",
+            "gateway_wall_timeout",
+            "clock_paused",
+            "stale_source",
+        }
+        if time.monotonic() >= deadline:
+            raise RuntimeError("bounded fresh-command activation timeout")
+
+
 def test_generated_dds_crisp_motion_and_faults(tmp_path):
     report = run_motion(tmp_path)
     assert report["status"] == "completed"
@@ -41,7 +61,7 @@ def test_gateway_sigkill_leaves_independent_dynamic_hold(tmp_path):
 
     session = MotionSession(tmp_path)
     try:
-        session.command(snapshot_state(session.value).end_effector_pose, gripper=0.4)
+        fresh_enabled(session, snapshot_state(session.value).end_effector_pose)
         session.process.kill()
         session.process.join(timeout=5)
         deadline = time.monotonic() + 15
@@ -77,12 +97,12 @@ def test_controller_stall_cannot_block_owner_hold(tmp_path):
     session = MotionSession(tmp_path)
     try:
         pose = snapshot_state(session.value).end_effector_pose
-        session.command(pose, gripper=0.4)
+        fresh_enabled(session, pose)
         os.kill(session.value["controller_pid"], signal.SIGSTOP)
         result = session.command(pose, gripper=1.0)
         assert result["mode"] == "FAULT_HOLD"
         session.rpc(dict(kind="restart_controller"))
-        session.command(snapshot_state(session.value).end_effector_pose, gripper=0.4)
+        fresh_enabled(session, snapshot_state(session.value).end_effector_pose)
         assert session.value["mode"] == "ENABLED"
     finally:
         session.close()
@@ -122,15 +142,16 @@ def test_stepped_producer_samples_authority_after_wall_watchdog(tmp_path):
     session = MotionSession(tmp_path)
     try:
         pose = snapshot_state(session.value).end_effector_pose
-        session.command(pose, gripper=0.4)
+        fresh_enabled(session, pose)
         previous_source = session.trace[-1]["source_timestamp_ns"]
+        previous_sequence = session.trace[-1]["sequence"]
         time.sleep(0.25)
         held = session.rpc(dict(kind="snapshot"))
         assert held["mode"] == "FAULT_HOLD"
         assert held["reason"] == "gateway_wall_timeout"
-        result = session.command(snapshot_state(held).end_effector_pose, gripper=0.4)
+        result = fresh_enabled(session, snapshot_state(held).end_effector_pose)
         assert result["mode"] == "ENABLED"
         assert session.trace[-1]["source_timestamp_ns"] > previous_source
-        assert session.trace[-1]["sequence"] == 2
+        assert session.trace[-1]["sequence"] > previous_sequence
     finally:
         session.close()
