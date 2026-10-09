@@ -26,8 +26,8 @@ This runs generated interfaces over Fast DDS between separate processes with an
 explicit simulation clock and a deterministic fake driver behind shared safety.
 The JSON demonstrates command conversion, replay/loss/pause/reset guards, and
 safe recovery. [The ROS contract](docs/contracts/ros2.md) documents interfaces,
-dependencies, tests, and the safety review. MuJoCo motion through ROS and hardware
-integration remain later roadmap work. Simulation and learning remain ROS-free.
+dependencies, tests, and the safety review. The optional moving adapter is
+described below; hardware integration remains later roadmap work. Simulation and learning remain ROS-free.
 
 ## Optional CRISP feasibility assessment
 
@@ -215,3 +215,21 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Experiment contract](docs/contracts/experiments.md)
 - [ADRs](docs/adr/README.md)
 - [Contributing](CONTRIBUTING.md)
+
+## Optional ROS/CRISP simulation motion
+
+PR 13 adds an isolated generated-message -> shared safety -> real CRISP ->
+MuJoCo effort path, alongside the existing local baseline:
+
+```bash
+docker compose --profile ros2-simulation build ros2-simulation
+docker compose --profile ros2-simulation run --rm ros2-simulation \
+  act-lab ros2 simulation-smoke --output runs/ros2-simulation --json
+```
+
+The independent physics owner applies a bounded dynamic hold on lost/stale
+intent or controller failure. Evidence includes matched local trajectories,
+actuator ownership/effort, fault cases and runtime provenance. See the
+[simulation contract and safety review](docs/contracts/ros2-simulation.md) and
+[ADR 016](docs/adr/016-crisp-moving-simulation.md). This is stepped simulation;
+hardware and ROS recording remain later roadmap work. Learning remains ROS-free.

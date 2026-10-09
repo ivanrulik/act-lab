@@ -231,11 +231,17 @@ hardware and recording remain later roadmap work.
 
 ### PR 13 — CRISP simulation adapter
 
-The ADR 015 conditional go permits this branch, using Cartesian impedance.
-Expose CRISP behind the existing robot
-and feasibility ports, connect it to an effort-controlled MuJoCo/`ros2_control`
-test environment, and keep the current local MuJoCo adapter as the
-deterministic baseline.
+Implemented on the PR 13 branch with Cartesian impedance: generated v1 DDS
+commands pass through the shared safety path, actual controller manager and
+six effort interfaces into MuJoCo. An independent physics owner applies bounded
+dynamic hold and requires fresh intent/reactivation after faults. The existing
+local driver remains the deterministic baseline. ADR 016 records the moving
+frame correction and hold design; see the
+[local qualification report](reports/pr13-ros2-simulation.md).
+
+Hardware, system clocks and operational-space moving qualification remain deferred.
+Near-singular moving trajectories require a separate expansion of qualification
+fixtures; stationary bench results do not supply that evidence.
 
 Acceptance: identical input traces produce comparable local and ROS/CRISP
 trajectories and inspectable command outcomes; workspace, joint, torque, and

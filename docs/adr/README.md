@@ -19,3 +19,6 @@ consequences, and status.
 
 - [ADR 015](015-crisp-configuration-requalification.md): corrected filter and frame
   qualification; conditional go for Cartesian impedance in moving simulation
+
+- [ADR 016](016-crisp-moving-simulation.md): independent physics ownership,
+  bounded dynamic hold and measured frame residual correction for moving CRISP

@@ -290,6 +290,14 @@ def build_parser() -> argparse.ArgumentParser:
         "contract-smoke", help="Two-process DDS contracts"
     )
     contract.add_argument("--json", action="store_true")
+    motion = ros_commands.add_parser(
+        "simulation-smoke", help="ROS/CRISP effort-driven simulation"
+    )
+    motion.add_argument("--output", type=Path, default=Path("runs/ros2-simulation"))
+    motion.add_argument("--json", action="store_true")
+    motion.add_argument(
+        "--paced", action="store_true", help="Pace owner ticks with a steady clock"
+    )
     crisp = ros_commands.add_parser(
         "crisp-feasibility", help="Pinned stationary CRISP controller assessment"
     )
@@ -1470,7 +1478,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "ros2":
         try:
-            if args.ros2_command == "crisp-feasibility":
+            if args.ros2_command == "simulation-smoke":
+                from act_lab.adapters.ros2.simulation_smoke import run_motion
+
+                result = run_motion(args.output, paced=args.paced)
+            elif args.ros2_command == "crisp-feasibility":
                 from act_lab.adapters.ros2.crisp import run_feasibility
 
                 result = run_feasibility(args.output, enforce_timing=not args.ci_timing)
@@ -1481,6 +1493,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (RuntimeError, ValueError, ImportError, OSError) as error:
             print(str(error), file=sys.stderr)
             return 1
+        ros_label = (
+            "simulation" if args.ros2_command == "simulation-smoke" else "contracts"
+        )
         print(
             json.dumps(result, indent=2)
             if args.json
@@ -1488,7 +1503,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"CRISP feasibility: {result['decision']['outcome']}"
                 if args.ros2_command == "crisp-feasibility"
                 else (
-                    f"ROS 2 contracts: {result['status']} "
+                    f"ROS 2 {ros_label}: {result['status']} "
                     f"({len(result['cases'])} cases)"
                 )
             )
