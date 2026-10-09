@@ -366,11 +366,11 @@ def physics_owner(
                     last_authorization_wall = time.monotonic_ns()
                 else:
                     plant.hold(guard.reason)
-            start_wall = time.monotonic_ns()
+            output_wall = [time.monotonic_ns()]
 
-            def watchdog_wait(started: int = start_wall) -> None:
+            def watchdog_wait(lease: list[int] = output_wall) -> None:
                 nonlocal steady
-                if time.monotonic_ns() - started >= 100_000_000:
+                if time.monotonic_ns() - lease[0] >= 100_000_000:
                     inhibit("controller_wall_timeout")
                     rows.append(asdict(plant.tick()))
                     publish()
@@ -391,6 +391,7 @@ def physics_owner(
                         ):
                             generation_recovered = guard.generation
                             guard.reactivated(generation_recovered, steady)
+                            output_wall[0] = time.monotonic_ns()
                     except (RuntimeError, BrokenPipeError):
                         inhibit("controller_lost")
                 if guard.allowed(steady):
@@ -406,6 +407,9 @@ def physics_owner(
                             effort,
                             steady,
                         ):
+                            # Valid output advances the wall lease, just as it
+                            # advances the injected steady-clock output lease.
+                            output_wall[0] = time.monotonic_ns()
                             if plant.mode != "ENABLED":
                                 plant.enable(guard.gripper)
                             else:
