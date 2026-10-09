@@ -125,7 +125,13 @@ class MotionSession:
             episode or self.value["episode"], self.sequence, action
         )
         # Ask the consuming gateway to wait for this DDS message before polling.
-        send(self.connection, dict(kind="poll", wait_delivery=True))
+        send(
+            self.connection,
+            dict(kind="poll", wait_delivery=True, delivery_barrier=True),
+        )
+        ready = receive(self.connection)
+        if ready.get("ready_delivery") is not True:
+            raise RuntimeError("gateway did not establish DDS delivery barrier")
         self.pub.publish(make_message("CartesianCommand", encode_command(envelope)))
         value = receive(self.connection)
         if "error" in value:
@@ -154,20 +160,22 @@ class MotionSession:
         if getattr(self, "closed", False):
             return
         self.closed = True
-        if self.process.is_alive():
-            try:
-                self.rpc(dict(kind="shutdown"))
-                self.process.join(timeout=5)
-            except (RuntimeError, EOFError, BrokenPipeError):
+        try:
+            if self.process.is_alive():
+                try:
+                    self.rpc(dict(kind="shutdown"))
+                    self.process.join(timeout=5)
+                except (RuntimeError, EOFError, OSError):
+                    self.process.terminate()
+                    self.process.join(timeout=5)
+            if self.process.is_alive():
                 self.process.terminate()
                 self.process.join(timeout=5)
-        if self.process.is_alive():
-            self.process.terminate()
-            self.process.join(timeout=5)
-            raise RuntimeError("gateway shutdown timeout")
-        self.connection.close()
-        self.node.destroy_node()
-        self.rclpy.shutdown()
+                raise RuntimeError("gateway shutdown timeout")
+        finally:
+            self.connection.close()
+            self.node.destroy_node()
+            self.rclpy.shutdown()
 
 
 def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:

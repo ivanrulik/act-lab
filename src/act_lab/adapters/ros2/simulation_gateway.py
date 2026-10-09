@@ -188,7 +188,13 @@ def gateway(
                 runtime.snapshot["steady_ns"],
             )
             if request.get("wait_delivery", True):
+                # Prepare the executor before the producer creates a message
+                # with a 100 ms DDS lifespan, including its first publication.
+                if request.get("delivery_barrier"):
+                    rclpy.spin_once(node, timeout_sec=0.0)
                 before = arrivals
+                if request.get("delivery_barrier"):
+                    send(connection, dict(ready_delivery=True))
                 end = time.monotonic() + 15
                 while arrivals == before:
                     if time.monotonic() >= end:
