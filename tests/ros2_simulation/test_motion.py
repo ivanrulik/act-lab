@@ -13,7 +13,9 @@ def fresh_enabled(session, pose, gripper=0.4):
         if result["mode"] == "ENABLED":
             return result
         assert result["mode"] == "FAULT_HOLD"
-        assert result["reason"] in {
+        assert result.get("transport_rejection") == "delivery_timeout" or result[
+            "reason"
+        ] in {
             "controller_wall_timeout",
             "gateway_wall_timeout",
             "clock_paused",
@@ -155,3 +157,36 @@ def test_stepped_producer_samples_authority_after_wall_watchdog(tmp_path):
         assert session.trace[-1]["sequence"] > previous_sequence
     finally:
         session.close()
+
+
+def test_expected_dds_publication_loss_returns_disabled_hold(tmp_path):
+    import json
+
+    from act_lab.adapters.ros2.simulation import receive, send, snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession
+
+    session = MotionSession(tmp_path)
+    try:
+        fresh_enabled(session, snapshot_state(session.value).end_effector_pose)
+        aperture = session.value["report"]["executed_command"]["gripper_position"]
+        send(
+            session.connection,
+            dict(kind="poll", wait_delivery=True, delivery_barrier=True),
+        )
+        assert receive(session.connection)["ready_delivery"] is True
+        held = receive(session.connection)
+        assert "error" not in held
+        session.value = held
+        assert held["mode"] != "ENABLED"
+        assert held["transport_rejection"] == "delivery_timeout"
+        assert held["report"]["outcome"] == "disabled"
+        assert not held["report"]["requested_command"]["enabled"]
+        assert not held["report"]["has_executed_command"]
+        fresh_enabled(session, snapshot_state(held).end_effector_pose)
+    finally:
+        session.close()
+    rows = json.loads((tmp_path / "physics.json").read_text())
+    held_rows = [row for row in rows if row["reason"] == "disabled"]
+    assert held_rows
+    assert all(row["accepted_gripper"] == aperture for row in held_rows)
+    assert all(not any(row["task_effort_nm"]) for row in held_rows)

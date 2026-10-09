@@ -55,3 +55,16 @@ def test_disabled_intent_never_uses_recovery():
     pose = Pose("world", (0.4, 0.0, 0.6), (1.0, 0.0, 0.0, 0.0))
     assert session.motion_command(pose, 0.4, False)["mode"] == "DISABLED_HOLD"
     session.command.assert_called_once_with(pose, 0.4, False)
+
+
+def test_nominal_recovery_records_transport_loss_before_fresh_intent():
+    session = session_with(
+        dict(
+            mode="FAULT_HOLD", reason="disabled", transport_rejection="delivery_timeout"
+        ),
+        dict(mode="ENABLED", reason="authorized"),
+    )
+    pose = Pose("world", (0.4, 0.0, 0.6), (1.0, 0.0, 0.0, 0.0))
+    assert session.motion_command(pose)["mode"] == "ENABLED"
+    assert session.trace[0]["transport_loss_recovery"] is True
+    assert session.trace[0]["wall_fault_recovery"] is False

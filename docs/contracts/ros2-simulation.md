@@ -79,7 +79,13 @@ hardware realtime qualification is inferred. Nominal motion uses a bounded
 15-second recovery window: every attempt creates a fresh source timestamp and
 sequence, and every intervening watchdog hold remains in the trace. Numeric,
 frame, workspace and other application rejections fail immediately. Explicit
-fault scenarios never use this recovery helper. Both schedulers use the 2 mm
+fault scenarios never use this recovery helper.
+
+The DDS gateway waits at most 100 ms for an expected publication, then clears
+the inbox and returns a disabled hold with `delivery_timeout` as the separate
+transport rejection. Nominal recovery records this loss and creates new intent;
+missing ROS dependencies, sustained delivery loss and undelivered explicit fault
+fixtures still fail assessment. Both schedulers use the 2 mm
 physical comparison bound; bitwise equality additionally requires identical
 clock and fault inputs. Precise
 watchdog boundaries always use injected clocks, independently of wall scheduling.

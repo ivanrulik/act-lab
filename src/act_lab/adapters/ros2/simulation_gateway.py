@@ -195,10 +195,11 @@ def gateway(
                 before = arrivals
                 if request.get("delivery_barrier"):
                     send(connection, dict(ready_delivery=True))
-                end = time.monotonic() + 15
+                end = time.monotonic() + 0.1
                 while arrivals == before:
                     if time.monotonic() >= end:
-                        raise RuntimeError("bounded command DDS delivery timeout")
+                        inbox.reject("delivery_timeout")
+                        break
                     rclpy.spin_once(node, timeout_sec=0.005)
             else:
                 rclpy.spin_once(node, timeout_sec=0.0)

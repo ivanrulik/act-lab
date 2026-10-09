@@ -66,9 +66,17 @@ class MotionSession:
         )
         self.process.start()
         child.close()
-        self.value = receive(self.connection)
-        if "error" in self.value:
-            raise RuntimeError(self.value["error"])
+        try:
+            self.value = receive(self.connection)
+            if "error" in self.value:
+                raise RuntimeError(self.value["error"])
+        except BaseException:
+            self.process.terminate()
+            self.process.join(timeout=5)
+            self.connection.close()
+            self.node.destroy_node()
+            rclpy.shutdown()
+            raise
         self.telemetry = {"state": 0, "report": 0, "clock": 0}
         for name, message in (
             ("state", "RobotState"),
@@ -90,6 +98,7 @@ class MotionSession:
         end = time.monotonic() + 15
         while self.pub.get_subscription_count() < 1:
             if time.monotonic() >= end:
+                self.close()
                 raise RuntimeError("bounded command publisher discovery timeout")
             rclpy.spin_once(self.node, timeout_sec=0.005)
 
@@ -167,14 +176,16 @@ class MotionSession:
             value = self.command(pose, gripper)
             if value["mode"] == "ENABLED":
                 return value
-            if value["reason"] not in {
+            missing_delivery = value.get("transport_rejection") == "delivery_timeout"
+            if not missing_delivery and value["reason"] not in {
                 "controller_wall_timeout",
                 "gateway_wall_timeout",
                 "clock_paused",
                 "stale_source",
             }:
                 raise RuntimeError(f"nominal motion rejected: {value['reason']}")
-            self.trace[-1]["wall_fault_recovery"] = True
+            self.trace[-1]["wall_fault_recovery"] = not missing_delivery
+            self.trace[-1]["transport_loss_recovery"] = missing_delivery
             if time.monotonic() >= deadline:
                 raise RuntimeError("bounded nominal fresh-command recovery timeout")
 
@@ -323,6 +334,8 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             ("wrong_episode", dict(episode="00000000-0000-0000-0000-000000000002")),
         ):
             value = session.command(kwargs.pop("pose", target), **kwargs)
+            if value.get("transport_rejection") == "delivery_timeout":
+                raise RuntimeError(f"fault case missing DDS delivery: {case}")
             if value["mode"] == "ENABLED":
                 raise RuntimeError(f"fault failed to transfer ownership: {case}")
             cases.append(
