@@ -75,7 +75,11 @@ reports bitwise equality and held commands; differing wall events are not
 identical clock input traces. `--paced` targets a 2 ms
 steady schedule and keeps the owner ticking without gateway events, through the
 same guard and dynamic hold path. Budget overruns are recorded per tick; no
-hardware realtime qualification is inferred. Exact same-seed trajectory equality
-is required in stepped mode. Paced comparison reports a separate 2 mm difference
-bound because wall scheduling can add ticks between command samples. Precise
+hardware realtime qualification is inferred. Nominal motion uses a bounded
+15-second recovery window: every attempt creates a fresh source timestamp and
+sequence, and every intervening watchdog hold remains in the trace. Numeric,
+frame, workspace and other application rejections fail immediately. Explicit
+fault scenarios never use this recovery helper. Both schedulers use the 2 mm
+physical comparison bound; bitwise equality additionally requires identical
+clock and fault inputs. Precise
 watchdog boundaries always use injected clocks, independently of wall scheduling.

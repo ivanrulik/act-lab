@@ -156,6 +156,28 @@ class MotionSession:
         )
         return value
 
+    def motion_command(
+        self, pose: Pose, gripper: float = 0.0, enabled: bool = True
+    ) -> dict[str, Any]:
+        """Issue fresh intents through bounded recovery after recorded wall faults."""
+        if not enabled:
+            return self.command(pose, gripper, False)
+        deadline = time.monotonic() + 15
+        while True:
+            value = self.command(pose, gripper)
+            if value["mode"] == "ENABLED":
+                return value
+            if value["reason"] not in {
+                "controller_wall_timeout",
+                "gateway_wall_timeout",
+                "clock_paused",
+                "stale_source",
+            }:
+                raise RuntimeError(f"nominal motion rejected: {value['reason']}")
+            self.trace[-1]["wall_fault_recovery"] = True
+            if time.monotonic() >= deadline:
+                raise RuntimeError("bounded nominal fresh-command recovery timeout")
+
     def close(self) -> None:
         if getattr(self, "closed", False):
             return
@@ -209,6 +231,8 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             for name, offset in fixtures
             for axis, direction in ((0, -1), (0, 1), (1, -1), (1, 1), (2, -1), (2, 1))
         )
+        first_trajectory: list[dict[str, Any]] = []
+        first_trace_end = 0
         for fixture, offset, axis, direction in sweep:
             position = [
                 v + delta
@@ -218,8 +242,12 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             ]
             position[axis] += direction * 0.01
             target = replace(initial.end_effector_pose, position_xyz_m=tuple(position))
+            motion_start_ns = snapshot_state(session.value).timestamp_ns
             for _ in range(250):
-                value = session.command(target)
+                value = session.motion_command(target)
+                if fixture == "home" and axis == 0 and direction == -1:
+                    first_trajectory.append(session.trace[-1])
+                    first_trace_end = len(session.trace)
                 local_robot.command(
                     Action(local_robot.observe().timestamp_ns, target, 0.0, True)
                 )
@@ -259,7 +287,8 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                     local_error_m=baseline,
                     starting_fixture=fixture,
                     fixture_offset_xyz_m=offset,
-                    settling_window_s=5.0,
+                    settling_window_s=(state.timestamp_ns - motion_start_ns) / 1e9,
+                    enabled_updates=250,
                 )
             )
             if axis == 2 and direction == 1:
@@ -272,7 +301,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         local_driver.close()
         for gripper in (0.8, 0.0):
             for _ in range(30):
-                session.command(orientation, gripper=gripper)
+                session.motion_command(orientation, gripper=gripper)
             if abs(snapshot_state(session.value).gripper_position - gripper) > 0.02:
                 raise RuntimeError("atomic gripper command failed")
         cases.append(dict(case="gripper_open_close", status="passed"))
@@ -352,7 +381,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             raise RuntimeError("controller death did not hold")
         cases.append(dict(case="controller_loss", mode=value["mode"]))
         session.rpc(dict(kind="restart_controller"))
-        recovered = session.command(target)
+        recovered = session.motion_command(target)
         if recovered["mode"] != "ENABLED":
             raise RuntimeError(
                 "fresh authorization did not recover restarted controller"
@@ -363,7 +392,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         if session.value["episode"] == before_episode:
             raise RuntimeError("reset failed to change episode")
         session.sequence = 0
-        session.command(snapshot_state(session.value).end_effector_pose)
+        session.motion_command(snapshot_state(session.value).end_effector_pose)
         cases.append(dict(case="reset_recovery", mode=session.value["mode"]))
         repeated_start = len(session.trace)
         repeated_target = replace(
@@ -375,12 +404,14 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         )
         session.rpc(dict(kind="reset", seed=0))
         session.sequence = 0
+        repeated_trajectory: list[dict[str, Any]] = []
         for _ in range(250):
-            session.command(repeated_target)
+            session.motion_command(repeated_target)
+            repeated_trajectory.append(session.trace[-1])
         repeat_error = max(
             math.dist(a["measured"], b["measured"])
             for a, b in zip(
-                session.trace[:250], session.trace[repeated_start:], strict=True
+                    first_trajectory, repeated_trajectory, strict=True
             )
         )
         # Wall watchdog events are external inputs even in stepped mode. Keep
@@ -398,7 +429,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 comparison_tolerance_m=0.002,
                 first_trace_holds=[
                     dict(sequence=row["sequence"], reason=row["reason"])
-                    for row in session.trace[:250]
+                    for row in session.trace[:first_trace_end]
                     if row["mode"] != "ENABLED"
                 ],
                 repeated_trace_holds=[
@@ -579,7 +610,7 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
             mujoco.mj_forward(environment._model, environment._data)  # noqa: SLF001
             state = snapshot_state(session.value)
             action = expert.poll(Observation(state.timestamp_ns, state, config.cameras))
-            value = session.command(
+            value = session.motion_command(
                 action.target_pose, action.gripper_position, action.enabled
             )
             if value["mode"] != "ENABLED":
@@ -602,7 +633,7 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
         drift = math.dist(before.position_xyz_m, after.position_xyz_m)
         if drift > 0.002 or session.value["qpos"][cube_address + 2] < cube_z - 0.01:
             raise RuntimeError(f"CRISP loaded hold failed: {drift:.6f} m")
-        session.command(after, gripper=aperture)
+        session.motion_command(after, gripper=aperture)
         if session.value["mode"] != "ENABLED":
             raise RuntimeError("loaded fresh-command recovery failed")
         result = dict(
@@ -634,7 +665,7 @@ def orientation_trial(
     )
     initial = snapshot_state(session.value).end_effector_pose
     for _ in range(250):
-        result = session.command(orientation)
+        result = session.motion_command(orientation)
         if result["mode"] != "ENABLED":
             raise RuntimeError("orientation motion unexpectedly inhibited")
         if local_robot is not None:
