@@ -111,8 +111,10 @@ class MotionSession:
         replay: bool = False,
         episode: str | None = None,
     ) -> dict[str, Any]:
-        if self.paced:
-            self.rpc(dict(kind="snapshot"))
+        # The independent owner may integrate hold while this producer is
+        # descheduled, including in stepped mode. Sample current authority
+        # before creating a new intent; never restamp an existing command.
+        self.rpc(dict(kind="snapshot"))
         state = snapshot_state(self.value)
         if not replay:
             self.sequence += 1

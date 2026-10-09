@@ -111,3 +111,26 @@ def test_paced_owner_expires_without_gateway_control_ticks(tmp_path):
         }
     finally:
         session.close()
+
+
+def test_stepped_producer_samples_authority_after_wall_watchdog(tmp_path):
+    import time
+
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession
+
+    session = MotionSession(tmp_path)
+    try:
+        pose = snapshot_state(session.value).end_effector_pose
+        session.command(pose, gripper=0.4)
+        previous_source = session.trace[-1]["source_timestamp_ns"]
+        time.sleep(0.25)
+        held = session.rpc(dict(kind="snapshot"))
+        assert held["mode"] == "FAULT_HOLD"
+        assert held["reason"] == "gateway_wall_timeout"
+        result = session.command(snapshot_state(held).end_effector_pose, gripper=0.4)
+        assert result["mode"] == "ENABLED"
+        assert session.trace[-1]["source_timestamp_ns"] > previous_source
+        assert session.trace[-1]["sequence"] == 2
+    finally:
+        session.close()
