@@ -57,16 +57,42 @@ cannot rank tracking quality.
 Baseline: noise, variable stiffness, external wrench input, friction, gravity,
 Coriolis and nullspace stiffness are disabled. Friction arrays contain six zeros.
 Joint repulsion is disabled **and its maximum torque is zero** because the pinned
-update does not consult its enable flag. Target/state/output filters remain 1.0
-as specified by the assessment plan. That setting freezes target/state history
-in this CRISP revision, rather than disabling smoothing. A numeric pose-response
-test includes pure translation and pure rotation and records failure explicitly.
+update does not consult its enable flag. The explicit qualification profile is
+`configs/ros2/crisp-feasibility.json` (schema 2): target pose 0.1; q, dq and q_ref
+0.0; output torque 1.0. For target/state, alpha is previous-sample retention:
+`(1-alpha)*current + alpha*previous`; orientation is `target.slerp(alpha, previous)`.
+Thus target 0.1 retains 10% history, state 0.0 passes current feedback. The target
+parameter cannot be 0.0 under pinned validation. Output operands are reversed,
+so output 1.0 passes new torque. This is an explicit requalification configuration,
+not a claim that one setting disables every filter.
 
-`responsive_probe` and `smoothing` use target filter 0.1 solely to diagnose native
-target/loss behavior. They are not candidate baseline configurations. Compensation
-cases initialize measured velocities before activation so the frozen state filter
-does not hide their effects. Gravity is compared with the same model's calculated
-gravity; it is never authorized as a UR hardware configuration.
+The `historical` case retains all target/state filters at 1.0 and must still freeze
+pose response. `responsive_probe` repeats candidate native loss behavior;
+`smoothing` uses target 0.2 to expose retention. Position and velocity feedback
+are changed after activation and checked against independent Pinocchio task-torque
+calculations. Translation, pure rotation, home/nearby/near-singular efforts must
+match those calculations within 1e-6 Nm. Compensation toggles are isolated;
+gravity is compared with the model and never authorized for UR hardware.
+
+### Local scene and UR tool frame
+
+The bench validates local scene gripper poses before mapping them into CRISP's
+UR-world/tool0 convention. Write `T_scene_tip = A * T_UR_tool0 * B`, where A is
+Rz(pi) without translation and B is a 110 mm translation along tool0 Z without
+rotation. Approved targets use the exact inverse `A^-1 * T_scene_tip * B^-1`.
+This adapter-local mapping preserves source timestamp, sequence and episode;
+ROS v1 codecs still only reorder XYZW/WXYZ. Workspace limits stay unchanged.
+
+The committed `tests/fixtures/crisp/kinematics.json` is generated in the ROS-free
+dev environment with `docker compose run --rm dev python
+scripts/crisp-frame-reference.py`. It uses `mj_forward` without a physics step,
+records both flange and tip at nine joint configurations, model hashes and runtime
+version. `--check` and dev integration tests regenerate it; stale asset hashes
+fail the ROS runner. The ROS image consumes the fixture without installing MuJoCo.
+The C++ bench checks mapped UR FK against local tip FK, and inverse round trips.
+The models differ slightly: translation must be <=2 mm and rotation <=0.02 rad,
+matching existing local convergence tolerances, not claiming calibrated equivalence.
+PR 13 must validate moving dynamics, tool/payload conventions and residuals.
 
 Potentially unsafe nonfinite/nonunit inputs and invalid configurations run in
 isolated process groups, bounded to 90 seconds. A timeout is incomplete evidence
@@ -75,7 +101,7 @@ plugin initialization and all required baseline/guard executions are mandatory.
 
 ## Test-only trace and effort gate
 
-`authorization.jsonl` is a version-1 event stream (`report.json.schema_version`).
+`authorization.jsonl` retains the original event protocol; `report.json` is schema 2.
 Events are `clock`, `authorize`, `fault`, or asserted `step`. Every event carries
 monotonic steady nanoseconds. Clocks carry domain nanoseconds and episode UUID;
 ROS pose stamps use domain + 1 second. An authorization contains source stamp,
@@ -104,7 +130,7 @@ watchdog. No hardware controller or stop mechanism is supplied by this PR.
 | Condition | Native assessment | Independent mock gate assertion | Production requirement |
 |---|---|---|---|
 | Startup / no command | Activation initializes measured FK target | No enabled effort authorization | Validate physical startup/ownership |
-| Fresh command | Translation/rotation response and quaternion mapping | Shared safety approval, finite/ceiling/slew | Resolve filter semantics and frames |
+| Fresh command | Translation/rotation response and quaternion mapping | Shared safety approval, validated frame mapping, finite/ceiling/slew | Validate moving dynamics and tool calibration |
 | Exact source age 100 ms / forward jump | Stamp ignored in responsive probe | Zero at boundary, original stamp retained | Source freshness through whole adapter |
 | Publisher loss | Separate pose process killed; inspect retained effort | Receipt expires at 100 ms | Independent actuator watchdog |
 | Approval process loss | No more authorize events; clock/steps continue | Receipt expires even with clock progress | Independently scheduled/process-isolated gate |
@@ -113,7 +139,7 @@ watchdog. No hardware controller or stop mechanism is supplied by this PR.
 | Backward reset | No native episode contract | Cached intent cleared, new UUID required | Reset ownership and state synchronization |
 | Replay / wrong episode | No native metadata | Clear intent and inhibit immediately | Preserve producer/episode contract |
 | Future / invalid frame | Header not validated natively | Independently rejected | Bind world frame explicitly |
-| Nonfinite input/output | Isolated native payload case | Immediate zero; finite recovery | Validate upstream numeric handling |
+| Nonfinite/nonunit input/output | Isolated native payload case | Immediate zero; quaternion norm and finite recovery | Validate upstream numeric handling |
 | Deactivate / shutdown | Capture unchanged effort buffer | Immediate zero outside slew | Implement actual stop/hold and confirm driver behavior |
 | Gripper on holds | CRISP exposes joint effort only | Shared safety retains accepted aperture | Separate validated gripper control |
 
@@ -126,7 +152,8 @@ contain median/p95/p99/max and budget overruns. Per-update torque delta is
 or a claim that a physical loop meets its deadline. Nearby/singular states are
 exercised separately in native numeric/lifecycle tests.
 
-A conditional go requires lifecycle/interfaces, numeric pose response, all guarded
+A conditional go requires lifecycle/interfaces, independent pose/feedback torque
+checks, stationary frame binding, all guarded
 fault assertions and p99 strictly below 2 ms in every local 500 Hz run. Impedance
 wins if both qualify; OSC only if impedance does not. Otherwise selection is
 deferred with no-go. These rules do not establish hardware real-time performance.
@@ -136,6 +163,8 @@ modes, authorization JSONL, application decisions, per-case raw/guarded traces,
 process logs and benchmark summaries. Source revisions, generated model SHA-256,
 compiler/CMake flags, installed packages, ROS/RMW and machine are recorded.
 
-See [ADR 014](../adr/014-crisp-feasibility-and-controller-decision.md) and the
-[committed assessment](../reports/crisp-feasibility.md) for the local decision,
+See [ADR 015](../adr/015-crisp-configuration-requalification.md) and the
+[requalification report](../reports/crisp-requalification.md) for the current decision.
+[ADR 014](../adr/014-crisp-feasibility-and-controller-decision.md) and the
+[original assessment](../reports/crisp-feasibility.md) retain the historical no-go,
 UR driver source audit, upstream license discrepancies, and deferred work.

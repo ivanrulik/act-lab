@@ -50,6 +50,7 @@ COPY src ./src
 COPY tests ./tests
 COPY configs ./configs
 COPY notebooks ./notebooks
+COPY scripts/crisp-frame-reference.py ./scripts/crisp-frame-reference.py
 RUN python -m pip install --no-cache-dir \
     --constraint requirements/constraints-py312.txt -e '.[dev]'
 USER actlab
@@ -89,6 +90,7 @@ COPY src ./src
 COPY tests ./tests
 COPY configs ./configs
 COPY notebooks ./notebooks
+COPY scripts/crisp-frame-reference.py ./scripts/crisp-frame-reference.py
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends build-essential linux-libc-dev \
     && rm -rf /var/lib/apt/lists/*

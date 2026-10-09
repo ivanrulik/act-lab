@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "profile": "pr12-requalification",
+  "filters": {"target_pose": 0.1, "q": 0.0, "dq": 0.0, "q_ref": 0.0, "output_torque": 1.0},
+  "frame_binding": {
+    "scene_from_ur_world_quaternion_wxyz": [0.0, 0.0, 0.0, 1.0],
+    "tool0_to_gripper_tip_translation_m": [0.0, 0.0, 0.11],
+    "translation_tolerance_m": 0.002,
+    "rotation_tolerance_rad": 0.02
+  }
+}

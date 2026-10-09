@@ -214,21 +214,25 @@ separate-process DDS and stationary UR5e mock effort interfaces. The isolated
 profile records native safety gaps, test-only independent gate assertions,
 compensation comparisons, timing and source/model/runtime provenance.
 
-Decision: **no-go for both assessed filter=1 configurations** because target
-history is frozen, failing numeric pose response. Controller selection is deferred;
-PR 11 and local learning workflows remain intact. No alternative controller is
-introduced in this PR. See [ADR 014](adr/014-crisp-feasibility-and-controller-decision.md),
-[the local report](reports/crisp-feasibility.md), and
-[the bench contract/safety matrix](contracts/crisp-feasibility.md).
+Original decision: **no-go for the filter=1 configurations**; retained in
+[ADR 014](adr/014-crisp-feasibility-and-controller-decision.md) and
+[the original report](reports/crisp-feasibility.md).
 
-Deferred prerequisite to PR 13: review corrected filter semantics/configuration,
-rerun qualification, and reconcile model/world frame and workspace assumptions.
-Production watchdog/stop/hold, moving dynamics, hardware and recording remain
-later roadmap work.
+Completed follow-up: explicit target/state/output filter semantics, nine stationary
+local-scene/UR-tool frame checks, independent pose/feedback effort calculations,
+65 guarded assertions per mode and three local 500 Hz benchmark runs per mode.
+**Conditional go for Cartesian impedance**, following the predefined tie rule.
+See [ADR 015](adr/015-crisp-configuration-requalification.md),
+[requalification evidence](reports/crisp-requalification.md) and
+[the contract/safety matrix](contracts/crisp-feasibility.md).
+
+Production watchdog/stop/hold, moving dynamics, calibrated tool/payload semantics,
+hardware and recording remain later roadmap work.
 
 ### PR 13 — CRISP simulation adapter
 
-Proceed only after a CRISP go decision. Expose CRISP behind the existing robot
+The ADR 015 conditional go permits this branch, using Cartesian impedance.
+Expose CRISP behind the existing robot
 and feasibility ports, connect it to an effort-controlled MuJoCo/`ros2_control`
 test environment, and keep the current local MuJoCo adapter as the
 deterministic baseline.

@@ -80,7 +80,11 @@ def generate_trace(pose: Pose) -> tuple[list[dict[str, Any]], list[dict[str, Any
     def command(**changes: Any) -> dict[str, Any]:
         nonlocal sequence
         sequence += 1
-        intent = Action(domain, pose, 0.4, True)
+        target = replace(
+            pose,
+            position_xyz_m=(pose.position_xyz_m[0] + 0.001, *pose.position_xyz_m[1:]),
+        )
+        intent = Action(domain, target, 0.4, True)
         envelope = CommandEnvelope(episode, sequence, intent)
         inbox.offer(envelope, steady)
         robot.command(inbox.poll(driver.observe(), steady))
@@ -187,6 +191,7 @@ def generate_trace(pose: Pose) -> tuple[list[dict[str, Any]], list[dict[str, Any
         ("future_timestamp", dict(source_timestamp_ns=1)),
         ("invalid_frame", dict(frame_id="camera")),
         ("invalid_numeric", dict(position=[None, 0.0, 0.6])),
+        ("non_unit_quaternion", dict(quaternion_wxyz=[2.0, 0.0, 0.0, 0.0])),
         ("malformed_shape", dict(position=[0.0, 0.6])),
         ("invalid_sequence", dict(sequence=-1)),
         ("disabled", dict(enabled=False)),

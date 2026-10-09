@@ -132,6 +132,9 @@ Compose profile. It loads unmodified pinned controller code against stationary
 UR5e mock interfaces. Python authorizations reuse the inbox and shared safety
 application; an independent C++ test gate records raw and inhibited effort.
 It is not a production robot adapter or physical stop/hold implementation.
-The assessed filter=1 configuration produces a no-go; controller selection and
-moving ROS/MuJoCo integration remain deferred. See [ADR 014](adr/014-crisp-feasibility-and-controller-decision.md)
+The original filter=1 no-go is preserved in ADR 014. Explicit filter and frame
+requalification now conditionally selects Cartesian impedance for PR 13. The bench
+validates stationary local scene/UR tool binding without integrating motion; a
+production guard, independent watchdog and stop/hold remain PR 13 requirements.
+See [ADR 015](adr/015-crisp-configuration-requalification.md)
 and the [bench contract, dependency rationale and safety matrix](contracts/crisp-feasibility.md).

@@ -22,6 +22,8 @@
 #include <pinocchio/algorithm/kinematics.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/rnea.hpp>
+#include <pinocchio/algorithm/crba.hpp>
+#include <pinocchio/spatial/explog.hpp>
 
 extern char **environ;
 using Clock = std::chrono::steady_clock;
@@ -31,6 +33,31 @@ const std::array<double,6> home = {-.035074,-1.756617,-.595185,-2.360379,1.57077
 std::string read_file(const std::string& path) {
   std::ifstream file(path); if (!file) throw std::runtime_error("cannot read " + path);
   return {std::istreambuf_iterator<char>(file), {}};
+}
+Json settings() {
+  return Json::parse(read_file("/workspace/configs/ros2/crisp-feasibility.json"));
+}
+pinocchio::SE3 pose_transform(const Json& pose) {
+  const auto p=pose.at("position"), q=pose.at("quaternion_wxyz");
+  return {Eigen::Quaterniond(q[0].get<double>(),q[1].get<double>(),q[2].get<double>(),q[3].get<double>()).toRotationMatrix(),
+          Eigen::Vector3d(p[0].get<double>(),p[1].get<double>(),p[2].get<double>())};
+}
+Json transformed_pose(const pinocchio::SE3& transform, Json metadata) {
+  Eigen::Quaterniond q(transform.rotation());
+  metadata["position"]={transform.translation()[0],transform.translation()[1],transform.translation()[2]};
+  metadata["quaternion_wxyz"]={q.w(),q.x(),q.y(),q.z()};return metadata;
+}
+std::pair<pinocchio::SE3,pinocchio::SE3> binding() {
+  const auto config=settings().at("frame_binding");
+  const auto q=config.at("scene_from_ur_world_quaternion_wxyz"), p=config.at("tool0_to_gripper_tip_translation_m");
+  return {{Eigen::Quaterniond(q[0].get<double>(),q[1].get<double>(),q[2].get<double>(),q[3].get<double>()).toRotationMatrix(),Eigen::Vector3d::Zero()},
+          {Eigen::Matrix3d::Identity(),Eigen::Vector3d(p[0].get<double>(),p[1].get<double>(),p[2].get<double>())}};
+}
+Json scene_pose(const Json& controller) {
+  const auto [a,b]=binding();return transformed_pose(a*pose_transform(controller)*b,controller);
+}
+Json controller_pose(const Json& scene) {
+  const auto [a,b]=binding();return transformed_pose(a.inverse()*pose_transform(scene)*b.inverse(),scene);
 }
 void wait_until(const std::function<bool()>& ready, const std::function<void()>& spin) {
   const auto end = Clock::now() + std::chrono::seconds(15);
@@ -128,10 +155,35 @@ class Bench {
             {"quaternion_wxyz", {rotation.w(),rotation.x(),rotation.y(),rotation.z()}},
             {"frame_id","world"},{"source_timestamp_ns",0}};
   }
+  Json expected_effort(const Json& target) {
+    Eigen::Map<Eigen::Matrix<double,6,1>> q(positions.data()), dq(velocities.data());
+    pinocchio::forwardKinematics(model,*data,q);pinocchio::updateFramePlacements(model,*data);
+    const auto current=data->oMf[model.getFrameId("tool0")], desired=pose_transform(target);
+    Eigen::Matrix<double,6,1> error;
+    error.head<3>()=desired.translation()-current.translation();
+    error.tail<3>()=pinocchio::log3(desired.rotation()*current.rotation().transpose());
+    Eigen::Matrix<double,6,6> j=Eigen::Matrix<double,6,6>::Zero();
+    pinocchio::computeFrameJacobian(model,*data,q,model.getFrameId("tool0"),pinocchio::LOCAL_WORLD_ALIGNED,j);
+    Eigen::Matrix<double,6,1> k,d;k<<500,500,500,30,30,30;d=2.0*k.cwiseSqrt();
+    Eigen::Matrix<double,6,1> task=k.cwiseProduct(error)-d.cwiseProduct(j*dq);
+    if(osc) {
+      pinocchio::crba(model,*data,q);
+      Eigen::MatrixXd mass=data->M.selfadjointView<Eigen::Upper>();
+      Eigen::MatrixXd inverse=mass.ldlt().solve(Eigen::MatrixXd::Identity(6,6));
+      Eigen::MatrixXd task_inverse=j*inverse*j.transpose();
+      Eigen::JacobiSVD<Eigen::MatrixXd> svd(task_inverse,Eigen::ComputeFullU|Eigen::ComputeFullV);
+      Eigen::VectorXd values=svd.singularValues();
+      for(int i=0;i<6;++i)values[i]=values[i]/(values[i]*values[i]+.01*.01);
+      task=(svd.matrixV()*values.asDiagonal()*svd.matrixU().transpose())*task;
+    }
+    const Eigen::Matrix<double,6,1> expected=j.transpose()*task;
+    return std::vector<double>(expected.data(),expected.data()+6);
+  }
   void configure() {
     if (controller) { executor.remove_node(controller->get_node()->get_node_base_interface()); controller->release_interfaces(); controller.reset(); }
     raw.fill(0.0); command_handles.clear(); state_handles.clear();
     controller=loader.createSharedInstance("crisp_controllers/CartesianController");
+    const auto filters=settings().at("filters");
     std::vector<rclcpp::Parameter> params={
       {"joints",joints},{"end_effector_frame",std::string(variant=="invalid_frame" ? "absent" : "tool0")},
       {"base_frame",std::string("world")},{"use_sim_time",true},{"use_operational_space",osc},
@@ -144,8 +196,8 @@ class Bench {
       {"noise.add_random_noise",false},{"variable_stiffness.enabled",false},
       {"nullspace.stiffness",0.0},{"nullspace.projector_type",std::string("none")},
       {"joint_limit_repulsion.enabled",false},{"joint_limit_repulsion.max_torque",0.0},{"max_delta_tau",100.0/rate},
-      {"filter.target_pose",(variant=="smoothing" || variant=="responsive_probe") ? 0.1 : 1.0},
-      {"filter.q",1.0},{"filter.dq",1.0},{"filter.q_ref",1.0},{"filter.output_torque",1.0}};
+      {"filter.target_pose",variant=="historical" ? 1.0 : (variant=="smoothing" ? 0.2 : filters.at("target_pose").get<double>())},
+      {"filter.q",variant=="historical" ? 1.0 : filters.at("q").get<double>()},{"filter.dq",variant=="historical" ? 1.0 : filters.at("dq").get<double>()},{"filter.q_ref",variant=="historical" ? 1.0 : filters.at("q_ref").get<double>()},{"filter.output_torque",filters.at("output_torque").get<double>()},{"use_local_jacobian",false}};
     if(variant=="invalid_joint") {auto bad=joints;bad[5]="absent";params[0]=rclcpp::Parameter("joints",bad);}
     rclcpp::NodeOptions options; options.parameter_overrides(params);
     if(controller->init("crisp_bench",urdf,rate,"",options)!=controller_interface::return_type::OK) throw std::runtime_error("controller init failed");
@@ -204,6 +256,13 @@ Json native(bool osc,const std::string& fixture,const std::string& variant) {
     result["expected_compensation"]=std::vector<double>(expected.data(),expected.data()+6);
     result["effort"]=bench.settle(500);result["finite"]=bench.finite();return result;
   }
+  if(variant=="feedback") {
+    const auto held=bench.measured_pose();bench.positions[0]+=.01;
+    result["position_effort"]=bench.settle(1000);result["position_expected"]=bench.expected_effort(held);
+    bench.positions=home;bench.velocities.fill(.1);
+    result["velocity_effort"]=bench.settle(1000);result["velocity_expected"]=bench.expected_effort(held);
+    result["finite"]=bench.finite();return result;
+  }
   auto target=bench.measured_pose();target["position"][0]=target["position"][0].get<double>()+.005;
   // A nontrivial quaternion checks WXYZ->XYZW mapping through actual messages.
   if(variant=="nonfinite") target["position"][0]=nullptr;
@@ -214,8 +273,9 @@ Json native(bool osc,const std::string& fixture,const std::string& variant) {
     rotation=Eigen::Quaterniond(Eigen::AngleAxisd(.01,Eigen::Vector3d::UnitZ()))*rotation;
     target["quaternion_wxyz"]={rotation.w(),rotation.x(),rotation.y(),rotation.z()};
   }
-  bench.receive(producer,target);result["first_target_effort"]=bench.settle(1);result["fresh_effort"]=bench.settle();result["finite"]=bench.finite();
+  bench.receive(producer,target);result["first_target_effort"]=bench.settle(1);result["fresh_effort"]=bench.settle(1000);result["finite"]=bench.finite();
   if(variant=="nonfinite" || variant=="non_unit") return result;
+  result["expected_effort"]=bench.expected_effort(target);
   if(variant=="smoothing" || variant=="rotation") return result;
   target["source_timestamp_ns"]=-100000000;bench.receive(producer,target);result["stale_effort"]=bench.settle();
   target["source_timestamp_ns"]=100000000;bench.receive(producer,target);result["future_effort"]=bench.settle();
@@ -244,8 +304,8 @@ Json guarded(bool osc,const std::string& path) {
     else if(kind=="step") {
       const bool enabled=gate.allowed(steady);
       bool reactivated=false;
-      if(enabled && gate.recovery_required){bench.configure();reactivated=true;gate.recovery_required=false;bench.receive(producer,gate.intent);}
-      else if(enabled && event.value("send_target",false))bench.receive(producer,gate.intent);
+      if(enabled && gate.recovery_required){bench.configure();reactivated=true;gate.recovery_required=false;bench.receive(producer,controller_pose(gate.intent));}
+      else if(enabled && event.value("send_target",false))bench.receive(producer,controller_pose(gate.intent));
       bench.update(event.at("domain_ns"));
       const auto previous=gate.previous; auto raw=bench.raw;
       if(event.value("inject_large",false))raw.fill(100.0);
@@ -256,10 +316,29 @@ Json guarded(bool osc,const std::string& path) {
       if(!expected)for(double value:output)if(value!=0.0)throw std::runtime_error("fault did not inhibit mock effort");
       for(size_t i=0;i<6;++i)if(!std::isfinite(output[i]) || std::abs(output[i])>5.0)throw std::runtime_error("guard ceiling failed");
       if(expected) for(size_t i=0;i<6;++i) if(std::abs(output[i]-previous[i])>0.200000001) throw std::runtime_error("guard slew failed");
-      rows.push_back({{"case",event.at("case")},{"raw_effort",bench.raw},{"gate_input",raw},{"guarded_effort",output},{"reason",gate.reason},{"enabled",expected},{"lifecycle_reactivated",reactivated}});
+      rows.push_back({{"case",event.at("case")},{"raw_effort",bench.raw},{"gate_input",raw},{"guarded_effort",output},{"reason",gate.reason},{"enabled",expected},{"lifecycle_reactivated",reactivated},{"source_intent",gate.intent}});
     } else throw std::runtime_error("unknown trace event");
   }
   return rows;
+}
+Json frames(const std::string& reference_path) {
+  const auto reference=Json::parse(read_file(reference_path));Bench bench(false,500);
+  Json rows=Json::array();bool pass=true; const auto limits=settings().at("frame_binding");
+  if(reference.at("fixtures").size()!=9)throw std::runtime_error("incomplete FK reference");
+  for(const auto& fixture:reference.at("fixtures")) {
+    for(size_t i=0;i<6;++i)bench.positions[i]=fixture.at("joints").at(i).get<double>();
+    const auto mapped=scene_pose(bench.measured_pose());const auto predicted=pose_transform(mapped);
+    Eigen::Vector3d p;Eigen::Matrix3d r;
+    for(int i=0;i<3;++i){p[i]=fixture.at("tip_position").at(i).get<double>();for(int j=0;j<3;++j)r(i,j)=fixture.at("tip_rotation").at(i).at(j).get<double>();}
+    const double translation=(predicted.translation()-p).norm();
+    const double rotation=pinocchio::log3(predicted.rotation()*r.transpose()).norm();
+    bool accepted=std::isfinite(translation)&&std::isfinite(rotation)&&translation<=limits.at("translation_tolerance_m").get<double>()&&rotation<=limits.at("rotation_tolerance_rad").get<double>();
+    pass=pass&&accepted;
+    const auto roundtrip=pose_transform(controller_pose(mapped));const auto original=pose_transform(bench.measured_pose());
+    if((roundtrip.translation()-original.translation()).norm()>1e-12 || (roundtrip.rotation()-original.rotation()).norm()>1e-12)throw std::runtime_error("frame roundtrip failed");
+    rows.push_back({{"fixture",fixture.at("fixture")},{"translation_error_m",translation},{"rotation_error_rad",rotation},{"pass",accepted},{"predicted_scene_pose",mapped}});
+  }
+  return {{"pass",pass},{"fixtures",rows},{"binding",limits},{"reference",reference}};
 }
 int main(int argc,char** argv) {
   try {
@@ -267,12 +346,13 @@ int main(int argc,char** argv) {
     if(argc>1 && std::string(argv[1])=="publisher") {int result=publisher();rclcpp::shutdown();return result;}
     if(argc<3)throw std::runtime_error("usage: bench native|benchmark|guarded|describe mode [args]");
     const std::string task=argv[1];const bool osc=std::string(argv[2])=="operational_space";Json result;
-    if(task=="describe"){Bench bench(osc,500);result["pose"]=bench.measured_pose();
+    if(task=="describe"){Bench bench(osc,500);result["pose"]=bench.measured_pose();result["scene_pose"]=scene_pose(bench.measured_pose());result["profile"]=settings();
       const auto names=bench.controller->get_node()->list_parameters({},100).names;
       for(const auto& name:names)result["parameters"][name]=bench.controller->get_node()->get_parameter(name).value_to_string();
       result["command_interfaces"]=bench.controller->command_interface_configuration().names;
       result["state_interfaces"]=bench.controller->state_interface_configuration().names;
     }
+    else if(task=="frames"){if(argc!=4)throw std::runtime_error("frames args");result=frames(argv[3]);}
     else if(task=="native"){if(argc!=5)throw std::runtime_error("native args");result=native(osc,argv[3],argv[4]);}
     else if(task=="benchmark"){if(argc!=5)throw std::runtime_error("benchmark args");result=benchmark(osc,std::stoi(argv[3]),argv[4]);}
     else if(task=="guarded"){if(argc!=4)throw std::runtime_error("guarded args");result=guarded(osc,argv[3]);}

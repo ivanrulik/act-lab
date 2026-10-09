@@ -121,3 +121,55 @@ def test_native_unsafe_case_does_not_mask_harness_failure(tmp_path: Path) -> Non
     code = "import json; print(json.dumps(dict(complete=True)))"
     result = _process(sys.executable, ["-c", code], tmp_path, "valid")
     assert result == {"complete": True}
+
+
+def test_qualification_inputs_and_stale_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import json
+
+    from act_lab.adapters.ros2.crisp import qualification_inputs
+
+    profile, reference = qualification_inputs()
+    assert profile["filters"]["target_pose"] == 0.1
+    original = Path.read_text
+
+    def changed(path: Path, *args, **kwargs) -> str:
+        value = original(path, *args, **kwargs)
+        if path == reference:
+            data = json.loads(value)
+            data["model_hashes"]["ur5e.xml"] = "0" * 64
+            return json.dumps(data)
+        return value
+
+    monkeypatch.setattr(Path, "read_text", changed)
+    with pytest.raises(RuntimeError, match="stale MJCF"):
+        qualification_inputs()
+
+
+@pytest.mark.parametrize("mutation", ["filters", "frame", "tolerance"])
+def test_qualification_rejects_unreviewed_configuration(
+    monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    import json
+
+    from act_lab.adapters.ros2.crisp import qualification_inputs
+
+    original = Path.read_text
+
+    def changed(path: Path, *args, **kwargs) -> str:
+        value = original(path, *args, **kwargs)
+        if path.name == "crisp-feasibility.json":
+            data = json.loads(value)
+            if mutation == "filters":
+                data["filters"]["target_pose"] = 1.0
+            elif mutation == "frame":
+                data["frame_binding"]["tool0_to_gripper_tip_translation_m"][2] = 0.0
+            else:
+                data["frame_binding"]["translation_tolerance_m"] = 1.0
+            return json.dumps(data)
+        return value
+
+    monkeypatch.setattr(Path, "read_text", changed)
+    with pytest.raises(RuntimeError, match="unsupported|unreviewed"):
+        qualification_inputs()
