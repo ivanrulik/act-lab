@@ -17,7 +17,11 @@ The fixed local seed 0 sweep executes +/-10 mm in all axes around home and two
 nearby Cartesian fixtures, with a 0.01 rad orientation trial for each fixture.
 The existing local driver receives matched intents and records measured
 trajectories/outcomes. Settled translation errors are below 1.00 mm (required
-2 mm). Same-seed stepped repeat gives zero maximum position difference.
+2 mm). The initial same-seed stepped repeat gave zero maximum position difference.
+During merge validation, a wall watchdog during lifecycle recovery inserted hold
+ticks and gave 0.056 mm difference. Repeat reports now distinguish bitwise equality
+from the existing 2 mm physical comparison tolerance and list held commands.
+Identical seeds alone do not imply identical wall-clock fault inputs.
 
 CRISP also drives the scripted grasp/lift over DDS: the cube rises 51.13 mm;
 loaded fault hold drifts 0.186 mm over 0.5 s, retains aperture/contact, then

@@ -68,7 +68,11 @@ actual gated execution and must accompany them. No wall timing is hardware realt
 evidence. ADR 016 explains residual correction,
 hold tuning, numerical dependencies and gravity/payload assumptions.
 
-The default runner uses deterministic tick barriers. `--paced` targets a 2 ms
+The default runner uses deterministic tick barriers. Wall watchdog events remain
+external inputs and can insert hold ticks when a process is delayed. Same-seed
+trajectory comparison uses the existing 2 mm pose tolerance and separately
+reports bitwise equality and held commands; differing wall events are not
+identical clock input traces. `--paced` targets a 2 ms
 steady schedule and keeps the owner ticking without gateway events, through the
 same guard and dynamic hold path. Budget overruns are recorded per tick; no
 hardware realtime qualification is inferred. Exact same-seed trajectory equality
