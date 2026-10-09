@@ -11,6 +11,14 @@
 #include <thread>
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
+struct CallbackPause {
+  std::atomic<bool> &paused;
+  CallbackPause(std::atomic<bool> &flag, std::mutex &execution) : paused(flag) {
+    std::lock_guard<std::mutex> lock(execution);
+    paused = true;
+  }
+  ~CallbackPause() { paused = false; }
+};
 std::string read_file(const std::string &path) {
   std::ifstream f(path);
   if (!f)
@@ -72,12 +80,15 @@ int main(int argc, char **argv) {
         "/act_lab/internal/crisp_target", rclcpp::QoS(1),
         [&](geometry_msgs::msg::PoseStamped::ConstSharedPtr) { ++delivered; });
     std::mutex execution;
+    std::atomic<bool> lifecycle_busy{false};
     std::thread callbacks([&] {
       while (!done) {
         {
           std::lock_guard<std::mutex> lock(execution);
-          executor->spin_some();
-          ++cycles;
+          if (!lifecycle_busy) {
+            executor->spin_some(100us);
+            ++cycles;
+          }
         }
         std::this_thread::sleep_for(100us);
       }
@@ -101,6 +112,7 @@ int main(int argc, char **argv) {
         manager->write(time, dt);
       };
       auto switch_mode = [&](bool activate, int64_t ns) {
+        CallbackPause pause(lifecycle_busy, execution);
         auto result = std::async(std::launch::async, [&] {
           return manager->switch_controller(
               activate ? std::vector<std::string>{"crisp"}
@@ -123,6 +135,10 @@ int main(int argc, char **argv) {
           [&](const std::function<controller_interface::return_type()>
                   &operation,
               int64_t ns) {
+            // Manager lifecycle/list handoffs need manual updates to advance.
+            // Keep callbacks from holding execution while waiting on manager
+            // locks owned by the concurrent lifecycle operation.
+            CallbackPause pause(lifecycle_busy, execution);
             auto result = std::async(std::launch::async, operation);
             auto end = std::chrono::steady_clock::now() + 15s;
             while (result.wait_for(0ms) != std::future_status::ready) {
