@@ -56,8 +56,13 @@ class EffortGate {
     for (const auto& v : command.at("position")) {
       if (!v.is_number() || !std::isfinite(v.get<double>())) { reject("invalid_numeric"); return; }
     }
+    double quaternion_squared_norm = 0.0;
     for (const auto& v : command.at("quaternion_wxyz")) {
       if (!v.is_number() || !std::isfinite(v.get<double>())) { reject("invalid_numeric"); return; }
+      quaternion_squared_norm += v.get<double>() * v.get<double>();
+    }
+    if (std::abs(std::sqrt(quaternion_squared_norm) - 1.0) > 1e-3) {
+      reject("invalid_quaternion"); return;
     }
     receipt_ = command.at("receipt_steady_ns").get<int64_t>();
     if(receipt_<0 || receipt_>steady) {reject("invalid_receipt");return;}

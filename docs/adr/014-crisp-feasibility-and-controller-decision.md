@@ -1,6 +1,6 @@
 # ADR 014: CRISP feasibility and controller decision
 
-- Status: Accepted — no-go for the assessed configuration; controller selection deferred
+- Status: Superseded by ADR 015 for controller selection; historical no-go retained
 - Date: 2026-10-08
 - Scope: roadmap PR 12, stationary mock effort bench
 

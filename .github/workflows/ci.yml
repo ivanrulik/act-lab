@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build pinned CRISP and stationary mock bench
         run: docker compose --profile crisp-feasibility build crisp-feasibility
-      - name: Required lifecycle DDS guard and compensation tests
+      - name: Required lifecycle frame numeric DDS guard and compensation tests
         run: >-
           docker compose --profile crisp-feasibility run --rm --user "$(id -u):$(id -g)" crisp-feasibility
           python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/crisp

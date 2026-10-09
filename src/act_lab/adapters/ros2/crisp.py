@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform
 import shutil
@@ -222,6 +223,47 @@ def provenance() -> dict[str, Any]:
     )
 
 
+def qualification_inputs() -> tuple[dict[str, Any], Path]:
+    """Reject changed qualification assumptions or stale FK evidence before ROS."""
+    profile = json.loads(Path("configs/ros2/crisp-feasibility.json").read_text())
+    expected_filters = dict(
+        target_pose=0.1, q=0.0, dq=0.0, q_ref=0.0, output_torque=1.0
+    )
+    if profile.get("schema_version") != 2 or profile.get("filters") != expected_filters:
+        raise RuntimeError("unsupported CRISP qualification profile")
+    binding = profile["frame_binding"]
+    if (
+        binding["scene_from_ur_world_quaternion_wxyz"] != [0.0, 0.0, 0.0, 1.0]
+        or binding["tool0_to_gripper_tip_translation_m"] != [0.0, 0.0, 0.11]
+        or binding["translation_tolerance_m"] != 0.002
+        or binding["rotation_tolerance_rad"] != 0.02
+    ):
+        raise RuntimeError("unreviewed CRISP frame binding")
+    reference_path = Path("tests/fixtures/crisp/kinematics.json")
+    reference = json.loads(reference_path.read_text())
+    from act_lab.adapters.ros2.contracts import JOINT_NAMES
+
+    if (
+        reference["schema_version"] != 1
+        or reference["integrated_motion"] is not False
+        or reference["joint_names"] != list(JOINT_NAMES)
+        or len(reference["fixtures"]) != 9
+        or set(reference["model_hashes"]) != {"ur5e.xml", "act_lab_scene.xml"}
+    ):
+        raise RuntimeError("incomplete MJCF FK reference")
+    for row in reference["fixtures"]:
+        if len(row["joints"]) != 6 or not all(math.isfinite(q) for q in row["joints"]):
+            raise RuntimeError("invalid MJCF joint fixture")
+    model_root = Path("src/act_lab/adapters/mujoco/assets/ur5e")
+    for name, digest in reference["model_hashes"].items():
+        if hashlib.sha256((model_root / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError(
+                "stale MJCF FK reference; regenerate with "
+                "scripts/crisp-frame-reference.py"
+            )
+    return profile, reference_path
+
+
 def run_feasibility(output: Path, *, enforce_timing: bool = True) -> dict[str, Any]:
     executable = shutil.which("crisp_bench")
     if executable is None or os.environ.get("ROS_DISTRO") != "jazzy":
@@ -234,10 +276,18 @@ def run_feasibility(output: Path, *, enforce_timing: bool = True) -> dict[str, A
     output.mkdir(parents=True, exist_ok=True)
     # A failed rerun must not leave a previous successful report in this directory.
     (output / "report.json").unlink(missing_ok=True)
+    profile, reference_path = qualification_inputs()
     recorded = provenance()
+    recorded["qualification_profile"] = profile
     _write(output / "provenance.json", recorded)
     description = _process(executable, ["describe", "impedance"], output, "resolved")
-    measured = description["pose"]
+    frames = _process(
+        executable,
+        ["frames", "impedance", str(reference_path)],
+        output,
+        "frame-binding",
+    )
+    measured = description["scene_pose"]
     pose = Pose(
         "world", tuple(measured["position"]), tuple(measured["quaternion_wxyz"])
     )
@@ -268,6 +318,8 @@ def run_feasibility(output: Path, *, enforce_timing: bool = True) -> dict[str, A
             "smoothing",
             "rotation",
             "responsive_probe",
+            "historical",
+            "feedback",
         ):
             native[variant] = _process(
                 executable,
@@ -329,7 +381,43 @@ def run_feasibility(output: Path, *, enforce_timing: bool = True) -> dict[str, A
         rotation_response = any(
             abs(v) > 1e-5 for v in native["rotation"]["fresh_effort"]
         )
-        functional_pass = numeric_pass and translation_response and rotation_response
+        pose_errors = {}
+        for fixture in ("home", "nearby", "singular", "rotation"):
+            row = native[fixture]
+            pose_errors[fixture] = max(
+                abs(a - b)
+                for a, b in zip(
+                    row["fresh_effort"], row["expected_effort"], strict=True
+                )
+            )
+        feedback = native["feedback"]
+        feedback_errors = {
+            kind: max(
+                abs(a - b)
+                for a, b in zip(
+                    feedback[kind + "_effort"],
+                    feedback[kind + "_expected"],
+                    strict=True,
+                )
+            )
+            for kind in ("position", "velocity")
+        }
+        numeric_pass = (
+            numeric_pass
+            and max(pose_errors.values()) < 1e-6
+            and max(feedback_errors.values()) < 1e-6
+        )
+        feedback_response = all(
+            any(abs(v) > 1e-5 for v in feedback[kind + "_effort"])
+            for kind in ("position", "velocity")
+        )
+        functional_pass = (
+            numeric_pass
+            and translation_response
+            and rotation_response
+            and feedback_response
+            and frames["pass"]
+        )
         # Native nonfinite/stamp/frame gaps remain findings; the independent
         # guarded fault assertions are mandatory and fail execution on mismatch.
         modes[mode] = dict(
@@ -338,13 +426,17 @@ def run_feasibility(output: Path, *, enforce_timing: bool = True) -> dict[str, A
             timing=timing,
             functional_pass=functional_pass,
             numeric_pass=numeric_pass,
+            pose_effort_errors_nm=pose_errors,
+            feedback_errors_nm=feedback_errors,
+            feedback_response=feedback_response,
             translation_response=translation_response,
             rotation_response=rotation_response,
             gravity_max_error_nm=gravity_error,
             compensation_errors_nm=compensation_errors,
         )
     report = dict(
-        schema_version=1,
+        schema_version=2,
+        frame_binding=frames,
         status="completed",
         decision=decision(modes, enforce_timing=enforce_timing),
         modes=modes,

@@ -24,3 +24,9 @@ gates, hysteretic gesture thresholds, calibration stability, position/velocity
 mapping, response curves, adaptive filtering, and pinch normalization. Camera
 device paths and model filesystem
 paths are runtime arguments rather than versioned machine-specific values.
+
+`ros2/crisp-feasibility.json` owns the reviewed stationary qualification profile:
+filter retention settings and local scene/UR tool binding. The bench rejects
+unreviewed changes. State feedback and target/output filters have different
+operand conventions in pinned CRISP; see ADR 015 and the bench contract. Frame
+tolerances reuse existing simulation convergence limits and do not relax safety.

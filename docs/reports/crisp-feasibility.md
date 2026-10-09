@@ -4,7 +4,10 @@ Date: 2026-10-08. Outcome: **no-go for both assessed configurations; selection d
 
 ## Reproduction and provenance
 
-Run the [bench contract](../contracts/crisp-feasibility.md) commands. Full evidence
+This historical configuration is retained at merged commit `36be655`. The current
+bench uses the explicit [requalification profile](crisp-requalification.md).
+To reproduce this original assessment, check out `36be655` and run its bench
+contract commands. Full evidence
 is generated under ignored `runs/crisp-feasibility/`; CI uploads its own evidence.
 This report summarizes a completed local run, not hardware or motion validation.
 

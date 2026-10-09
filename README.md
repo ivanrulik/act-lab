@@ -37,8 +37,9 @@ docker compose --profile crisp-feasibility run --build --rm crisp-feasibility \
 ```
 
 This stationary mock effort bench compares both pinned controller modes and
-records a completed no-go for the assessed filter configuration. It does not move
-the simulator or authorize hardware. See [the report](docs/reports/crisp-feasibility.md)
+records a conditional go for Cartesian impedance after explicit filter and frame
+requalification. It does not move the simulator or authorize hardware. See
+[the current report](docs/reports/crisp-requalification.md)
 and [reproduction and safety rules](docs/contracts/crisp-feasibility.md).
 
 ## Quick start

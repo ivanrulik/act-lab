@@ -18,10 +18,13 @@ def report(tmp_path_factory: pytest.TempPathFactory) -> dict:
 def test_actual_plugin_lifecycle_interfaces_and_guard(report: dict, mode: str) -> None:
     evidence = report["modes"][mode]
     assert evidence["numeric_pass"]
-    # The requested filter=1 baseline can correctly produce a completed no-go.
-    assert not evidence["functional_pass"]
-    assert not evidence["translation_response"]
-    assert not evidence["rotation_response"]
+    assert evidence["functional_pass"]
+    assert evidence["translation_response"]
+    assert evidence["rotation_response"]
+    assert evidence["feedback_response"]
+    assert all(v < 1e-6 for v in evidence["pose_effort_errors_nm"].values())
+    assert all(v < 1e-6 for v in evidence["feedback_errors_nm"].values())
+    assert max(abs(v) for v in evidence["native"]["historical"]["fresh_effort"]) < 1e-6
     rows = {r["case"]: r for r in evidence["guarded"]}
     for case in (
         "startup_missing",
@@ -35,6 +38,7 @@ def test_actual_plugin_lifecycle_interfaces_and_guard(report: dict, mode: str) -
         "wrong_episode",
         "future_timestamp",
         "invalid_frame",
+        "non_unit_quaternion",
         "invalid_numeric",
         "malformed_shape",
         "invalid_sequence",
@@ -53,6 +57,8 @@ def test_actual_plugin_lifecycle_interfaces_and_guard(report: dict, mode: str) -
         assert rows[case]["enabled"]
         assert rows[case]["lifecycle_reactivated"]
     assert rows["ceiling_slew_29"]["guarded_effort"] == [5.0] * 6
+    assert any(abs(v) > 1e-6 for v in rows["approved"]["raw_effort"])
+    assert any(abs(v) > 1e-6 for v in rows["approved"]["guarded_effort"])
     assert evidence["gravity_max_error_nm"] < 1e-6
     assert all(v < 1e-6 for v in evidence["compensation_errors_nm"].values())
     for variant in ("invalid_joint", "invalid_frame"):
@@ -79,6 +85,9 @@ def test_dds_native_gaps_are_visible(report: dict, mode: str) -> None:
 
 def test_complete_provenance_and_benchmarks(report: dict) -> None:
     assert report["status"] == "completed"
+    assert report["schema_version"] == 2
+    assert report["frame_binding"]["pass"]
+    assert len(report["frame_binding"]["fixtures"]) == 9
     assert report["provenance"]["rmw"] == "rmw_fastrtps_cpp"
     assert len(report["provenance"]["model_sha256"]) == 64
     assert not report["provenance"]["licensing"]["consistent_metadata"]

@@ -16,3 +16,6 @@ consequences, and status.
 
 - [ADR 014](014-crisp-feasibility-and-controller-decision.md): pinned stationary
   CRISP assessment, test-only effort guard, no-go for the assessed configuration
+
+- [ADR 015](015-crisp-configuration-requalification.md): corrected filter and frame
+  qualification; conditional go for Cartesian impedance in moving simulation
