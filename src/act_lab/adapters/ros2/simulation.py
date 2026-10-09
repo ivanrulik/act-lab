@@ -379,6 +379,11 @@ def physics_owner(
             for _ in range(command.get("ticks", 10)):
                 tick_deadline = time.monotonic() + 0.002
                 raw_effort: Any = None
+                if (
+                    guard.mode in {"ENABLED", "RECOVERING"}
+                    and time.monotonic_ns() - last_authorization_wall >= 100_000_000
+                ):
+                    inhibit("gateway_wall_timeout")
                 state = plant.observe().robot
                 guard.clock(state.timestamp_ns, episode, steady)
                 if guard.mode == "RECOVERING":
