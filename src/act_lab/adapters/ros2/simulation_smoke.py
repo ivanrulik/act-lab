@@ -188,6 +188,7 @@ class MotionSession:
             self.trace[-1]["transport_loss_recovery"] = missing_delivery
             if time.monotonic() >= deadline:
                 raise RuntimeError("bounded nominal fresh-command recovery timeout")
+            self.rpc(dict(kind="prepare_controller"))
 
     def close(self) -> None:
         if getattr(self, "closed", False):

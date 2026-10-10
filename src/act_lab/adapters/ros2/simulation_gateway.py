@@ -153,6 +153,7 @@ def gateway(
             if kind in {
                 "kill_controller",
                 "restart_controller",
+                "prepare_controller",
                 "clock",
                 "reset",
                 "advance",

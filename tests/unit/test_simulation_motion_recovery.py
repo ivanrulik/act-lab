@@ -16,6 +16,7 @@ def session_with(*responses):
         return value
 
     session.command = Mock(side_effect=command)
+    session.rpc = Mock()
     return session
 
 
@@ -28,6 +29,7 @@ def test_nominal_recovery_keeps_fault_evidence_and_calls_new_command():
     assert session.motion_command(pose)["mode"] == "ENABLED"
     assert session.command.call_count == 2
     assert session.trace[0]["wall_fault_recovery"] is True
+    session.rpc.assert_called_once_with(dict(kind="prepare_controller"))
 
 
 @pytest.mark.parametrize(
@@ -38,6 +40,7 @@ def test_nominal_recovery_does_not_retry_other_rejections(reason):
     with pytest.raises(RuntimeError, match="nominal motion rejected"):
         session.motion_command(Pose("world", (0.4, 0.0, 0.6), (1.0, 0.0, 0.0, 0.0)))
     assert session.command.call_count == 1
+    session.rpc.assert_not_called()
 
 
 def test_nominal_recovery_is_bounded(monkeypatch):

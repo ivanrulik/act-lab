@@ -81,6 +81,10 @@ sequence, and every intervening watchdog hold remains in the trace. Numeric,
 frame, workspace and other application rejections fail immediately. Explicit
 fault scenarios never use this recovery helper.
 
+If reactivation consumes that command's lease, the runner prepares the controller
+under dynamic hold, grants no authorization, and submits a separate fresh command.
+Prepared readiness is cleared by invalid intent, clock discontinuity or reset.
+
 The DDS gateway waits at most 100 ms for an expected publication, then clears
 the inbox and returns a disabled hold with `delivery_timeout` as the separate
 transport rejection. Nominal recovery records this loss and creates new intent;

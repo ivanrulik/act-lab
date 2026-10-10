@@ -180,6 +180,7 @@ def physics_owner(
     residual_m = 0.0
     residual_rad = 0.0
     generation_recovered = -1
+    prepared_generation = -1
     target: dict[str, Any] | None = None
 
     def snapshot() -> dict[str, Any]:
@@ -244,6 +245,8 @@ def physics_owner(
         return value
 
     def inhibit(reason: str) -> None:
+        nonlocal prepared_generation
+        prepared_generation = -1
         guard.fault(reason)
         plant.hold(reason)
 
@@ -288,6 +291,7 @@ def physics_owner(
                 send(connection, snapshot())
                 continue
             if kind == "restart_controller":
+                prepared_generation = -1
                 plant.hold("controller_restart")
                 guard.fault("controller_restart")
                 controller.close()
@@ -295,7 +299,28 @@ def physics_owner(
                 controller.request(request(True), publish)
                 send(connection, snapshot())
                 continue
+            if kind == "prepare_controller":
+                inhibit("controller_prepare")
+                target = None
+
+                def prepare_wait(preparing_episode: UUID = episode) -> None:
+                    nonlocal steady
+                    rows.append(asdict(plant.tick()))
+                    publish()
+                    steady += 2_000_000
+                    guard.clock(plant.observe().timestamp_ns, preparing_episode, steady)
+
+                response = controller.request(request(True), prepare_wait)
+                if not response.get("reactivated"):
+                    raise RuntimeError("controller preparation did not reactivate")
+                # Preparation grants no authorization. Only a subsequent fresh
+                # sequence can use this ready generation and enable effort.
+                prepared_generation = guard.generation
+                plant.hold("fresh_authorization_required")
+                send(connection, snapshot())
+                continue
             if kind == "reset":
+                prepared_generation = -1
                 plant.reset(command["seed"])
                 episode = uuid4()
                 steady += 1
@@ -305,6 +330,7 @@ def physics_owner(
                 send(connection, snapshot())
                 continue
             if kind == "forward_jump":
+                prepared_generation = -1
                 ticks = command["ticks"]
                 if type(ticks) is not int or ticks <= 0:
                     raise ValueError("forward jump requires positive integer ticks")
@@ -316,6 +342,7 @@ def physics_owner(
                 send(connection, snapshot())
                 continue
             if kind == "clock":
+                prepared_generation = -1
                 steady = command["steady_ns"]
                 guard.clock(command["domain_ns"], UUID(command["episode"]), steady)
                 if not guard.allowed(steady):
@@ -365,6 +392,7 @@ def physics_owner(
                     )
                     last_authorization_wall = time.monotonic_ns()
                 else:
+                    prepared_generation = -1
                     plant.hold(guard.reason)
             output_wall = [time.monotonic_ns()]
 
@@ -389,7 +417,14 @@ def physics_owner(
                 if guard.mode == "RECOVERING":
                     try:
                         assert controller is not None
-                        response = controller.request(request(True), watchdog_wait)
+                        if (
+                            prepared_generation >= 0
+                            and guard.generation == prepared_generation + 1
+                        ):
+                            response = dict(generation=guard.generation)
+                            prepared_generation = -1
+                        else:
+                            response = controller.request(request(True), watchdog_wait)
                         if (
                             plant.reason != "controller_wall_timeout"
                             and response["generation"] == guard.generation

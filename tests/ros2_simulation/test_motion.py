@@ -5,24 +5,7 @@ from act_lab.adapters.ros2.simulation_smoke import run_motion
 
 def fresh_enabled(session, pose, gripper=0.4):
     """Bound discovery/lifecycle recovery without relaxing motion watchdogs."""
-    import time
-
-    deadline = time.monotonic() + 15
-    while True:
-        result = session.command(pose, gripper=gripper)
-        if result["mode"] == "ENABLED":
-            return result
-        assert result["mode"] == "FAULT_HOLD"
-        assert result.get("transport_rejection") == "delivery_timeout" or result[
-            "reason"
-        ] in {
-            "controller_wall_timeout",
-            "gateway_wall_timeout",
-            "clock_paused",
-            "stale_source",
-        }
-        if time.monotonic() >= deadline:
-            raise RuntimeError("bounded fresh-command activation timeout")
+    return session.motion_command(pose, gripper)
 
 
 def test_generated_dds_crisp_motion_and_faults(tmp_path):
@@ -190,3 +173,22 @@ def test_expected_dds_publication_loss_returns_disabled_hold(tmp_path):
     assert held_rows
     assert all(row["accepted_gripper"] == aperture for row in held_rows)
     assert all(not any(row["task_effort_nm"]) for row in held_rows)
+
+
+def test_controller_preparation_requires_separate_fresh_intent(tmp_path):
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession
+
+    session = MotionSession(tmp_path)
+    try:
+        pose = snapshot_state(session.value).end_effector_pose
+        fresh_enabled(session, pose)
+        previous_sequence = session.sequence
+        ready = session.rpc(dict(kind="prepare_controller"))
+        assert ready["mode"] != "ENABLED"
+        assert ready["reason"] == "fresh_authorization_required"
+        assert session.sequence == previous_sequence
+        fresh_enabled(session, snapshot_state(ready).end_effector_pose)
+        assert session.sequence > previous_sequence
+    finally:
+        session.close()
