@@ -30,3 +30,13 @@ filter retention settings and local scene/UR tool binding. The bench rejects
 unreviewed changes. State feedback and target/output filters have different
 operand conventions in pinned CRISP; see ADR 015 and the bench contract. Frame
 tolerances reuse existing simulation convergence limits and do not relax safety.
+
+`ros2/crisp-simulation.yaml` resolves the moving Cartesian impedance configuration
+with the ADR 015 filter conventions, six canonical joints, 0.2 Nm/update torque
+change at 500 Hz, and compensation/noise/external wrench/nullspace disabled.
+The owner independently caps task effort at 5 Nm and 100 Nm/s. Hold damping and
+force ceilings are specified in ADR 016; resolved YAML and model hashes are saved
+with runtime evidence. MuJoCo 3.12.0 is the same pinned simulator dependency as
+local execution. The optional image adds controller-manager/ros2-control to load
+and arbitrate actual interfaces, retaining ROS-compatible apt numerical packages.
+Its installed apt/Python manifests and inherited upstream notices are preserved.

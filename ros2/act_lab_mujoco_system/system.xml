@@ -1,0 +1,5 @@
+<library path="act_lab_mujoco_system">
+  <class name="act_lab/MujocoSystem" type="act_lab::MujocoSystem" base_class_type="hardware_interface::SystemInterface">
+    <description>Immutable physics snapshots and effort output; physics owns final authorization</description>
+  </class>
+</library>

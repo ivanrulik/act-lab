@@ -1,0 +1,24 @@
+# Compose supplies the existing pinned CRISP runtime as a build context.
+FROM crisp_base
+USER root
+RUN apt-get update && apt-get install --yes --no-install-recommends \
+    ros-jazzy-controller-manager ros-jazzy-ros2-control ros-jazzy-rosgraph-msgs \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements/constraints-ros2-simulation.txt /opt/simulation-constraints.txt
+RUN /opt/act-lab-venv/bin/pip install --no-cache-dir \
+    --constraint /opt/simulation-constraints.txt mujoco==3.12.0
+COPY ros2/act_lab_interfaces /opt/simulation/src/act_lab_interfaces
+COPY ros2/act_lab_mujoco_system /opt/simulation/src/act_lab_mujoco_system
+RUN . /opt/ros/jazzy/setup.sh && . /opt/crisp/install/setup.sh && cd /opt/simulation \
+    && colcon build --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && dpkg-query -W > /opt/simulation/packages.txt \
+    && /opt/act-lab-venv/bin/pip freeze > /opt/simulation/python-packages.txt
+COPY scripts/ros2-simulation-entrypoint.sh /usr/local/bin/ros2-simulation-entrypoint
+RUN chmod 0755 /usr/local/bin/ros2-simulation-entrypoint
+COPY src /workspace/src
+COPY configs /workspace/configs
+COPY tests /workspace/tests
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/ros2-simulation-entrypoint"]
+
+CMD ["act-lab", "ros2", "simulation-smoke", "--output", "runs/ros2-simulation", "--json"]

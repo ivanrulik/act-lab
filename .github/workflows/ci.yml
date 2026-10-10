@@ -85,3 +85,25 @@ jobs:
           path: |
             runs/crisp-feasibility/
             crisp-feasibility.json
+
+  ros2-simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated moving CRISP runtime
+        run: docker compose --profile ros2-simulation build ros2-simulation
+      - name: Required motion, ownership, lifecycle and independent hold tests
+        run: >-
+          docker compose --profile ros2-simulation run --rm --user "$(id -u):$(id -g)" ros2-simulation
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/ros2_simulation --basetemp=runs/ros2-simulation-tests
+      - name: Record motion and fault evidence
+        run: >-
+          docker compose --profile ros2-simulation run --rm --user "$(id -u):$(id -g)" ros2-simulation
+          act-lab ros2 simulation-smoke --output runs/ros2-simulation --json > ros2-simulation.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ros2-simulation-evidence
+          path: |
+            runs/ros2-simulation*/
+            ros2-simulation.json

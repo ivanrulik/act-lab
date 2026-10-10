@@ -231,16 +231,36 @@ hardware and recording remain later roadmap work.
 
 ### PR 13 — CRISP simulation adapter
 
-The ADR 015 conditional go permits this branch, using Cartesian impedance.
-Expose CRISP behind the existing robot
-and feasibility ports, connect it to an effort-controlled MuJoCo/`ros2_control`
-test environment, and keep the current local MuJoCo adapter as the
-deterministic baseline.
+Implemented on the PR 13 branch with Cartesian impedance: generated v1 DDS
+commands pass through the shared safety path, actual controller manager and
+six effort interfaces into MuJoCo. An independent physics owner applies bounded
+dynamic hold and requires fresh intent/reactivation after faults. The existing
+local driver remains the deterministic baseline. ADR 016 records the moving
+frame correction and hold design; see the
+[local qualification report](reports/pr13-ros2-simulation.md).
+
+Hardware, system clocks and operational-space moving qualification remain deferred.
+Near-singular moving trajectories require a separate expansion of qualification
+fixtures; stationary bench results do not supply that evidence.
 
 Acceptance: identical input traces produce comparable local and ROS/CRISP
 trajectories and inspectable command outcomes; workspace, joint, torque, and
 rate limits hold; disabled, stale, invalid, and lost commands stop safely; the
 default headless workflow does not require ROS 2 or CRISP.
+
+### Proposed follow-up — ROS observability
+
+Add optional read-only RViz2 and Foxglove views of the MuJoCo/CRISP runtime.
+Publish standard joint states, TF, target and measured pose markers, plus
+inspectable effort, command age, watchdog faults and recovery telemetry. Ship
+a saved RViz configuration and Foxglove layout. Preserve the shared application
+safety path, v1 contracts and ROS-free local learning workflows. This proposal
+needs its own implementation plan and PR; the viewers do not own control.
+
+Connect the telemetry to PR 14's MCAP recording and replay work. Foxglove
+deployment and licensing requirements must be checked when selecting the viewer.
+Gazebo is a separate possible physics adapter, requiring new model, contact,
+controller and safety qualification; it is not part of this visualization scope.
 
 ### PR 14 — ROS MCAP recording and conversion equivalence
 

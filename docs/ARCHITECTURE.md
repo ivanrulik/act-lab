@@ -115,7 +115,7 @@ PR 11 supplies optional generated ROS interfaces and executable contracts in
 models; generated messages and rclpy load lazily in the isolated Jazzy image.
 Callbacks store complete intent, while the control thread polls the inbox and
 executes through `SafeCartesianRobot`. The demonstrator uses a stationary fake
-driver and two DDS processes; ROS-driven MuJoCo motion remains later work.
+driver and two DDS processes; the moving adapter is described below.
 
 Simulation time maps to ROS time with a one-second offset. The clock/state
 authority owns the episode UUID; source timestamp/sequence checks and independent
@@ -135,6 +135,23 @@ It is not a production robot adapter or physical stop/hold implementation.
 The original filter=1 no-go is preserved in ADR 014. Explicit filter and frame
 requalification now conditionally selects Cartesian impedance for PR 13. The bench
 validates stationary local scene/UR tool binding without integrating motion; a
-production guard, independent watchdog and stop/hold remain PR 13 requirements.
+moving guard, independent watchdog and dynamic hold are provided by PR 13.
 See [ADR 015](adr/015-crisp-configuration-requalification.md)
 and the [bench contract, dependency rationale and safety matrix](contracts/crisp-feasibility.md).
+
+## Optional moving CRISP adapter
+
+The `ros2-simulation` profile separates the DDS application gateway from an
+actual controller-manager process and a MuJoCo physics owner. The gateway checks
+scratch snapshots through the same `SafeCartesianRobot` path. Its optional typed
+execution hook carries approved intent or explicit hold after validation.
+The public domain ports and v1 messages are unchanged.
+
+`act_lab_mujoco_system` exports six ordered state/effort interfaces to pinned
+Cartesian impedance. The owner gates source/receipt/clock/output progress and
+recovery generations before integrating effort. Dynamic hold exclusively owns
+bounded PD actuators and the retained gripper servo; it keeps integrating contact
+and payload dynamics. Measured frame residual correction reconciles official UR
+FK with the local scene inside reviewed bounds. ADR 016 supersedes the stationary
+mapping-only use for this moving adapter. See the
+[moving contract](contracts/ros2-simulation.md) for safety evidence and limits.

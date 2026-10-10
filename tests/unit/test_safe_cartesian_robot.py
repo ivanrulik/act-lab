@@ -351,3 +351,27 @@ def test_hold_retains_only_accepted_gripper_ramp_step(reason: str) -> None:
     assert state.gripper_position == pytest.approx(0.004 + 0.1 * (0.04 - 0.004))
     robot.reset(0)
     assert robot.command(action(enabled=False)).gripper_position == 0.0
+
+
+def test_optional_execution_sink_receives_only_approved_intent_and_explicit_hold():
+    class SinkDriver(FakeCartesianDriver):
+        def set_execution(self, intent):
+            self.execution = intent
+
+    driver = SinkDriver()
+    robot = SafeCartesianRobot(driver, CONFIG.control)
+    robot.reset(0)
+    requested = Action(0, replace(HOME_POSE, position_xyz_m=(0.3, 0.0, 0.6)), 0.8, True)
+    robot.command(requested)
+    assert driver.execution is not None
+    assert driver.execution.timestamp_ns == requested.timestamp_ns
+    assert driver.execution.gripper_position < requested.gripper_position
+    assert driver.execution.target_pose.position_xyz_m[0] < 0.3
+    robot.command(
+        replace(
+            requested,
+            timestamp_ns=20_000_000,
+            target_pose=replace(HOME_POSE, frame_id="camera"),
+        )
+    )
+    assert driver.execution is None

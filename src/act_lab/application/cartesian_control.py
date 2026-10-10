@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from act_lab.domain import (
     Action,
@@ -86,6 +86,17 @@ class CartesianDriver(Protocol):
     def step(
         self, joints: JointVector, joint_velocity: JointVector, gripper: float
     ) -> RobotState: ...
+
+
+@runtime_checkable
+class ApprovedIntentSink(Protocol):
+    """Optional internal driver hook: explicit approved intent versus safe hold.
+
+    Public Robot/domain ports stay unchanged. A transport adapter must preserve
+    the source timestamp; joint deltas alone cannot convey enable authorization.
+    """
+
+    def set_execution(self, intent: Action | None) -> None: ...
 
 
 @dataclass(slots=True)
@@ -180,6 +191,8 @@ class SafeCartesianRobot:
             gripper_position=gripper,
             enabled=True,
         )
+        if isinstance(self._driver, ApprovedIntentSink):
+            self._driver.set_execution(executed)
         resulting_state = self._driver.step(joints, joint_velocity, gripper)
         assert self._history is not None
         commanded_linear_velocity = self._history.linear_velocity
@@ -363,6 +376,8 @@ class SafeCartesianRobot:
         # Preserve the last accepted, rate-limited aperture to maintain grip
         # force under contact deflection. Never consume the rejected payload.
         gripper = self._history.gripper
+        if isinstance(self._driver, ApprovedIntentSink):
+            self._driver.set_execution(None)
         resulting_state = self._driver.step(
             joints, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), gripper
         )
