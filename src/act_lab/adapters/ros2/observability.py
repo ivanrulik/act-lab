@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import math
 import multiprocessing as mp
+import time
 from collections import deque
+from collections.abc import Callable
 from typing import Any
 
 from act_lab.adapters.ros2.contracts import encode_pose, encode_stamp, encode_state
@@ -45,6 +47,23 @@ class ObservationChannel:
         finally:
             self.lock.release()
         return json.loads(data) if data else None
+
+
+def read_report_snapshot(
+    channel: ObservationChannel,
+    timeout_s: float = 2.0,
+    steady_now: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    """Bound report-reader retries; neither wait nor restamp the physics owner."""
+    deadline = steady_now() + timeout_s
+    while True:
+        packet = channel.read()
+        if packet is not None:
+            return packet
+        if steady_now() >= deadline:
+            raise RuntimeError("no owner telemetry captured within report timeout")
+        wait(0.005)
 
 
 class ObserverFreshness:

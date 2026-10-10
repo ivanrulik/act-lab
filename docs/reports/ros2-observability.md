@@ -25,7 +25,7 @@ Gazebo, viewer-driven commands and hardware remain deferred.
 |---|---|
 | Compose dev build | passed |
 | Ruff / mypy | passed; 62 source files |
-| Ordinary pytest | 280 passed, 3 expected optional skips |
+| Ordinary pytest | 282 passed, 3 expected optional skips |
 | Doctor | Python 3.12, status ok |
 | Default headless control-smoke | status ok, 50 steps / 500 ticks |
 | Rebuilt CPU training image / ROS isolation | passed / no rclpy installed |
@@ -92,3 +92,15 @@ doctor returned ok. The moving ROS suite passed all 10 tests in 154.81 seconds,
 including finalization of 66,113 physics rows (110,751,447 bytes) with terminal
 shutdown hold and no partial artifact. The four observability tests passed in
 9.84 seconds. Hosted CI is rerun for the updated commit before merge.
+
+The next hosted run passed all four observability tests but its separate evidence
+command hit a busy shared slot on its one-shot final read. Its observer artifact
+recorded 265 samples, confirming telemetry was present. The report reader now
+retries for a bounded two seconds without restamping data or making owner offers
+blocking. Regression tests cover transient contention and persistent missing
+data at an injected deadline.
+
+The final local ordinary suite passed 282 tests with the same three optional
+skips. Ruff and mypy passed. The actual `observability-smoke --json` command
+completed with delivered telemetry and bridge-denial evidence; its provenance
+contains only the two retained Foxglove configurations.

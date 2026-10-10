@@ -151,3 +151,9 @@ configuration hashes, ROS/RMW and machine information under ignored `runs/`.
 Required optional tests fail on missing generated packages. Headless evidence and
 interactive viewer acceptance are reported separately. Gazebo, hardware, ROS
 MCAP recording/replay and viewer-driven control remain deferred.
+
+The evidence supervisor retries nonblocking snapshot reads for at most two
+seconds when producing its final report. A busy slot is not evidence of absent
+telemetry. This reporting wait retains the original snapshot timestamps and
+metadata; owner offers and observer freshness remain unchanged. Persistent
+missing data fails execution rather than silently producing incomplete evidence.

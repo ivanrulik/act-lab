@@ -14,7 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from act_lab.adapters.ros2.observability import ObservationChannel
+from act_lab.adapters.ros2.observability import ObservationChannel, read_report_snapshot
 from act_lab.adapters.ros2.observation_runtime import ViewerProcesses, observer_process
 from act_lab.adapters.ros2.simulation import snapshot_state
 from act_lab.adapters.ros2.simulation_smoke import MotionSession
@@ -80,9 +80,7 @@ def run_observability(
                     raise RuntimeError(
                         "viewer infrastructure exited; inspect viewer logs"
                     )
-        final = channel.read()
-        if final is None:
-            raise RuntimeError("no owner telemetry captured")
+        final = read_report_snapshot(channel)
         if smoke:
             from act_lab.adapters.ros2.observation_protocol import bridge_probe
 

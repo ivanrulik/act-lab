@@ -230,3 +230,34 @@ def test_raw_response_identity_is_distinct_from_current_epoch():
     assert telemetry["raw_output_generation"] == 4
     assert telemetry["raw_output_tick"] == 9
     assert not telemetry["authorization_valid"]
+
+
+def test_report_reader_retries_busy_slot_without_restamping():
+    from act_lab.adapters.ros2.observability import read_report_snapshot
+
+    packet, channel, *_ = packet_fixture()
+    channel.lock.acquire()
+    waits = []
+
+    def release_reader(duration):
+        waits.append(duration)
+        channel.lock.release()
+
+    assert read_report_snapshot(channel, wait=release_reader) == packet
+    assert waits == [0.005]
+
+
+def test_report_reader_missing_input_fails_at_bounded_deadline():
+    from act_lab.adapters.ros2.observability import read_report_snapshot
+
+    channel = ObservationChannel()
+    elapsed = [0.0]
+
+    def advance(duration):
+        elapsed[0] += duration
+
+    with pytest.raises(RuntimeError, match="report timeout"):
+        read_report_snapshot(
+            channel, timeout_s=0.01, steady_now=lambda: elapsed[0], wait=advance
+        )
+    assert elapsed[0] == 0.01
