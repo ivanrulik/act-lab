@@ -25,6 +25,7 @@ CONTROLLER = (
     "/opt/simulation/install/act_lab_mujoco_system/lib/"
     "act_lab_mujoco_system/act_lab_controller"
 )
+SHUTDOWN_TIMEOUT_S = 60.0
 CONFIG = Path("configs/sim/ur5e_pick_place.toml")
 
 
@@ -53,6 +54,15 @@ def receive(connection: Connection, timeout: float = 20.0) -> dict[str, Any]:
     if not isinstance(value, dict) or value.get("schema_version") != 1:
         raise ValueError("simulation packet must be a version 1 object")
     return value
+
+
+def finalize_physics_trace(folder: Path, rows: list[dict[str, Any]]) -> None:
+    """Publish complete evidence atomically without a second large JSON string."""
+    temporary = folder / "physics.json.partial"
+    with temporary.open("w") as stream:
+        json.dump(rows, stream, allow_nan=False, separators=(",", ":"))
+        stream.write("\n")
+    temporary.replace(folder / "physics.json")
 
 
 class ControllerProcess:
@@ -140,6 +150,7 @@ def physics_owner(
     last_authorization_wall = time.monotonic_ns()
     controller: ControllerProcess | None = None
     rows: list[dict[str, Any]] = []
+    shutdown_snapshot: dict[str, Any] | None = None
     import rclpy  # type: ignore[import-not-found]
     from rclpy.parameter import Parameter  # type: ignore[import-not-found]
 
@@ -322,7 +333,7 @@ def physics_owner(
                 for _ in range(250):
                     rows.append(asdict(plant.tick()))
                 capture_observation()
-                send(connection, snapshot())
+                shutdown_snapshot = snapshot()
                 break
             if kind == "snapshot":
                 capture_observation()
@@ -586,14 +597,16 @@ def physics_owner(
             pass
         raise
     finally:
-        (folder / "physics.json").write_text(
-            json.dumps(rows, indent=2, allow_nan=False) + "\n"
-        )
+        finalize_physics_trace(folder, rows)
         if controller:
             controller.close()
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
         plant.close()
+        # Acknowledgment means evidence and resources are finalized. It must
+        # not let the parent terminate an owner still serializing a long run.
+        if shutdown_snapshot is not None:
+            send(connection, shutdown_snapshot)
         connection.close()
 
 
@@ -628,27 +641,41 @@ class SimulationProcess:
             self.connection.close()
             raise
 
-    def rpc(self, command: dict[str, Any]) -> dict[str, Any]:
+    def rpc(
+        self, command: dict[str, Any], timeout: float = 20.0
+    ) -> dict[str, Any]:
         send(self.connection, command)
-        value = receive(self.connection)
+        value = receive(self.connection, timeout)
         if "error" in value:
             raise RuntimeError(value["error"])
         self.snapshot = value
         return value
 
     def close(self) -> None:
-        if self.process.is_alive():
-            try:
-                self.rpc(dict(kind="shutdown"))
+        try:
+            if self.process.is_alive():
+                try:
+                    self.rpc(dict(kind="shutdown"), timeout=SHUTDOWN_TIMEOUT_S)
+                    self.process.join(timeout=5)
+                except (RuntimeError, EOFError, OSError) as error:
+                    self.process.terminate()
+                    self.process.join(timeout=5)
+                    if self.process.is_alive():
+                        self.process.kill()
+                        self.process.join(timeout=5)
+                    raise RuntimeError(
+                        "physics shutdown did not finalize evidence"
+                    ) from error
+            if self.process.is_alive():
+                self.process.kill()
                 self.process.join(timeout=5)
-            except (RuntimeError, EOFError, BrokenPipeError):
-                self.process.terminate()
-                self.process.join(timeout=5)
-        if self.process.is_alive():
-            self.process.kill()
-            self.process.join(timeout=5)
-            raise RuntimeError("physics shutdown timeout")
-        self.connection.close()
+                raise RuntimeError("physics shutdown timeout")
+            if self.process.exitcode != 0:
+                raise RuntimeError(
+                    f"physics owner exited with code {self.process.exitcode}"
+                )
+        finally:
+            self.connection.close()
 
 
 def snapshot_state(value: dict[str, Any]) -> Any:

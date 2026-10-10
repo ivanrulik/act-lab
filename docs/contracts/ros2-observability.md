@@ -1,6 +1,6 @@
 # ROS 2 observability contract
 
-The optional observer projects the moving CRISP/MuJoCo authority into RViz2 and
+The optional observer projects the moving CRISP/MuJoCo authority into
 Foxglove. ADR 017 extends ADR 016. These views are diagnostic and do not authorize
 motion or replace PR 14's future durable ROS recording.
 
@@ -9,11 +9,8 @@ motion or replace PR 14's future durable ROS recording.
 ```bash
 docker compose --profile ros2-observability build ros2-observability
 docker compose --profile ros2-observability up ros2-observability
-# In another terminal, optional local X11/software-rendered viewer:
-docker compose --profile ros2-rviz build ros2-rviz
-docker compose --profile ros2-rviz up --no-build ros2-rviz
-# Stop both after inspection:
-docker compose --profile ros2-rviz down
+# Stop after inspection:
+docker compose --profile ros2-observability down
 ```
 
 The bounded demo defaults to 120 seconds. Its four phases exercise small motion,
@@ -32,13 +29,11 @@ Foxglove: use an existing account/client, open a Foxglove WebSocket connection t
 application's account/license is separate from the open source ROS bridge. The
 repository does not provision accounts, accept agreements, or initiate recording
 or cloud uploads. UI import validation is tracked in the implementation report.
-The RViz configuration is `configs/ros2/rviz/act-lab.rviz`.
 
-DDS uses Fast DDS and localhost discovery. RViz shares the authority container's
-network namespace. Only the WebSocket port is forwarded to host **127.0.0.1**;
+DDS uses Fast DDS and localhost discovery. Only the WebSocket port is forwarded
+to host **127.0.0.1**;
 its internal bind to 0.0.0.0 is necessary for forwarding. No host networking,
-devices, GPU or privileged access is requested. X11 access belongs only to the
-explicit RViz service; it needs the same local display authorization as sim-ui.
+devices, display, GPU or privileged access is requested.
 
 ## Topics and schema
 
@@ -55,7 +50,7 @@ explicit RViz service; it needs the same local display authorization as sim-ui.
 
 Telemetry/events have schema_version 1. Existing v1 command, state and report
 messages are unchanged. Domain time maps to ROS time with +1 second; observer,
-model publisher and RViz use simulation time. Heartbeat freshness uses an
+model publisher and bridge use simulation time. Heartbeat freshness uses an
 independent monotonic clock even when ROS time pauses.
 
 Canonical joint order is shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2,
@@ -130,8 +125,7 @@ infrastructure exits; the independent owner itself never waits for viewers.
 Dependencies: robot_state_publisher computes model FK from measured joints;
 tf2_ros supplies frame inspection; visualization_msgs/diagnostic_msgs provide
 standard projections; Foxglove bridge supplies local WebSocket schemas/assets;
-python3-websocket is the bounded protocol test client. RViz2 is isolated in its
-own image stage. Xvfb/x11-utils/ImageMagick are headless rendering-test utilities.
+python3-websocket is the bounded protocol test client.
 No viewer packages enter default simulation or learning images. Upstream apt
 packages retain their copyright/license files under `/usr/share/doc` and ROS
 package shares. Generated reports record resolved package versions, model and

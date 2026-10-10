@@ -1,6 +1,7 @@
 # ROS observability — implementation plan
 
-Status: Implemented for draft review; interactive RViz acceptance remains pending.
+Status: Implemented for draft review; interactive Foxglove acceptance passed.
+Scope update: user selected Foxglove only; bundled RViz and its acceptance gate removed.
 Evidence: [validation report](../reports/ros2-observability.md).
 Base: merged main `2ef41b9497c046dbd4e4b4c91a3d7fe2d3729911`.
 Branch: `feature/ros2-observability`.
@@ -8,7 +9,7 @@ Roadmap: focused follow-up after PR 13, before PR 14 ROS recording.
 
 ## 1. Outcome and boundary
 
-Make the existing ROS/CRISP/MuJoCo demonstrator inspectable in RViz2 and Foxglove:
+Make the existing ROS/CRISP/MuJoCo demonstrator inspectable in Foxglove:
 a moving robot, requested/approved/measured poses, six joint efforts, command age,
 clock progress, actuator ownership, faults and fresh-command recovery.
 
@@ -30,8 +31,8 @@ supersede actuation, clock or frame-correction decisions.
 
 Use the existing pinned Jazzy/Noble runtime, Fast DDS and official UR description
 revision. Add only justified viewer dependencies: robot_state_publisher, tf2_ros,
-visualization_msgs, diagnostic_msgs, RViz2, resource retrieval and Foxglove bridge.
-Build RViz separately from the headless observability runtime. Keep the default
+visualization_msgs, diagnostic_msgs, resource retrieval and Foxglove bridge.
+Keep the default
 simulation, dev and learning images free of viewer packages.
 
 Inspect the available Jazzy bridge version and its installed launch/configuration
@@ -40,8 +41,8 @@ record its license, retained notices and resolved package versions. Review the
 Foxglove application separately from the bridge: document current account/license
 requirements and supported local connection/layout workflow. Do not assume a free,
 redistributable or self-hostable application, or enroll the user in a paid plan.
-RViz is the repository's independently usable viewer; Foxglove artifacts and
-protocol tests must remain usable without a paid CI account.
+Foxglove protocol tests must remain usable without a paid CI account. Standard
+ROS projections preserve compatibility with independent viewers added later.
 
 ## 3. Observational data contract
 
@@ -135,20 +136,15 @@ Test backward ROS time explicitly; do not blend old and new episode trajectories
 
 ## 6. Compose runtime and operator workflow
 
-Add opt-in profiles `ros2-observability` and `ros2-rviz`, with a headless telemetry /
-bridge image and a separate RViz image. Supervise demo, observer, model publisher
+Add opt-in profile `ros2-observability` with a headless telemetry /
+bridge image. Supervise demo, observer, model publisher
 and bridge as separate processes, with explicit startup and shutdown ordering.
 
-Keep localhost DDS discovery by sharing the runtime's network namespace with any
-separate viewer container (`network_mode: service:<runtime>`). Do not assume
-localhost discovery works across ordinary isolated Compose containers. No host
-networking, privileged mode, device/GPU access or default service changes.
+Keep localhost DDS discovery within the runtime container. No host networking,
+privileged mode, display, device/GPU access or default service changes.
 
 Publish only the bridge WebSocket port to `127.0.0.1:8765` on the host. Bind inside
 the container as required for port forwarding; distinguish that from host exposure.
-RViz uses the repository's existing narrow X11 socket/software-rendering pattern,
-only in its explicit UI profile. Interactive desktop validation is separate from
-headless CI and must be reported honestly.
 
 Bridge configuration must allow only observational topics/assets. Omit client
 publication, service and parameter-write capabilities; deny client topic/service
@@ -169,15 +165,14 @@ Write reports, captures and screenshots under ignored `runs/ros2-observability/`
 
 ## 7. Saved views
 
-Commit `configs/ros2/rviz/act-lab.rviz` with world frame, RobotModel, TF, pose markers
-and execution/health diagnostics. Distinguish target, approved and measured poses
-by label and color; use mode text so fault interpretation does not depend on color.
+Distinguish target, approved and measured poses by label and color; use mode text
+so fault interpretation does not depend on color.
 
 Commit `configs/ros2/foxglove/act-lab.json` with a 3D view, six effort plots, separate
 source/wall-age plots, command report/raw-message inspector, mode/fault fields and
 event timeline. Verify import/export against the tested application version.
 Document local WebSocket connection; no automatic cloud uploads or recording.
-Both views expose retained gripper aperture, epoch changes and loss/recovery.
+The view exposes retained gripper aperture, epoch changes and loss/recovery.
 
 ## 8. Verification and safety review
 
@@ -205,10 +200,10 @@ isolated observability CI job uploading reports on failure as well as success.
 Keep existing jobs. Check control trace agreement with observation off/on using
 fixed intents and injected clocks; separately record differing real wall faults.
 
-Manual acceptance: open the paced demo in RViz2 and Foxglove, inspect motion,
+Manual acceptance: open the paced demo in Foxglove, inspect motion,
 target error, effort and age, then observe hold, stale indication, reset and fresh
 recovery. Save representative screenshots and tested client/config versions.
-If a display or Foxglove entitlement is unavailable, headless tests may complete
+If Foxglove entitlement is unavailable, headless tests may complete
 but interactive acceptance remains explicitly pending; do not claim it passed.
 
 Complete a dedicated viewer safety matrix for startup, slow/lost telemetry,

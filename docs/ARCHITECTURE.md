@@ -158,6 +158,9 @@ mapping-only use for this moving adapter. See the
 
 ## Optional live ROS observability
 
+Foxglove is the sole bundled viewer. Standard ROS joint, TF and model projections
+preserve compatibility with independent viewers if later debugging requires one.
+
 The physics owner offers bounded primitive copies to a separate observer process.
 ROS serialization, model publication and Foxglove delivery occur outside control.
 Generated execution telemetry/events are additive; the viewer receives no command

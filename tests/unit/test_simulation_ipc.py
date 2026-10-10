@@ -70,3 +70,68 @@ def test_late_controller_reply_is_drained_without_restoring_authority():
         process.stdin.close()
         process.stdout.close()
         process.wait(timeout=5)
+
+
+def _delayed_shutdown_owner(connection, folder):
+    import time
+    from pathlib import Path
+
+    from act_lab.adapters.ros2.simulation import finalize_physics_trace
+
+    assert receive(connection)["kind"] == "shutdown"
+    # Finalization can outlast the old five-second post-acknowledgment window.
+    time.sleep(5.1)
+    finalize_physics_trace(Path(folder), [{"mode": "SHUTDOWN_HOLD"}])
+    send(connection, {"closed": True})
+    connection.close()
+
+
+def test_shutdown_waits_for_finalized_evidence(tmp_path):
+    import json
+
+    from act_lab.adapters.ros2.simulation import SimulationProcess
+
+    context = mp.get_context("spawn")
+    runtime = SimulationProcess.__new__(SimulationProcess)
+    runtime.connection, child = context.Pipe()
+    runtime.process = context.Process(
+        target=_delayed_shutdown_owner, args=(child, str(tmp_path))
+    )
+    runtime.process.start()
+    child.close()
+    try:
+        runtime.close()
+        assert runtime.process.exitcode == 0
+        assert json.loads((tmp_path / "physics.json").read_text()) == [
+            {"mode": "SHUTDOWN_HOLD"}
+        ]
+        assert not (tmp_path / "physics.json.partial").exists()
+    finally:
+        if runtime.process.is_alive():
+            runtime.process.kill()
+            runtime.process.join(timeout=5)
+        runtime.connection.close()
+
+
+def test_invalid_trace_cannot_replace_finalized_evidence(tmp_path):
+    from act_lab.adapters.ros2.simulation import finalize_physics_trace
+
+    finalized = tmp_path / "physics.json"
+    finalized.write_text('[{"previous":true}]\n')
+    with pytest.raises(ValueError):
+        finalize_physics_trace(tmp_path, [{"effort": float("nan")}])
+    assert finalized.read_text() == '[{"previous":true}]\n'
+
+
+def test_shutdown_does_not_hide_owner_failure():
+    from act_lab.adapters.ros2.simulation import SimulationProcess
+
+    context = mp.get_context("spawn")
+    runtime = SimulationProcess.__new__(SimulationProcess)
+    runtime.connection, child = context.Pipe()
+    runtime.process = context.Process(target=int, args=("invalid",))
+    runtime.process.start()
+    child.close()
+    runtime.process.join(timeout=5)
+    with pytest.raises(RuntimeError, match="physics owner exited with code"):
+        runtime.close()

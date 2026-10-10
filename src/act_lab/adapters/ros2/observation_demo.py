@@ -112,7 +112,6 @@ def run_observability(
                     for p in [
                         Path("configs/ros2/foxglove/bridge.yaml"),
                         Path("configs/ros2/foxglove/act-lab.json"),
-                        Path("configs/ros2/rviz/act-lab.rviz"),
                     ]
                 },
             ),

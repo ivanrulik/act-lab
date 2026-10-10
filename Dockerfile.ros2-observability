@@ -12,11 +12,3 @@ RUN chmod 0755 /usr/local/bin/ros2-observability-entrypoint \
 USER 1000:1000
 ENTRYPOINT ["/usr/local/bin/ros2-observability-entrypoint"]
 CMD ["act-lab", "ros2", "observability-demo", "--duration", "120", "--json"]
-
-FROM headless AS rviz
-USER root
-RUN apt-get update && apt-get install --yes --no-install-recommends \
-    ros-jazzy-rviz2 xvfb x11-utils imagemagick \
-    && rm -rf /var/lib/apt/lists/*
-USER 1000:1000
-CMD ["rviz2", "-d", "/workspace/configs/ros2/rviz/act-lab.rviz", "--ros-args", "-p", "use_sim_time:=true"]

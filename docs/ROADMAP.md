@@ -252,12 +252,12 @@ default headless workflow does not require ROS 2 or CRISP.
 
 Implementation plan: [ROS observability](plans/ros2-observability.md), based on
 merged main `2ef41b9`. [Implemented evidence](reports/ros2-observability.md) is
-under draft review; interactive RViz acceptance remains pending. PR 14 remains recording.
+under draft review; Foxglove interactive acceptance passed. PR 14 remains recording.
 
-Add optional read-only RViz2 and Foxglove views of the MuJoCo/CRISP runtime.
+Add optional read-only Foxglove views of the MuJoCo/CRISP runtime.
 Publish standard joint states, TF, target and measured pose markers, plus
 inspectable effort, command age, watchdog faults and recovery telemetry. Ship
-a saved RViz configuration and Foxglove layout. Preserve the shared application
+a saved Foxglove layout. Preserve the shared application
 safety path, v1 contracts and ROS-free local learning workflows. The optional
 observer and viewers do not own control.
 

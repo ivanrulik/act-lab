@@ -269,5 +269,5 @@ def gateway(
             runtime.close()
         driver.close()
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
         connection.close()

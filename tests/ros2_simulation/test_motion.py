@@ -23,6 +23,12 @@ def test_generated_dds_crisp_motion_and_faults(tmp_path):
         "grasp_lift_hold_resume",
     } <= cases
     assert report["producer_pid"] != report["gateway_pid"]
+    import json
+
+    physics = json.loads((tmp_path / "physics.json").read_text())
+    assert all(row["mode"] == "SHUTDOWN_HOLD" for row in physics[-250:])
+    assert all(not any(row["task_effort_nm"]) for row in physics[-250:])
+    assert not (tmp_path / "physics.json.partial").exists()
 
 
 def test_actual_system_interface_ordering_and_invalid_feedback():

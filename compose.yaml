@@ -18,7 +18,7 @@ services:
       target: headless
       additional_contexts:
         simulation_base: service:ros2-simulation
-    profiles: ["ros2-observability", "ros2-rviz"]
+    profiles: ["ros2-observability"]
     working_dir: /workspace
     init: true
     volumes:
@@ -31,34 +31,13 @@ services:
       ROS_DOMAIN_ID: "45"
     stop_grace_period: 20s
 
-  ros2-rviz:
-    build:
-      context: .
-      dockerfile: Dockerfile.ros2-observability
-      target: rviz
-      additional_contexts:
-        simulation_base: service:ros2-simulation
-    profiles: ["ros2-rviz"]
-    network_mode: service:ros2-observability
-    depends_on:
-      - ros2-observability
-    volumes:
-      - .:/workspace
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
-    environment:
-      DISPLAY: ${DISPLAY:-:0}
-      LIBGL_ALWAYS_SOFTWARE: "1"
-      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
-      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
-      ROS_DOMAIN_ID: "45"
-
   ros2-simulation:
     build:
       context: .
       dockerfile: Dockerfile.ros2-simulation
       additional_contexts:
         crisp_base: service:crisp-feasibility
-    profiles: ["ros2-simulation", "ros2-observability", "ros2-rviz"]
+    profiles: ["ros2-simulation", "ros2-observability"]
     working_dir: /workspace
     init: true
     volumes:
@@ -72,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.crisp
-    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability", "ros2-rviz"]
+    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability"]
     working_dir: /workspace
     init: true
     volumes:

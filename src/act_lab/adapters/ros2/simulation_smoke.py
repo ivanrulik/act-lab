@@ -203,19 +203,32 @@ class MotionSession:
         try:
             if self.process.is_alive():
                 try:
-                    self.rpc(dict(kind="shutdown"))
+                    send(self.connection, dict(kind="shutdown"))
+                    reply = receive(self.connection, timeout=75.0)
+                    if reply.get("closed") is not True:
+                        raise RuntimeError(
+                            reply.get("error", "gateway shutdown failed")
+                        )
                     self.process.join(timeout=5)
                 except (RuntimeError, EOFError, OSError):
                     self.process.terminate()
                     self.process.join(timeout=5)
+                    if self.process.is_alive():
+                        self.process.kill()
+                        self.process.join(timeout=5)
+                    raise
             if self.process.is_alive():
                 self.process.terminate()
                 self.process.join(timeout=5)
                 raise RuntimeError("gateway shutdown timeout")
+            if self.process.exitcode != 0:
+                raise RuntimeError(
+                    f"gateway exited with code {self.process.exitcode}"
+                )
         finally:
             self.connection.close()
             self.node.destroy_node()
-            self.rclpy.shutdown()
+            self.rclpy.try_shutdown()
 
 
 def producer_loss(session: MotionSession) -> dict[str, Any]:
