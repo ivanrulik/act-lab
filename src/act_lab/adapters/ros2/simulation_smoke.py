@@ -342,8 +342,8 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             cases.append(
                 dict(case=case, mode=value["mode"], outcome=value["report"]["outcome"])
             )
-            session.command(target)
-        session.command(target)
+            session.motion_command(target)
+        session.motion_command(target)
         episode_before_jump = session.value["episode"]
         value = session.rpc(dict(kind="forward_jump", ticks=100))
         if value["mode"] != "FAULT_HOLD" or value["episode"] != episode_before_jump:
@@ -351,13 +351,13 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 "forward jump did not age source within the same episode"
             )
         cases.append(dict(case="clock_forward_jump", mode=value["mode"]))
-        session.command(target)
-        session.command(target)
+        session.motion_command(target)
+        session.motion_command(target)
         value = session.rpc(dict(kind="advance", ticks=250))
         if value["mode"] != "FAULT_HOLD" or value["reason"] != "stale_source":
             raise RuntimeError("producer disappearance did not expire source lease")
         cases.append(dict(case="producer_loss", reason=value["reason"]))
-        session.command(target)
+        session.motion_command(target)
         value = session.rpc(
             dict(
                 kind="clock",
@@ -369,8 +369,8 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         if value["mode"] != "FAULT_HOLD":
             raise RuntimeError("paused clock did not hold")
         cases.append(dict(case="clock_pause", mode=value["mode"]))
-        session.command(target)
-        session.command(target)
+        session.motion_command(target)
+        session.motion_command(target)
         if session.value["mode"] != "ENABLED":
             raise RuntimeError("fresh sequence after resumed clock did not recover")
         session.rpc(
@@ -388,7 +388,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         session.rpc(dict(kind="reset", seed=0))
         session.sequence = 0
         target = snapshot_state(session.value).end_effector_pose
-        session.command(target)
+        session.motion_command(target)
         session.rpc(dict(kind="kill_controller"))
         value = session.command(target)
         if value["mode"] != "FAULT_HOLD":

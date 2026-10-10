@@ -80,3 +80,5 @@ are not qualified by these home/nearby fixtures. A separate rank-deficient wrist
 rejection without changing live state, followed by dynamic hold; joint-margin
 crossing is independently rejected by the effort predictor. These rejection
 tests do not qualify motion through a singularity.
+
+Merge validation also requires confirmed enabled fresh intent before producer-loss, clock-fault, and controller-loss fixtures. Recovery uses the same bounded preparation and fresh-sequence path as nominal motion; fault messages themselves remain single explicit publications, and expiry assertions remain unchanged.
