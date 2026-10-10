@@ -199,7 +199,22 @@ retained BSD-2-Clause notices. No new Python framework is required. The optional
 for restricted Foxglove asset retrieval. `sensor_msgs` provides standard RGB and
 calibration projections, and Mesa/EGL in the optional observability image
 supports headless software rendering. No RealSense SDK, physical gripper driver,
-Gazebo, RViz, GPU access or training framework is added to the ROS runtime.
+Gazebo, RViz or training framework is added to the ROS runtime. ADR 020 adds
+explicit GPU access only through the optional `tooling-gpu` profile.
 Official UR description remains pinned and its BSD-3-Clause source notice is
 retained beside the generated descriptions; upstream package-specific asset
 licenses remain with the installed upstream package.
+
+### GPU and compressed preview (ADR 020)
+
+The optional `tooling-gpu` profile reserves one NVIDIA GPU for headless OpenGL,
+using graphics/utility capabilities and verified EGL identity. It extends the
+viewer runtime only; CPU physics/control and ROS-free acquisition/learning keep
+their existing paths. CPU CI retains explicit low-cost software rendering.
+
+The JPEG preview adds Ubuntu `python3-pil` to the optional viewer image for lazy
+RGB encoding. Standard sensor_msgs/CompressedImage avoids a custom video schema,
+encoder process and keyframe recovery. Raw acquisition remains authoritative.
+The separate preview profile hash identifies graphics quality; fresh source
+headers and independent 100 ms expiry survive rendering/encoding. NVENC video
+is deferred until bandwidth or resolution measurements justify its dependencies.

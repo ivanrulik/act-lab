@@ -58,3 +58,22 @@ renderer stops. Cached viewer pixels are not evidence of current capture.
 
 No row constitutes hardware qualification. Physical mounting, stop/hold,
 independent watchdog, dynamics and camera drivers remain deferred.
+
+## Accelerated and compressed viewing (ADR 020)
+
+`tooling` explicitly uses a low-cost CPU viewer profile. `tooling-gpu` reserves
+one NVIDIA GPU for headless EGL and fails when actual OpenGL identity is not
+NVIDIA. No automatic backend fallback is supported. Local acquisition/learning
+profiles and images remain unchanged.
+
+The compressed topic `/act_lab/view/wrist/image_raw/compressed` is standard
+sensor_msgs/CompressedImage, quality-90 JPEG, best effort/volatile/keep-last 1.
+Its original capture header matches CameraInfo and any subscribed raw sample.
+JPEG is a lossy preview and does not enter recording or ACT input. Raw viewer
+Image/CameraSample are sent only to subscribed readers. The preview profile hash
+and actual OpenGL identity are recorded separately from acquisition identity.
+
+The independent latest-state channel receives the 50 Hz simulation sample grid.
+The renderer owns a 25 Hz steady target and skips superseded states. It never
+refreshes paused/reused capture identity, queues old frames, or weakens the
+100 ms deadline. Encoding is followed by the same expiry/reset check as rendering.

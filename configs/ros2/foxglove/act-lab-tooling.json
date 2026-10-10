@@ -204,7 +204,7 @@
       "title": "Wrist RGB (synthetic)",
       "synchronize": true,
       "imageMode": {
-        "imageTopic": "/act_lab/view/wrist/image_raw",
+        "imageTopic": "/act_lab/view/wrist/image_raw/compressed",
         "calibrationTopic": "/act_lab/view/wrist/camera_info"
       }
     },

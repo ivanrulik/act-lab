@@ -1,16 +1,20 @@
 """Required generated camera serialization and separate-process DDS delivery."""
 
+import io
 import json
 import multiprocessing as mp
 import time
 from pathlib import Path
 from uuid import uuid4
 
+import numpy as np
 import rclpy
 from act_lab_interfaces.msg import CameraSample
 from diagnostic_msgs.msg import DiagnosticArray
+from PIL import Image as PILImage
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from rclpy.serialization import deserialize_message, serialize_message
+from sensor_msgs.msg import CompressedImage
 
 from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
 from act_lab.adapters.ros2.camera_runtime import camera_process
@@ -39,6 +43,13 @@ def test_generated_wrist_frames_use_captured_state_and_episode(tmp_path):
         samples.append,
         QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
     )
+    previews = []
+    node.create_subscription(
+        CompressedImage,
+        "/act_lab/view/wrist/image_raw/compressed",
+        previews.append,
+        QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
+    )
     health = []
     node.create_subscription(
         DiagnosticArray,
@@ -54,7 +65,7 @@ def test_generated_wrist_frames_use_captured_state_and_episode(tmp_path):
             episode = str(uuid4())
             sequence = 0
             end = time.monotonic() + 12
-            while time.monotonic() < end and len(samples) < 3:
+            while time.monotonic() < end and (len(samples) < 3 or len(previews) < 3):
                 sequence += 1
                 env.step()
                 channel.camera.offer(
@@ -73,6 +84,29 @@ def test_generated_wrist_frames_use_captured_state_and_episode(tmp_path):
                 )
                 rclpy.spin_once(node, timeout_sec=0.04)
             assert len(samples) >= 3, "bounded DDS discovery/capture wait expired"
+            assert len(previews) >= 3, "compressed DDS delivery missing"
+            paired = [
+                (sample, preview)
+                for sample in samples
+                for preview in previews
+                if sample.header == preview.header
+            ]
+            assert paired, "JPEG and acquisition headers were not preserved"
+            raw, preview = paired[-1]
+            assert preview.format == "rgb8; jpeg compressed bgr8"
+            decoded_rgb = np.asarray(
+                PILImage.open(io.BytesIO(bytes(preview.data))).convert("RGB")
+            )
+            original_rgb = np.asarray(raw.image.data, dtype=np.uint8).reshape(
+                240, 320, 3
+            )
+            assert decoded_rgb.shape == original_rgb.shape
+            assert np.abs(decoded_rgb.astype(float) - original_rgb).mean() < 5
+            assert len(preview.data) < len(raw.image.data) / 4
+            assert (
+                deserialize_message(serialize_message(preview), CompressedImage)
+                == preview
+            )
             latest = samples[-1]
             assert latest.episode_id == episode
             assert latest.physics_tick * 2_000_000 == (
@@ -136,3 +170,6 @@ def test_generated_wrist_frames_use_captured_state_and_episode(tmp_path):
     assert evidence["frames"] >= 3
     assert evidence["renderer_pid"] == worker.pid
     assert evidence["physics_owner_rendering"] is False
+    assert evidence["transport"] == "jpeg"
+    assert evidence["renderer"]["renderer"]
+    assert evidence["render_profile"]["jpeg_quality"] == 90

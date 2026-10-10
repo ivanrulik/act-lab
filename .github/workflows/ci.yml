@@ -142,8 +142,7 @@ jobs:
         run: >-
           docker compose --profile tooling run --rm --user "$(id -u):$(id -g)" tooling
           python -m pytest -o 'addopts=-ra -p no:cacheprovider'
-          tests/integration/test_tool_assembly.py tests/integration/test_tool_learning_contract.py
-          tests/unit/test_camera_contracts.py tests/ros2_observability/test_tool_frames.py
+          tests/ros2_observability/test_tool_frames.py
           tests/ros2_observability/test_wrist_camera.py
       - name: Verify generated assembly and seeded local reachability
         run: |

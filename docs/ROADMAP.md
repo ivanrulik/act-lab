@@ -318,3 +318,12 @@ did not run.
 ROS 2 and CRISP remain optional adapters. Their packages must not become
 dependencies of the domain, data conversion, training, evaluation, or default
 local simulation workflows.
+
+### Tooling preview follow-up (draft PR 22)
+
+ADR 020 adds explicit headless NVIDIA EGL and a quality-90 JPEG Foxglove
+preview. Local qualification measured 24.9 FPS on GPU and 24.8 FPS with the
+reduced-effects CPU viewer. Acquisition RGB and control freshness are unchanged.
+See [rendering evidence](reports/wrist-rendering-implementation.md). The flange
+geometry review remains open before tool-assembly acceptance. NVENC/video and
+physical mounting validation remain deferred.

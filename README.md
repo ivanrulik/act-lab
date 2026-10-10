@@ -263,3 +263,15 @@ assembly remains independent of ROS. Source assets and notices are pinned.
 See the [tooling contract](docs/contracts/tooling.md) for frames, aperture,
 camera freshness and checkpoint compatibility. D405-inspired geometry and RGB
 do not establish physical camera accuracy or hardware qualification.
+
+For GPU-accelerated wrist preview (NVIDIA driver and Container Toolkit required):
+
+```bash
+docker compose --profile tooling-gpu up --build tooling-gpu
+```
+
+The GPU profile verifies NVIDIA OpenGL and fails if it cannot use the requested
+GPU. `tooling` remains the explicit CPU option; run one viewer service at a time
+on port 8765. The tooling Foxglove layout selects the JPEG compressed preview.
+Recording and ACT keep original RGB. [Rendering contract and evidence](docs/adr/020-gpu-viewer-and-compressed-preview.md)
+describe profiles, transport, freshness and validation.

@@ -240,7 +240,8 @@ def physics_owner(
                 if camera_identity is not None:
                     tick = plant.environment.physics_ticks
                     identity = (str(episode), tick)
-                    if tick % 20 == 0 and identity != camera_last_tick:
+                    # Offer 50 Hz acquisition state; renderer owns wall-time cadence.
+                    if tick % 10 == 0 and identity != camera_last_tick:
                         camera_last_tick = identity
                         camera_sequence += 1
                         observation_channel.camera.offer(
