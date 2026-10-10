@@ -104,3 +104,13 @@ The final local ordinary suite passed 282 tests with the same three optional
 skips. Ruff and mypy passed. The actual `observability-smoke --json` command
 completed with delivered telemetry and bridge-denial evidence; its provenance
 contains only the two retained Foxglove configurations.
+
+Hosted moving ROS validation confirmed the original full motion scenario now
+passes and publishes complete evidence. Its SIGKILL fault test also verified
+independent hold, but cleanup correctly reported the deliberately killed gateway
+exit (-9). The test now explicitly expects that diagnostic while retaining all
+owner hold, effort, gripper and elapsed-simulation-time assertions.
+
+The corrected deliberate-gateway-death test passed locally in 1.34 seconds;
+Ruff passed after the assertion update. Superseded CI was cancelled and a final
+run requested for the combined fixes.

@@ -1,5 +1,7 @@
 """Required isolated ROS job: missing dependencies and incomplete evidence fail."""
 
+import pytest
+
 from act_lab.adapters.ros2.simulation_smoke import run_motion
 
 
@@ -75,7 +77,9 @@ def test_gateway_sigkill_leaves_independent_dynamic_hold(tmp_path):
         )
         assert held[-1]["accepted_gripper"] > 0
     finally:
-        session.close()
+        # Deliberate gateway death must remain visible to normal cleanup.
+        with pytest.raises(RuntimeError, match="gateway exited with code -9"):
+            session.close()
 
 
 def test_controller_stall_cannot_block_owner_hold(tmp_path):
