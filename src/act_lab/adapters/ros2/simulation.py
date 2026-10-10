@@ -399,14 +399,16 @@ def physics_owner(
                     plant.hold(guard.reason)
             output_wall = [time.monotonic_ns()]
 
-            def watchdog_wait(lease: list[int] = output_wall) -> None:
+            def watchdog_wait(
+                lease: list[int] = output_wall, waiting_episode: UUID = episode
+            ) -> None:
                 nonlocal steady
                 if time.monotonic_ns() - lease[0] >= 100_000_000:
                     inhibit("controller_wall_timeout")
                     rows.append(asdict(plant.tick()))
                     publish()
                     steady += 2_000_000
-                    guard.clock(plant.observe().timestamp_ns, episode, steady)
+                    guard.clock(plant.observe().timestamp_ns, waiting_episode, steady)
 
             for _ in range(command.get("ticks", 10)):
                 tick_deadline = time.monotonic() + 0.002
