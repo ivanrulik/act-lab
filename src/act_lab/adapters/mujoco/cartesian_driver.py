@@ -76,20 +76,10 @@ class MujocoCartesianDriver:
         self._qpos_indices = np.asarray(self._qpos_addresses)
         self._joint_ranges = self._model.jnt_range[list(self._joint_ids)].copy()
         self._site_id = environment._end_effector_site_id  # noqa: SLF001
-        self._left_finger_qpos = int(
-            self._model.jnt_qposadr[environment._left_finger_joint_id]  # noqa: SLF001
-        )
-        right_finger = int(
-            mujoco.mj_name2id(
-                self._model, mujoco.mjtObj.mjOBJ_JOINT, "right_finger_joint"
-            )
-        )
-        self._right_finger_qpos = int(self._model.jnt_qposadr[right_finger])
         self._robot_body_ids = self._descendant_body_ids("base")
         self._cube_body_id = self._body_id("cube")
         self._allowed_cube_geoms = {
-            self._geom_id("left_finger_pad"),
-            self._geom_id("right_finger_pad"),
+            self._geom_id(name) for name in environment.gripper.pad_geoms
         }
         for lower, upper in self.joint_position_bounds_rad:
             if lower + config.control.joint_bound_margin_rad >= (
@@ -261,9 +251,12 @@ class MujocoCartesianDriver:
         self._copy_state_to_scratch()
         for address, value in zip(self._qpos_addresses, joints, strict=True):
             self._scratch.qpos[address] = value
-        finger_value = gripper * 0.025
-        self._scratch.qpos[self._left_finger_qpos] = finger_value
-        self._scratch.qpos[self._right_finger_qpos] = finger_value
+        if not self._environment.binding.adaptive_gripper:
+            self._environment.gripper.set_kinematic(self._scratch, gripper)
+        # Adaptive linkage pose comes from measured contact dynamics. Substituting
+        # an unloaded closure for a blocked finger invents cube penetration.
+        # The actual actuator step below predicts and validates its resulting
+        # contacts, including motion of the gripper, before committing the step.
         mujoco.mj_forward(self._model, self._scratch)
         contacts = self._scratch.contact[: self._scratch.ncon]
         pad_cube_contact = any(
@@ -280,6 +273,12 @@ class MujocoCartesianDriver:
             if not a_robot and not b_robot:
                 continue
             if a_robot and b_robot:
+                if (
+                    self._environment.binding.adaptive_gripper
+                    and geom_a in self._allowed_cube_geoms
+                    and geom_b in self._allowed_cube_geoms
+                ):
+                    continue  # Opposing pads may touch during empty closure.
                 return False
             robot_geom = geom_a if a_robot else geom_b
             other_body = body_b if a_robot else body_a
@@ -293,6 +292,7 @@ class MujocoCartesianDriver:
             if (
                 other_body == self._cube_body_id
                 and pad_cube_contact
+                and not self._environment.binding.adaptive_gripper
                 and self._model.body(body_a if a_robot else body_b).name
                 == "wrist_2_link"
             ):

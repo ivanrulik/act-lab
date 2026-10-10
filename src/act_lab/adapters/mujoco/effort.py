@@ -165,7 +165,9 @@ class MujocoEffortPlant(MujocoCartesianDriver):
                 self._data.ctrl[actuator] = position
             for actuator in self._velocity_actuator_ids:
                 self._data.ctrl[actuator] = 0.0
-        self._data.ctrl[self._finger_id] = self.accepted_gripper * 0.025
+        self._data.ctrl[self._finger_id] = self.environment.gripper.control(
+            self.accepted_gripper
+        )
         mujoco.mj_copyData(self._step_backup, self._model, self._data)
         before_velocity = self._data.qvel[list(self._dof_addresses)].copy()
         before_twist = self._twist()

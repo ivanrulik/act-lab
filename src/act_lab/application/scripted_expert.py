@@ -40,6 +40,9 @@ class ExpertSettings(Protocol):
     def gripper_tolerance(self) -> float: ...
 
     @property
+    def open_gripper_tolerance(self) -> float: ...
+
+    @property
     def close_dwell_steps(self) -> int: ...
 
     @property
@@ -169,9 +172,10 @@ class ScriptedPickPlaceExpert:
             )
             <= position_tolerance
         )
-        gripper_reached = (
-            abs(observation.robot.gripper_position - gripper)
-            <= self._settings.gripper_tolerance
+        gripper_reached = abs(observation.robot.gripper_position - gripper) <= (
+            self._settings.gripper_tolerance
+            if gripper == self._settings.closed_gripper
+            else self._settings.open_gripper_tolerance
         )
         if self._phase is ExpertPhase.CLOSE_DWELL:
             self._dwell_or_advance(

@@ -168,3 +168,38 @@ authority. Official UR FK uses `ur_model/` frames while `act_lab_scene_tip` reta
 the measured MuJoCo pose. See [ADR 017](adr/017-read-only-ros-observability.md) and
 the [observability contract](contracts/ros2-observability.md) for freshness, loss,
 restricted bridge access and the dedicated safety review.
+
+## Optional articulated tool and wrist acquisition
+
+The explicit `ur5e_2f85_d405_v1` binding selects assembled MJCF, calibrated jaw
+actuation, TCP offset and camera identities. The default educational scene is
+unchanged. Both remain local simulation adapters around the same safety ports.
+The articulated URDF uses eight measured passive joints; a rigid nominal 50 mm
+payload URDF preserves CRISP's six effort interfaces. The tool-specific CRISP
+configuration uses 1000 N/m translational stiffness, with the existing rotational
+gains and torque/acceleration ceilings. Its loaded reference trajectory closes
+at 0.1 normalized aperture/s; faster closure can trigger the contact guard.
+
+A separate renderer receives full primitive simulator state through its own
+bounded latest-state channel. It runs forward kinematics without stepping
+physics and publishes typed capture identity plus standard RGB/CameraInfo/TF.
+The independent observer expires camera health on original steady capture age.
+A viewer cannot grant motion authority or select recorded training frames.
+
+Local recordings retain synchronized RGB and model/calibration hashes. Conversion
+rejects mixed identities; training exports that contract with saved checkpoints.
+Evaluation checks it before loading ACT and disables required-image input at
+100 ms. MCAP acquisition, conversion and learning require no ROS types.
+
+### Added dependency rationale
+
+The existing pinned Menagerie model supplies articulated contact geometry under
+retained BSD-2-Clause notices. No new Python framework is required. The optional
+`act_lab_tool_assets` ament package installs only the eight audited tool meshes
+for restricted Foxglove asset retrieval. `sensor_msgs` provides standard RGB and
+calibration projections, and Mesa/EGL in the optional observability image
+supports headless software rendering. No RealSense SDK, physical gripper driver,
+Gazebo, RViz, GPU access or training framework is added to the ROS runtime.
+Official UR description remains pinned and its BSD-3-Clause source notice is
+retained beside the generated descriptions; upstream package-specific asset
+licenses remain with the installed upstream package.

@@ -266,6 +266,18 @@ deployment and licensing requirements must be checked when selecting the viewer.
 Gazebo is a separate possible physics adapter, requiring new model, contact,
 controller and safety qualification; it is not part of this visualization scope.
 
+### Intermediate upgrade — Articulated gripper and wrist RGB
+
+Implementation branch: `feature/gripper-wrist-camera`, based on `25c6e32`.
+[Plan](plans/gripper-wrist-camera.md), [contract](contracts/tooling.md) and
+[ADR 019](adr/019-articulated-tool-and-wrist-rgb.md) govern this upgrade.
+[Local qualification](reports/gripper-wrist-camera.md) records results and limits.
+Add the explicit UR5e/2F-85/D405-inspired RGB preset, assembled URDF/MJCF,
+contact grasp and loaded holds, isolated ROS camera projection and Foxglove
+layout. Qualify wrist recording/conversion/ACT and reject incompatible model or
+camera checkpoints. Local workflows remain ROS-free. Depth/stereo, physical
+drivers and mounting, ROS recording, hardware and Gazebo remain deferred.
+
 ### PR 14 — ROS MCAP recording and conversion equivalence
 
 Record synchronized ROS topics through rosbag2 MCAP and translate them into

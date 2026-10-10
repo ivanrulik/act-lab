@@ -42,7 +42,9 @@ int main(int argc, char **argv) {
     if (initial.at("schema_version") != 1)
       throw std::runtime_error("invalid initial protocol version");
     act_lab::snapshot().q = initial.at("q").get<std::array<double, 6>>();
-    auto urdf = read_file("/opt/crisp/ur5e.urdf");
+    auto urdf = initial.contains("robot_description")
+                    ? initial.at("robot_description").get<std::string>()
+                    : read_file("/opt/crisp/ur5e.urdf");
     auto names = initial.at("joints");
     std::string hardware = "<ros2_control name=\"ACTLabSimulation\" "
                            "type=\"system\"><hardware><plugin>act_lab/"
@@ -61,8 +63,10 @@ int main(int argc, char **argv) {
     executor->add_node(source);
     const auto conflict_path =
         "/tmp/act_lab_conflict_" + std::to_string(getpid()) + ".yaml";
+    const auto params_file = initial.value(
+        "params_file", std::string("/workspace/configs/ros2/crisp-simulation.yaml"));
     auto conflict_config =
-        read_file("/workspace/configs/ros2/crisp-simulation.yaml");
+        read_file(params_file);
     conflict_config.replace(0, 6, "conflict:");
     std::ofstream(conflict_path) << conflict_config;
     auto options = controller_manager::get_cm_node_options();
@@ -71,7 +75,7 @@ int main(int argc, char **argv) {
          rclcpp::Parameter("update_rate", 500),
          rclcpp::Parameter(
              "crisp.params_file",
-             std::string("/workspace/configs/ros2/crisp-simulation.yaml")),
+             params_file),
          rclcpp::Parameter("conflict.params_file", conflict_path)});
     auto manager = std::make_shared<controller_manager::ControllerManager>(
         executor, urdf, true, "controller_manager", "", options);

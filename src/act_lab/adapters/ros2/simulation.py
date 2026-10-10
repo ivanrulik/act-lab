@@ -66,7 +66,9 @@ def finalize_physics_trace(folder: Path, rows: list[dict[str, Any]]) -> None:
 
 
 class ControllerProcess:
-    def __init__(self, state: Any, output: Path) -> None:
+    def __init__(
+        self, state: Any, output: Path, description: str | None = None
+    ) -> None:
         self.log = (output / "controller.log").open("a")
         self.process = subprocess.Popen(
             [CONTROLLER],
@@ -76,7 +78,11 @@ class ControllerProcess:
             bufsize=0,
         )
         self.buffer = b""
-        self.request(dict(q=state.joint_positions_rad, joints=JOINT_NAMES))
+        initial = dict(q=state.joint_positions_rad, joints=JOINT_NAMES)
+        if description is not None:
+            initial["robot_description"] = description
+            initial["params_file"] = "/workspace/configs/ros2/crisp-tooling.yaml"
+        self.request(initial)
 
     def request(self, value: dict[str, Any], on_wait: Any = None) -> dict[str, Any]:
         assert self.process.stdin and self.process.stdout
@@ -135,6 +141,7 @@ def physics_owner(
     seed: int,
     paced: bool = False,
     observation_channel: Any = None,
+    config_path: Path = CONFIG,
 ) -> None:
     """The only process with live MuJoCo access; controller death leaves it running."""
     from act_lab.adapters.mujoco.config import SimulationConfig
@@ -142,8 +149,22 @@ def physics_owner(
 
     folder = Path(output)
     folder.mkdir(parents=True, exist_ok=True)
-    plant = MujocoEffortPlant(SimulationConfig.load(CONFIG))
+    plant = MujocoEffortPlant(SimulationConfig.load(config_path))
     plant.reset(seed)
+    description = None
+    if plant.environment.binding.adaptive_gripper:
+        import mujoco  # type: ignore[import-untyped]
+
+        from act_lab.adapters.mujoco.tool_description import compose_tool_urdf
+
+        nominal = mujoco.MjData(plant._model)
+        mujoco.mj_copyData(nominal, plant._model, plant._data)
+        plant.environment.gripper.set_kinematic(nominal, 0.05 / 0.085)
+        mujoco.mj_forward(plant._model, nominal)
+        description = compose_tool_urdf(
+            Path("/opt/crisp/ur5e.urdf").read_text(), plant._model, rigid_data=nominal
+        )
+        (folder / "controller-model.urdf").write_text(description)
     episode = uuid4()
     guard = SimulationGuard(episode)
     steady = 0
@@ -184,8 +205,16 @@ def physics_owner(
     observation_intent: dict[str, Any] | None = None
     latest_raw: Any = None
     latest_output_wall = time.monotonic_ns()
+    camera_identity = (
+        plant.environment.model_identity
+        if (observation_channel and observation_channel.camera is not None)
+        else None
+    )
+    camera_sequence = 0
+    camera_last_tick: tuple[str, int] | None = None
 
     def capture_observation() -> None:
+        nonlocal camera_sequence, camera_last_tick
         if capture:
             try:
                 capture.capture(
@@ -204,7 +233,30 @@ def physics_owner(
                     observation_intent,
                     residual_m,
                     residual_rad,
+                    plant.environment.gripper.joints(plant._data)
+                    if plant.environment.binding.adaptive_gripper
+                    else None,
                 )
+                if camera_identity is not None:
+                    tick = plant.environment.physics_ticks
+                    identity = (str(episode), tick)
+                    if tick % 20 == 0 and identity != camera_last_tick:
+                        camera_last_tick = identity
+                        camera_sequence += 1
+                        observation_channel.camera.offer(
+                            dict(
+                                schema_version=1,
+                                model_id=plant.simulation_config.model_id,
+                                model_sha256=camera_identity["sha256"],
+                                episode=str(episode),
+                                capture_sequence=camera_sequence,
+                                physics_tick=tick,
+                                domain_ns=plant.observe().timestamp_ns,
+                                capture_steady_ns=time.monotonic_ns(),
+                                qpos=plant._data.qpos.tolist(),
+                                qvel=plant._data.qvel.tolist(),
+                            )
+                        )
             except Exception:
                 # Observation failure cannot change motion authority.
                 observation_channel.dropped.value += 1
@@ -224,7 +276,11 @@ def physics_owner(
     import numpy as np
     import pinocchio as pin  # type: ignore[import-not-found]
 
-    ur_model = pin.buildModelFromUrdf("/opt/crisp/ur5e.urdf")
+    ur_model = (
+        pin.buildModelFromXML(description)
+        if description is not None
+        else pin.buildModelFromUrdf("/opt/crisp/ur5e.urdf")
+    )
     ur_data = ur_model.createData()
     tool_id = ur_model.getFrameId("tool0")
     residual_m = 0.0
@@ -259,14 +315,16 @@ def physics_owner(
         )
         if target is not None:
             nonlocal residual_m, residual_rad
-            import mujoco  # type: ignore[import-untyped]
+            import mujoco
 
             scene = state.end_effector_pose
             rotation = np.empty(9)
             mujoco.mju_quat2Mat(rotation, np.asarray(scene.quaternion_wxyz))
             a = np.diag([-1.0, -1.0, 1.0])
             r = a @ rotation.reshape(3, 3)
-            p = a @ np.asarray(scene.position_xyz_m) - r @ np.array([0.0, 0.0, 0.11])
+            p = a @ np.asarray(scene.position_xyz_m) - r @ np.asarray(
+                plant.environment.binding.tool_translation_m
+            )
             mapped = pin.SE3(r, p)
             pin.forwardKinematics(
                 ur_model, ur_data, np.asarray(state.joint_positions_rad)
@@ -303,7 +361,7 @@ def physics_owner(
 
     try:
         publish()
-        controller = ControllerProcess(plant.observe().robot, folder)
+        controller = ControllerProcess(plant.observe().robot, folder, description)
         # Lifecycle/DDS preparation happens under startup hold, before authorization.
         controller.request(request(True), publish)
         send(connection, snapshot())
@@ -350,7 +408,9 @@ def physics_owner(
                 plant.hold("controller_restart")
                 guard.fault("controller_restart")
                 controller.close()
-                controller = ControllerProcess(plant.observe().robot, folder)
+                controller = ControllerProcess(
+                    plant.observe().robot, folder, description
+                )
                 controller.request(request(True), publish)
                 capture_observation()
                 send(connection, snapshot())
@@ -442,7 +502,9 @@ def physics_owner(
                     tool_rotation = a @ rotation.reshape(3, 3)
                     tool_position = a @ np.asarray(
                         pose.position_xyz_m
-                    ) - tool_rotation @ np.array([0.0, 0.0, 0.11])
+                    ) - tool_rotation @ np.asarray(
+                        plant.environment.binding.tool_translation_m
+                    )
                     quaternion = np.empty(4)
                     mujoco.mju_mat2Quat(quaternion, tool_rotation.reshape(9))
                     target = dict(
@@ -617,17 +679,19 @@ class SimulationProcess:
         seed: int = 0,
         paced: bool = False,
         observation_channel: Any = None,
+        config_path: Path = CONFIG,
     ) -> None:
         if not Path(CONTROLLER).exists() or shutil.which("ros2") is None:
             raise RuntimeError(
                 "ROS simulation requires: docker compose --profile ros2-simulation "
                 "run --build --rm ros2-simulation"
             )
+        self.config_path = config_path
         context = mp.get_context("spawn")
         self.connection, child = context.Pipe()
         self.process = context.Process(
             target=physics_owner,
-            args=(child, str(output), seed, paced, observation_channel),
+            args=(child, str(output), seed, paced, observation_channel, config_path),
         )
         self.process.start()
         child.close()
@@ -641,9 +705,7 @@ class SimulationProcess:
             self.connection.close()
             raise
 
-    def rpc(
-        self, command: dict[str, Any], timeout: float = 20.0
-    ) -> dict[str, Any]:
+    def rpc(self, command: dict[str, Any], timeout: float = 20.0) -> dict[str, Any]:
         send(self.connection, command)
         value = receive(self.connection, timeout)
         if "error" in value:

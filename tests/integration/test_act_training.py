@@ -1,7 +1,7 @@
 """Real reduced ACT checkpoint/resume smoke test for the training image."""
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
@@ -16,9 +16,28 @@ from act_lab.application.training import load_act_config, verify_dataset
 from act_lab.domain.dataset import RecordedEpisode, RecordedImage, RecordedSample
 
 
-def _mini_episode() -> RecordedEpisode:
+def _mini_episode(tooling: bool = False) -> RecordedEpisode:
     samples = []
     pixels = bytes((32, 64, 96)) * (32 * 32)
+    cameras = ("overview", "policy", "wrist") if tooling else ("policy",)
+    provenance = {"resolved_config_json": "{}"}
+    if tooling:
+        from act_lab.adapters.mujoco import SimulationConfig
+        from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
+
+        config = replace(
+            SimulationConfig.load(Path("configs/sim/ur5e_2f85_d405.toml")),
+            render_width=32,
+            render_height=32,
+        )
+        with MujocoUR5eEnvironment(config) as env:
+            provenance["resolved_config_json"] = json.dumps(
+                dict(
+                    simulation=asdict(config),
+                    model_identity=env.model_identity,
+                    scene_cameras={c: env.camera_calibration(c) for c in cameras},
+                )
+            )
     for index in range(12):
         value = index / 11
         samples.append(
@@ -34,7 +53,7 @@ def _mini_episode() -> RecordedEpisode:
                 value,
                 True,
                 "applied",
-                (RecordedImage("policy", 32, 32, "rgb8", pixels),),
+                tuple(RecordedImage(c, 32, 32, "rgb8", pixels) for c in cameras),
             )
         )
     return RecordedEpisode(
@@ -42,18 +61,19 @@ def _mini_episode() -> RecordedEpisode:
         "success",
         "success",
         True,
-        {"resolved_config_json": "{}"},
+        provenance,
         tuple(samples),
         (("/observation", 12), ("/command", 12), ("/camera/policy", 12)),
         (),
     )
 
 
-def test_reduced_act_checkpoint_and_resume(tmp_path: Path) -> None:
+@pytest.mark.parametrize("tooling", [False, True])
+def test_reduced_act_checkpoint_and_resume(tmp_path: Path, tooling: bool) -> None:
     pytest.importorskip("lerobot")
     dataset_path = tmp_path / "dataset"
     convert_episodes(
-        [_mini_episode()],
+        [_mini_episode(tooling)],
         dataset_path,
         "test/mini-act",
         25,
@@ -122,3 +142,13 @@ cudnn_deterministic = true
     assert [item["step"] for item in metrics] == [1, 2, 3]
     assert (resumed / "training_state" / "optimizer_state.safetensors").is_file()
     assert (resumed / "training_state" / "rng_state.safetensors").is_file()
+    if tooling:
+        contract = json.loads(
+            (resumed / "pretrained_model/act_lab_model.json").read_text()
+        )
+        assert contract["model_id"] == "ur5e_2f85_d405_v1"
+        assert set(contract["cameras"]) == {"overview", "policy", "wrist"}
+        from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
+
+        with pytest.raises(ValueError, match="incompatible"):
+            LeRobotACTPolicy(resumed, "cpu", ("policy",))

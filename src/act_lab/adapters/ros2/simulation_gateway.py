@@ -37,7 +37,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
     """Scratch state follows physics snapshots; only the remote owner integrates."""
 
     def __init__(self, runtime: SimulationProcess) -> None:
-        config = SimulationConfig.load(CONFIG)
+        config = SimulationConfig.load(runtime.config_path)
         super().__init__(MujocoUR5eEnvironment(config), config)
         self.runtime = runtime
         self.intent: Action | None = None
@@ -109,6 +109,7 @@ def gateway(
     seed: int,
     paced: bool = False,
     observation_channel: Any = None,
+    config_path: Path = CONFIG,
 ) -> None:
     import rclpy  # type: ignore[import-not-found]
     from rclpy.parameter import Parameter  # type: ignore[import-not-found]
@@ -120,7 +121,9 @@ def gateway(
         "act_lab_command_gateway",
         parameter_overrides=[Parameter("use_sim_time", value=True)],
     )
-    runtime = SimulationProcess(Path(output), seed, paced, observation_channel)
+    runtime = SimulationProcess(
+        Path(output), seed, paced, observation_channel, config_path
+    )
     driver = RosSimulationDriver(runtime)
     robot = SafeCartesianRobot(driver, driver.limits)
     robot.reset(seed)

@@ -28,3 +28,6 @@ consequences, and status.
 
 - [ADR 018](018-moving-watchdog-hold-damping.md): moving watchdog takeover
   regression and revised bounded hold damping
+
+- [ADR 019](019-articulated-tool-and-wrist-rgb.md): explicit articulated tool,
+  synthetic wrist RGB, process isolation and learning compatibility

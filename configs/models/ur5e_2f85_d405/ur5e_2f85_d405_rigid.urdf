@@ -1,0 +1,712 @@
+<robot name="ur5e">
+  <!--
+    Base UR robot series xacro macro.
+
+    NOTE this is NOT a URDF. It cannot directly be loaded by consumers
+    expecting a flattened '.urdf' file. See the top-level '.xacro' for that
+    (but note that .xacro must still be processed by the xacro command).
+
+    This file models the base kinematic chain of a UR robot, which then gets
+    parameterised by various configuration files to convert it into a UR3(e),
+    UR5(e), UR10(e) or UR16e, etc.
+
+    NOTE the default kinematic parameters (i.e., link lengths, frame locations,
+    offsets, etc) do not correspond to any particular robot. They are defaults
+    only. There WILL be non-zero offsets between the Forward Kinematics results
+    in TF (i.e., robot_state_publisher) and the values reported by the Teach
+    Pendant.
+
+    For accurate (and robot-specific) transforms, the 'kinematics_parameters_file'
+    parameter MUST point to a .yaml file containing the appropriate values for
+    the targeted robot.
+
+    If using the UniversalRobots/Universal_Robots_ROS_Driver, follow the steps
+    described in the readme of that repository to extract the kinematic
+    calibration from the controller and generate the required .yaml file.
+
+    Main author of the migration to yaml configs Ludovic Delval.
+
+    Contributors to previous versions (in no particular order)
+
+     - Denis Stogl
+     - Lovro Ivanov
+     - Felix Messmer
+     - Kelsey Hawkins
+     - Wim Meeussen
+     - Shaun Edwards
+     - Nadia Hammoudeh Garcia
+     - Dave Hershberger
+     - G. vd. Hoorn
+     - Philip Long
+     - Dave Coleman
+     - Miguel Prada
+     - Mathias Luedtke
+     - Marcel Schnirring
+     - Felix von Drigalski
+     - Felix Exner
+     - Jimmy Da Silva
+     - Ajit Krisshna N L
+     - Muhammad Asif Rana
+  -->
+  <!-- create link fixed to the "world" -->
+  <link name="world" />
+  <!-- links -  main serial chain -->
+  <!-- base_link serves as the root of the robot's kinematic tree. It follows REP-103
+        conventions (i.e., X+ forward, Y+ left, Z+ up).
+        Since some kinematic solvers forbid having inertia values attached to a root link, we've
+        added the base_link_inertia link that carries the visual, collision and inertia
+        information.
+    -->
+  <link name="base_link" />
+  <link name="base_link_inertia">
+    <visual>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/base.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/base.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.0" />
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <inertia ixx="0.00443333156" ixy="0.0" ixz="0.0" iyy="0.00443333156" iyz="0.0" izz="0.0072" />
+    </inertial>
+  </link>
+  <link name="shoulder_link">
+    <visual>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/shoulder.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/shoulder.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.761" />
+      <origin rpy="1.570796326794897 0 0" xyz="0.0 -0.00193 -0.02561" />
+      <inertia ixx="0.0070021" ixy="7.3e-07" ixz="-1.053e-05" iyy="0.00648091" iyz="0.00049994" izz="0.00657286" />
+    </inertial>
+  </link>
+  <link name="upper_arm_link">
+    <visual>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.138" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/upperarm.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.138" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/upperarm.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="8.058" />
+      <origin rpy="0 0 0" xyz="-0.2125 0.0 0.11336" />
+      <inertia ixx="0.01505885" ixy="-5.4e-05" ixz="5.63e-06" iyy="0.33388086" iyz="-1.81e-06" izz="0.33247207" />
+    </inertial>
+  </link>
+  <link name="forearm_link">
+    <visual>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.007" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/forearm.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.007" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/forearm.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2.846" />
+      <origin rpy="0 0 0" xyz="-0.2422 0.0 0.0265" />
+      <inertia ixx="0.00399632" ixy="-1.365e-05" ixz="0.00137272" iyy="0.07879254" iyz="-6.6e-06" izz="0.0784851" />
+    </inertial>
+  </link>
+  <link name="wrist_1_link">
+    <visual>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.127" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/wrist1.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.127" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/wrist1.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.37" />
+      <origin rpy="1.570796326794897 0 0" xyz="0.0 -0.01634 -0.0018" />
+      <inertia ixx="0.00165491" ixy="-2.82e-06" ixz="-4.38e-06" iyy="0.00135962" iyz="0.00010157" izz="0.00126279" />
+    </inertial>
+  </link>
+  <link name="wrist_2_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 -0.0997" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/wrist2.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 -0.0997" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/wrist2.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.3" />
+      <origin rpy="-1.570796326794897 0 0" xyz="0.0 0.01634 -0.0018" />
+      <inertia ixx="0.00135617" ixy="-2.74e-06" ixz="4.44e-06" iyy="0.00127827" iyz="-5.048e-05" izz="0.00096614" />
+    </inertial>
+  </link>
+  <link name="wrist_3_link">
+    <visual>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.0005 -0.0989" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/visual/wrist3.dae" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.0005 -0.0989" />
+      <geometry>
+        <mesh filename="package://ur_description/meshes/ur5e/collision/wrist3.stl" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.365" />
+      <origin rpy="0 0 0" xyz="0.0 0.0 -0.001159" />
+      <inertia ixx="0.00018694" ixy="6e-08" ixz="-1.7e-07" iyy="0.00018908" iyz="-9.2e-07" izz="0.00025756" />
+    </inertial>
+  </link>
+  <!-- base_joint fixes base_link to the environment -->
+  <joint name="base_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <parent link="world" />
+    <child link="base_link" />
+  </joint>
+  <!-- joints - main serial chain -->
+  <joint name="base_link-base_link_inertia" type="fixed">
+    <parent link="base_link" />
+    <child link="base_link_inertia" />
+    <!-- 'base_link' is REP-103 aligned (so X+ forward), while the internal
+           frames of the robot/controller have X+ pointing backwards.
+           Use the joint between 'base_link' and 'base_link_inertia' (a dummy
+           link/frame) to introduce the necessary rotation over Z (of pi rad).
+      -->
+    <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+  </joint>
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link_inertia" />
+    <child link="shoulder_link" />
+    <origin rpy="0 0 0" xyz="0 0 0.1625" />
+    <axis xyz="0 0 1" />
+    <limit effort="150.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link" />
+    <child link="upper_arm_link" />
+    <origin rpy="1.570796327 0 0" xyz="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="150.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link" />
+    <child link="forearm_link" />
+    <origin rpy="0 0 0" xyz="-0.425 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="150.0" lower="-3.141592653589793" upper="3.141592653589793" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link" />
+    <child link="wrist_1_link" />
+    <origin rpy="0 0 0" xyz="-0.3922 0 0.1333" />
+    <axis xyz="0 0 1" />
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <joint name="wrist_2_joint" type="revolute">
+    <parent link="wrist_1_link" />
+    <child link="wrist_2_link" />
+    <origin rpy="1.570796327 0 0" xyz="0 -0.0997 -2.044881182297852e-11" />
+    <axis xyz="0 0 1" />
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <joint name="wrist_3_joint" type="revolute">
+    <parent link="wrist_2_link" />
+    <child link="wrist_3_link" />
+    <origin rpy="1.570796326589793 3.141592653589793 3.141592653589793" xyz="0 0.0996 -2.042830148012698e-11" />
+    <axis xyz="0 0 1" />
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.141592653589793" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <link name="ft_frame" />
+  <joint name="wrist_3_link-ft_frame" type="fixed">
+    <parent link="wrist_3_link" />
+    <child link="ft_frame" />
+    <origin rpy="3.141592653589793 0 0" xyz="0 0 0" />
+  </joint>
+  <!-- ROS-Industrial 'base' frame - base_link to UR 'Base' Coordinates transform -->
+  <link name="base" />
+  <joint name="base_link-base_fixed_joint" type="fixed">
+    <!-- Note the rotation over Z of pi radians - as base_link is REP-103
+           aligned (i.e., has X+ forward, Y+ left and Z+ up), this is needed
+           to correctly align 'base' with the 'Base' coordinate system of
+           the UR controller.
+      -->
+    <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+    <parent link="base_link" />
+    <child link="base" />
+  </joint>
+  <!-- ROS-Industrial 'flange' frame - attachment point for EEF models -->
+  <link name="flange" />
+  <joint name="wrist_3-flange" type="fixed">
+    <parent link="wrist_3_link" />
+    <child link="flange" />
+    <origin rpy="0 -1.5707963267948966 -1.5707963267948966" xyz="0 0 0" />
+  </joint>
+  <!-- ROS-Industrial 'tool0' frame - all-zeros tool frame -->
+  <link name="tool0" />
+  <joint name="flange-tool0" type="fixed">
+    <!-- default toolframe - X+ left, Y+ up, Z+ front -->
+    <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0 0 0" />
+    <parent link="flange" />
+    <child link="tool0" />
+  </joint>
+  <link name="gripper_mount" />
+  <joint name="gripper_mount_fixed" type="fixed">
+    <parent link="tool0" />
+    <child link="gripper_mount" />
+    <origin xyz="0 0 0" rpy="0 -0 0" />
+  </joint>
+  <link name="rq_base_mount">
+    <inertial>
+      <origin xyz="-0.00036058359582141568 8.5362748009374276e-05 -5.9199141450506514e-05" rpy="0 -0 0" />
+      <mass value="0.15000285516377976" />
+      <inertia ixx="5.2172172532477442e-05" ixy="-2.1121394872370423e-09" ixz="-1.4277807079156417e-07" iyy="5.35996840947419e-05" iyz="-6.0105096182165307e-12" izz="0.00010234508271478067" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/base_mount.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.9815559743351372e-18 -6.7762635780344027e-19 4.3368086899420177e-19" rpy="-4.743384504624044e-20 1.1102230246251474e-16 0" />
+      <material name="rq_base_mount_31">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/base_mount.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.9815559743351372e-18 -6.7762635780344027e-19 4.3368086899420177e-19" rpy="-4.743384504624044e-20 1.1102230246251474e-16 0" />
+    </collision>
+  </link>
+  <joint name="rq_base_mount_fixed" type="fixed">
+    <parent link="gripper_mount" />
+    <child link="rq_base_mount" />
+    <origin xyz="-2.5556254568083123e-17 -1.3419410634451872e-17 0.006999999999999962" rpy="6.7762635780344102e-21 2.7105054312137647e-20 0" />
+  </joint>
+  <link name="rq_base">
+    <inertial>
+      <origin xyz="0 -2.7039400000000001e-05 0.035467499999999999" rpy="0 -0 0" />
+      <mass value="0.77744100000000005" />
+      <inertia ixx="0.00026028500000000013" ixy="0" ixz="0" iyy="0.00022538032086477923" iyz="-2.2215835046169693e-07" izz="0.00015270867913522087" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/base.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.9704669402545328e-23 6.7762635780344027e-21 -6.9388939039072284e-18" rpy="0 -0 0" />
+      <material name="rq_base_33">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/base.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.9704669402545328e-23 6.7762635780344027e-21 -6.9388939039072284e-18" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_base_fixed" type="fixed">
+    <parent link="rq_base_mount" />
+    <child link="rq_base" />
+    <origin xyz="3.5624088179147737e-18 -8.8725113038111859e-18 0.0038000000000000299" rpy="0 2.0328790734103232e-20 -1.5707963267948968" />
+  </joint>
+  <link name="rq_right_driver">
+    <inertial>
+      <origin xyz="2.96931e-12 0.017754700000000002 0.00107314" rpy="0 -0 0" />
+      <mass value="0.0089956299999999993" />
+      <inertia ixx="1.7235199999999992e-06" ixy="0" ixz="0" iyy="3.2861473913122463e-07" iyz="-9.1989829333980069e-08" izz="1.6024512608687745e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/driver.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-4.6448130099413175e-27 -4.8572257327350599e-17 -2.8189256484623115e-18" rpy="0 -0 0" />
+      <material name="rq_right_driver_35">
+        <color rgba="0.4627000093460083 0.4627000093460083 0.4627000093460083 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/driver.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-4.6448130099413175e-27 -4.8572257327350599e-17 -2.8189256484623115e-18" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_right_driver_fixed" type="fixed">
+    <parent link="rq_base" />
+    <child link="rq_right_driver" />
+    <origin xyz="4.2817515483704882e-19 0.030601099999999951 0.054903999999999946" rpy="0.35087263915601813 7.3590222457453706e-18 7.0098887479311332e-17" />
+  </joint>
+  <link name="rq_right_coupler">
+    <inertial>
+      <origin xyz="0 0.0030120899999999998 0.023217499999999999" rpy="0 -0 0" />
+      <mass value="0.0140974" />
+      <inertia ixx="3.5221600000000001e-06" ixy="0" ixz="0" iyy="4.1078478818582903e-06" iyz="-4.1778902807776345e-07" izz="9.4234311814171093e-07" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/coupler.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.3954390896237977e-23 -8.2399365108898337e-18 -6.2450045135165055e-17" rpy="0 -7.143227560914613e-18 -5.5049634068107655e-17" />
+      <material name="rq_right_coupler_37">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/coupler.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.3954390896237977e-23 -8.2399365108898337e-18 -6.2450045135165055e-17" rpy="0 -7.143227560914613e-18 -5.5049634068107655e-17" />
+    </collision>
+  </link>
+  <joint name="rq_right_coupler_fixed" type="fixed">
+    <parent link="rq_right_driver" />
+    <child link="rq_right_coupler" />
+    <origin xyz="-1.0157989680387993e-17 0.031499999999999945 -0.0040999999999999379" rpy="0.00010588551824832398 -2.9212472284906353e-17 -7.8425086520381271e-17" />
+  </joint>
+  <link name="rq_right_spring_link">
+    <inertial>
+      <origin xyz="-8.6500500000000008e-09 0.018162399999999999 0.021265800000000001" rpy="0 -0 0" />
+      <mass value="0.022164199999999998" />
+      <inertia ixx="6.7173299999999996e-06" ixy="0" ixz="0" iyy="6.2990617900030883e-06" iyz="-3.1256345051673169e-06" izz="5.3087782099969111e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/spring_link.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.6469779601696886e-23 -5.5511151231257827e-17 -6.591949208711867e-17" rpy="0 -0 0" />
+      <material name="rq_right_spring_link_39">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/spring_link.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.6469779601696886e-23 -5.5511151231257827e-17 -6.591949208711867e-17" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_right_spring_link_fixed" type="fixed">
+    <parent link="rq_base" />
+    <child link="rq_right_spring_link" />
+    <origin xyz="-6.8643550045488499e-18 0.013199999999999977 0.060899999999999933" rpy="0.35015338927760709 -2.0396553369883583e-17 5.9684805162818747e-17" />
+  </joint>
+  <link name="rq_right_follower">
+    <inertial>
+      <origin xyz="0 -0.011046 0.012478599999999999" rpy="0 -0 0" />
+      <mass value="0.012522200000000001" />
+      <inertia ixx="2.6741499999999992e-06" ixy="0" ixz="0" iyy="2.2614883459183195e-06" iyz="5.6799458403929762e-07" izz="7.9644265408167954e-07" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/follower.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+      <material name="rq_right_follower_41">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/follower.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_right_follower_fixed" type="fixed">
+    <parent link="rq_right_spring_link" />
+    <child link="rq_right_follower" />
+    <origin xyz="-1.6569023239478183e-17 0.051847399296970895 0.031925036889650281" rpy="-0.33624208488683244 -5.441339653161634e-17 -1.3861355368637746e-16" />
+  </joint>
+  <link name="rq_right_pad">
+    <inertial>
+      <origin xyz="0 -0.0025000000000000001 0.018499999999999999" rpy="0 -0 0" />
+      <mass value="0.0035000000000000001" />
+      <inertia ixx="3.6458299999999976e-07" ixy="0" ixz="0" iyy="4.7395799999999978e-07" iyz="0" izz="1.2395799999999995e-07" />
+    </inertial>
+    <collision>
+      <geometry>
+        <box size="0.021999999999999999 0.0080000000000000002 0.018749999999999999" />
+      </geometry>
+      <origin xyz="0 -0.0025999999999999999 0.028125000000000001" rpy="0 -0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <box size="0.021999999999999999 0.0080000000000000002 0.018749999999999999" />
+      </geometry>
+      <origin xyz="0 -0.0025999999999999999 0.0093749999999999997" rpy="0 -0 0" />
+    </collision>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/pad.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-5.2963073470648986e-34 6.5052130349130266e-18 -4.8572257327350599e-17" rpy="0 -0 0" />
+      <material name="rq_right_pad_45">
+        <color rgba="0.5 0.5 0.5 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="rq_right_pad_fixed" type="fixed">
+    <parent link="rq_right_follower" />
+    <child link="rq_right_pad" />
+    <origin xyz="-8.4121488969784736e-18 -0.018899999999999986 0.01351999999999995" rpy="0 -6.6407383064737253e-19 -8.1189166785508879e-18" />
+  </joint>
+  <link name="rq_right_silicone_pad">
+    <inertial>
+      <origin xyz="-4.761896082112331e-19 -0.0057999999523162798 0.018517375274782567" rpy="0 -0 0" />
+      <mass value="0.001302811839479651" />
+      <inertia ixx="1.4953600644593658e-07" ixy="0" ixz="0" iyy="2.0080432113253162e-07" iyz="0" izz="5.1824181005175281e-08" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/silicone_pad.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="1.2518544638517033e-33 1.5612511283791264e-17 -4.8572257327350599e-17" rpy="0 -0 0" />
+      <material name="rq_right_silicone_pad_46">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="rq_right_silicone_pad_fixed" type="fixed">
+    <parent link="rq_right_pad" />
+    <child link="rq_right_silicone_pad" />
+    <origin xyz="0 0 0" rpy="0 -6.6407383064737253e-19 -8.1189166785508879e-18" />
+  </joint>
+  <link name="rq_left_driver">
+    <inertial>
+      <origin xyz="0 0.017754700000000002 0.00107314" rpy="0 -0 0" />
+      <mass value="0.0089956299999999993" />
+      <inertia ixx="1.7235199999999992e-06" ixy="0" ixz="0" iyy="3.2861473913122463e-07" iyz="-9.1989829333980069e-08" izz="1.6024512608687745e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/driver.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-4.6448130099413175e-27 -4.8572257327350599e-17 -2.8189256484623115e-18" rpy="0 -0 0" />
+      <material name="rq_left_driver_47">
+        <color rgba="0.4627000093460083 0.4627000093460083 0.4627000093460083 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/driver.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-4.6448130099413175e-27 -4.8572257327350599e-17 -2.8189256484623115e-18" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_left_driver_fixed" type="fixed">
+    <parent link="rq_base" />
+    <child link="rq_left_driver" />
+    <origin xyz="-1.0586641291257873e-17 -0.030601099999999944 0.05490399999999987" rpy="0.35087263915608674 2.0396553369883577e-17 -3.1415926535897931" />
+  </joint>
+  <link name="rq_left_coupler">
+    <inertial>
+      <origin xyz="0 0.0030120899999999998 0.023217499999999999" rpy="0 -0 0" />
+      <mass value="0.0140974" />
+      <inertia ixx="3.5221600000000001e-06" ixy="0" ixz="0" iyy="4.1078478818582903e-06" iyz="-4.1778902807776345e-07" izz="9.4234311814171093e-07" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/coupler.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.3954390896237977e-23 -8.2399365108898337e-18 -6.2450045135165055e-17" rpy="0 -7.143227560914613e-18 -5.5049634068107655e-17" />
+      <material name="rq_left_coupler_49">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/coupler.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-3.3954390896237977e-23 -8.2399365108898337e-18 -6.2450045135165055e-17" rpy="0 -7.143227560914613e-18 -5.5049634068107655e-17" />
+    </collision>
+  </link>
+  <joint name="rq_left_coupler_fixed" type="fixed">
+    <parent link="rq_left_driver" />
+    <child link="rq_left_coupler" />
+    <origin xyz="-3.439244933428078e-18 0.0315 -0.0040999999999999735" rpy="0.00010588551830283591 6.1941825366812549e-17 1.0996012314665888e-16" />
+  </joint>
+  <link name="rq_left_spring_link">
+    <inertial>
+      <origin xyz="-8.6500500000000008e-09 0.018162399999999999 0.021265800000000001" rpy="0 -0 0" />
+      <mass value="0.022164199999999998" />
+      <inertia ixx="6.7173299999999996e-06" ixy="0" ixz="0" iyy="6.2990617900030883e-06" iyz="-3.1256345051673169e-06" izz="5.3087782099969111e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/spring_link.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.6469779601696886e-23 -5.5511151231257827e-17 -6.591949208711867e-17" rpy="0 -0 0" />
+      <material name="rq_left_spring_link_51">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/spring_link.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="2.6469779601696886e-23 -5.5511151231257827e-17 -6.591949208711867e-17" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_left_spring_link_fixed" type="fixed">
+    <parent link="rq_base" />
+    <child link="rq_left_spring_link" />
+    <origin xyz="-3.8709405689521525e-18 -0.0132 0.060899999999999885" rpy="0.35015338927751266 -7.3793510364794738e-18 3.1415926535897931" />
+  </joint>
+  <link name="rq_left_follower">
+    <inertial>
+      <origin xyz="0 -0.011046 0.012478599999999999" rpy="0 -0 0" />
+      <mass value="0.012522200000000001" />
+      <inertia ixx="2.6741499999999992e-06" ixy="0" ixz="0" iyy="2.2614883459183195e-06" iyz="5.6799458403929762e-07" izz="7.9644265408167954e-07" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/follower.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+      <material name="rq_left_follower_53">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/follower.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="rq_left_follower_fixed" type="fixed">
+    <parent link="rq_left_spring_link" />
+    <child link="rq_left_follower" />
+    <origin xyz="-9.8535342754092758e-18 0.051847399296970978 0.031925036889650385" rpy="-0.33624208488682944 -3.3271454168148944e-18 5.0933785184295625e-17" />
+  </joint>
+  <link name="rq_left_pad">
+    <inertial>
+      <origin xyz="0 -0.0025000000000000001 0.018499999999999999" rpy="0 -0 0" />
+      <mass value="0.0035000000000000001" />
+      <inertia ixx="3.6458299999999976e-07" ixy="0" ixz="0" iyy="4.7395799999999978e-07" iyz="0" izz="1.2395799999999995e-07" />
+    </inertial>
+    <collision>
+      <geometry>
+        <box size="0.021999999999999999 0.0080000000000000002 0.018749999999999999" />
+      </geometry>
+      <origin xyz="0 -0.0025999999999999999 0.028125000000000001" rpy="0 -0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <box size="0.021999999999999999 0.0080000000000000002 0.018749999999999999" />
+      </geometry>
+      <origin xyz="0 -0.0025999999999999999 0.0093749999999999997" rpy="0 -0 0" />
+    </collision>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/pad.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="-5.2963073470648986e-34 6.5052130349130266e-18 -4.8572257327350599e-17" rpy="0 -0 0" />
+      <material name="rq_left_pad_57">
+        <color rgba="0.5 0.5 0.5 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="rq_left_pad_fixed" type="fixed">
+    <parent link="rq_left_follower" />
+    <child link="rq_left_pad" />
+    <origin xyz="-4.9510663953789957e-18 -0.018899999999999976 0.013520000000000042" rpy="1.7347234759768079e-18 4.4723339615027077e-19 -1.9299116307597207e-18" />
+  </joint>
+  <link name="rq_left_silicone_pad">
+    <inertial>
+      <origin xyz="-4.761896082112331e-19 -0.0057999999523162798 0.018517375274782567" rpy="0 -0 0" />
+      <mass value="0.001302811839479651" />
+      <inertia ixx="1.4953600644593658e-07" ixy="0" ixz="0" iyy="2.0080432113253162e-07" iyz="0" izz="5.1824181005175281e-08" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://act_lab_tool_assets/silicone_pad.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <origin xyz="1.2518544638517033e-33 1.5612511283791264e-17 -4.8572257327350599e-17" rpy="0 -0 0" />
+      <material name="rq_left_silicone_pad_58">
+        <color rgba="0.14900000393390656 0.14900000393390656 0.14900000393390656 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="rq_left_silicone_pad_fixed" type="fixed">
+    <parent link="rq_left_pad" />
+    <child link="rq_left_silicone_pad" />
+    <origin xyz="0 0 0" rpy="1.7347234759768079e-18 4.4723339615027077e-19 -1.9299116307597207e-18" />
+  </joint>
+  <link name="wrist_camera_link">
+    <inertial>
+      <origin xyz="0 -0.0095999999999999992 -0.0051999999999999989" rpy="0 -0 0" />
+      <mass value="0.10000000000000001" />
+      <inertia ixx="3.7078333333333537e-05" ixy="-3.268947454459121e-22" ixz="1.1240224472857369e-21" iyy="1.642766666666675e-05" iyz="-7.4880000000000306e-06" izz="3.9997333333333541e-05" />
+    </inertial>
+    <collision>
+      <geometry>
+        <box size="0.042000000000000003 0.042000000000000003 0.023" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <box size="0.016 0.048000000000000001 0.0040000000000000001" />
+      </geometry>
+      <origin xyz="0 -0.024 -0.012999999999999999" rpy="0 -0 0" />
+    </collision>
+  </link>
+  <joint name="wrist_camera_link_fixed" type="fixed">
+    <parent link="gripper_mount" />
+    <child link="wrist_camera_link" />
+    <origin xyz="1.5697214578516694e-17 0.064999999999999919 0.024999999999999977" rpy="0.41887902047863906 -2.7105054312137641e-20 1.9719985803264199e-21" />
+  </joint>
+  <link name="wrist_camera_optical_frame" />
+  <joint name="wrist_camera_optical_frame_fixed" type="fixed">
+    <parent link="wrist_camera_link" />
+    <child link="wrist_camera_optical_frame" />
+    <origin xyz="-2.756584023544395e-17 -8.6736173798840355e-18 0.011499999999999944" rpy="-5.5511151231257876e-17 -0 2.7105054312137635e-20" />
+  </joint>
+  <link name="grasp_tcp" />
+  <joint name="grasp_tcp_fixed" type="fixed">
+    <parent link="rq_base" />
+    <child link="grasp_tcp" />
+    <origin xyz="0 0 0.14499999999999999" rpy="0 -0 1.5707963267948966" />
+  </joint>
+</robot>

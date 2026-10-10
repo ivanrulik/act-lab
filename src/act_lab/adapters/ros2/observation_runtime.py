@@ -18,12 +18,23 @@ from act_lab.adapters.ros2.observation_view import (
     marker_fields,
     scene_tf,
 )
+from act_lab.adapters.ros2.simulation import CONFIG
 
 
-def model_parameters() -> dict[str, Any]:
+def model_parameters(config_path: Path = CONFIG) -> dict[str, Any]:
     # Original root is preserved under frame_prefix; scene-to-UR mapping is Rz(pi).
+    description = Path("/opt/crisp/ur5e.urdf").read_text()
+    from act_lab.adapters.mujoco.config import SimulationConfig
+
+    config = SimulationConfig.load(config_path)
+    if config.model_id != "ur5e_educational_v1":
+        from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
+        from act_lab.adapters.mujoco.tool_description import compose_tool_urdf
+
+        with MujocoUR5eEnvironment(config) as env:
+            description = compose_tool_urdf(description, env._model)
     return {
-        "robot_description": Path("/opt/crisp/ur5e.urdf").read_text(),
+        "robot_description": description,
         "frame_prefix": "ur_model/",
         "use_sim_time": True,
         "publish_frequency": 50.0,
@@ -124,6 +135,26 @@ def observer_process(channel: Any, stop: Any, output: str) -> None:
                 stale_heartbeats += int(stale)
                 if current is not None and stale:
                     publish("poses", marker_fields(current, stale=True))
+                camera_health = []
+                if channel.camera is not None:
+                    captured = channel.camera.last_delivery_ns.value
+                    camera_stale = not captured or now - captured >= 100_000_000
+                    camera_health.append(
+                        dict(
+                            level=bytes([2 if camera_stale else 0]),
+                            name="act_lab_wrist_camera",
+                            hardware_id="simulation",
+                            message="STALE / renderer or source unavailable"
+                            if camera_stale
+                            else "live camera capture",
+                            values=[
+                                dict(
+                                    key="capture_age_ns",
+                                    value=str(now - captured if captured else -1),
+                                )
+                            ],
+                        )
+                    )
                 publish(
                     "health",
                     dict(
@@ -156,7 +187,8 @@ def observer_process(channel: Any, stop: Any, output: str) -> None:
                                         value=str(lost_events),
                                     ),
                                 ],
-                            )
+                            ),
+                            *camera_health,
                         ],
                     ),
                 )
@@ -183,7 +215,9 @@ def observer_process(channel: Any, stop: Any, output: str) -> None:
 
 
 class ViewerProcesses:
-    def __init__(self, output: Path, bridge: bool = True) -> None:
+    def __init__(
+        self, output: Path, bridge: bool = True, config_path: Path = CONFIG
+    ) -> None:
         import yaml  # type: ignore[import-untyped]
 
         output.mkdir(parents=True, exist_ok=True)
@@ -192,7 +226,11 @@ class ViewerProcesses:
         model_file = output / "view-model.yaml"
         model_file.write_text(
             yaml.safe_dump(
-                {"/act_lab/view/model": {"ros__parameters": model_parameters()}}
+                {
+                    "/act_lab/view/model": {
+                        "ros__parameters": model_parameters(config_path)
+                    }
+                }
             )
         )
         commands = [

@@ -76,6 +76,12 @@ def recording_robot(
     config = driver.simulation_config
     status = _git("status", "--porcelain")
     resolved: dict[str, Any] = {"simulation": asdict(config)}
+    if driver.environment.binding.adaptive_gripper:
+        resolved["model_identity"] = driver.environment.model_identity
+        resolved["scene_cameras"] = {
+            camera: driver.environment.camera_calibration(camera)
+            for camera in config.cameras
+        }
     if teleoperator is not None:
         resolved["teleoperation"] = asdict(teleoperator.config)
         resolved["acquisition"] = webcam_acquisition_provenance(args)
@@ -86,7 +92,9 @@ def recording_robot(
         git_dirty="unknown" if status is None else str(bool(status)).lower(),
         seed=seed,
         source=source,
-        robot_id="ur5e-parallel-gripper-v1",
+        robot_id=config.model_id
+        if driver.environment.binding.adaptive_gripper
+        else "ur5e-parallel-gripper-v1",
         task_id="pick-place-v1",
         camera_ids=config.cameras,
         operator=args.operator or "",
@@ -205,7 +213,5 @@ def recording_status(robot: SafeCartesianRobot) -> str:
                 "Recording stopped - further movement is NOT recorded.\n"
                 "Q: close viewer. Start a new session for another attempt."
             )
-        return (
-            "RECORDING ACTIVE\nF6: save success   F7: save failure   F8: discard"
-        )
+        return "RECORDING ACTIVE\nF6: save success   F7: save failure   F8: discard"
     return "RECORDING OFF"

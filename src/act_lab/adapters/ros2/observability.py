@@ -20,12 +20,14 @@ STALE_NS = 100_000_000
 class ObservationChannel:
     """One writer, one reader; a busy or dead reader never blocks the owner."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, camera: bool = False) -> None:
         context = mp.get_context("spawn")
         self.buffer = context.RawArray("B", MAX_OBSERVATION_BYTES)
         self.length = context.RawValue("i", 0)
         self.lock = context.Lock()
         self.dropped = context.RawValue("Q", 0)
+        self.last_delivery_ns = context.RawValue("Q", 0)
+        self.camera = ObservationChannel() if camera else None
 
     def offer(self, packet: dict[str, Any]) -> bool:
         data = json.dumps(packet, allow_nan=False, separators=(",", ":")).encode()
@@ -116,6 +118,7 @@ class ObservationCapture:
         observation: dict[str, Any] | None = None,
         residual_m: float = 0.0,
         residual_rad: float = 0.0,
+        tool_joints: dict[str, float] | None = None,
     ) -> None:
         if observation is not None:
             self.intent = observation
@@ -213,5 +216,6 @@ class ObservationCapture:
                     if source
                     else "",
                     approved=source.get("approved") if source else None,
+                    tool_joints=tool_joints or {},
                 )
             )

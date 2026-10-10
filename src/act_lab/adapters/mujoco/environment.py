@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass
-from importlib.resources import files
 from pathlib import Path
 from types import TracebackType
 
@@ -14,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from act_lab.adapters.mujoco.config import SimulationConfig
+from act_lab.adapters.mujoco.model_binding import MODELS, GripperBinding
 from act_lab.domain import Observation, PickPlaceTaskState, Pose, RobotState
 
 ARM_JOINTS = (
@@ -57,10 +57,8 @@ class MujocoUR5eEnvironment:
     """One isolated deterministic simulation instance."""
 
     def __init__(self, config: SimulationConfig) -> None:
-        scene = files("act_lab.adapters.mujoco").joinpath(
-            "assets", "ur5e", "act_lab_scene.xml"
-        )
-        self._model = mujoco.MjModel.from_xml_path(str(scene))
+        self.binding = MODELS[config.model_id]
+        self._model = mujoco.MjModel.from_xml_path(str(self.binding.scene_path))
         expected_timestep = 1.0 / config.physics_hz
         if not math.isclose(self._model.opt.timestep, expected_timestep):
             raise ValueError("configured physics_hz does not match the MJCF timestep")
@@ -72,13 +70,14 @@ class MujocoUR5eEnvironment:
         self._environment_steps = 0
         self._settled_steps = 0
         self._closed = False
+        self._model_identity: dict[str, object] | None = None
 
         self._arm_joint_ids = tuple(self._joint_id(name) for name in ARM_JOINTS)
         self._arm_actuator_ids = tuple(
             self._actuator_id(name) for name in ARM_ACTUATORS
         )
         self._gripper_actuator_id = self._actuator_id("gripper")
-        self._left_finger_joint_id = self._joint_id("left_finger_joint")
+        self.gripper = GripperBinding(self._model, self.binding)
         self._cube_joint_id = self._joint_id("cube_free_joint")
         self._end_effector_site_id = self._site_id("end_effector")
         self._camera_ids = {name: self._camera_id(name) for name in config.cameras}
@@ -118,8 +117,7 @@ class MujocoUR5eEnvironment:
             self._arm_joint_ids, self._config.home_joint_positions_rad, strict=True
         ):
             self._data.qpos[self._model.jnt_qposadr[joint_id]] = value
-        left_qpos_address = self._model.jnt_qposadr[self._left_finger_joint_id]
-        self._data.qpos[left_qpos_address] = 0.0
+        self.gripper.set_kinematic(self._data, 0.0)
 
         cube_qpos_address = self._model.jnt_qposadr[self._cube_joint_id]
         self._data.qpos[cube_qpos_address : cube_qpos_address + 7] = (
@@ -141,11 +139,16 @@ class MujocoUR5eEnvironment:
         for _ in range(self._config.substeps):
             mujoco.mj_step(self._model, self._data)
             self._physics_ticks += 1
+        if self.binding.adaptive_gripper:
+            # mj_step integrates qpos after computing derived poses. Refresh them
+            # so articulated feedback and camera pixels describe the same sample.
+            mujoco.mj_forward(self._model, self._data)
         self._environment_steps += 1
         self._update_settling_counter()
-        if not np.isfinite(self._data.qpos).all() or not np.isfinite(
-            self._data.qvel
-        ).all():
+        if (
+            not np.isfinite(self._data.qpos).all()
+            or not np.isfinite(self._data.qvel).all()
+        ):
             raise RuntimeError("MuJoCo produced non-finite state")
         return self.observe()
 
@@ -165,9 +168,6 @@ class MujocoUR5eEnvironment:
         mujoco.mju_mat2Quat(
             quaternion, self._data.site_xmat[self._end_effector_site_id]
         )
-        finger_qpos = self._data.qpos[
-            self._model.jnt_qposadr[self._left_finger_joint_id]
-        ]
         state = RobotState(
             timestamp_ns=timestamp_ns,
             joint_positions_rad=joint_positions,
@@ -186,7 +186,7 @@ class MujocoUR5eEnvironment:
                     float(quaternion[3]),
                 ),
             ),
-            gripper_position=float(np.clip(finger_qpos / 0.025, 0.0, 1.0)),
+            gripper_position=self.gripper.measured(self._data),
         )
         return Observation(
             timestamp_ns=timestamp_ns,
@@ -263,8 +263,7 @@ class MujocoUR5eEnvironment:
                 position_xyz_m=(
                     self._config.tray_center_xy_m[0],
                     self._config.tray_center_xy_m[1],
-                    self._config.tray_floor_top_z_m
-                    + self._config.cube_half_extent_m,
+                    self._config.tray_floor_top_z_m + self._config.cube_half_extent_m,
                 ),
                 quaternion_wxyz=(1.0, 0.0, 0.0, 0.0),
             ),
@@ -287,6 +286,81 @@ class MujocoUR5eEnvironment:
         self._renderer.update_scene(self._data, camera=camera)
         frame = self._renderer.render()
         return np.asarray(frame, dtype=np.uint8).copy()
+
+    @property
+    def model_identity(self) -> dict[str, object]:
+        if self._model_identity is None:
+            self._model_identity = self.binding.identity()
+        return dict(self._model_identity)
+
+    def camera_world_pose(self, camera: str) -> Pose:
+        """Optical pose (+Z forward, +X right, +Y down), copied from live state."""
+        camera_id = self._camera_ids[camera]
+        optical = self._data.cam_xmat[camera_id].reshape(3, 3) @ np.diag([1, -1, -1])
+        quaternion = np.empty(4)
+        mujoco.mju_mat2Quat(quaternion, optical.ravel())
+        return Pose(
+            "world",
+            (
+                float(self._data.cam_xpos[camera_id][0]),
+                float(self._data.cam_xpos[camera_id][1]),
+                float(self._data.cam_xpos[camera_id][2]),
+            ),
+            (
+                float(quaternion[0]),
+                float(quaternion[1]),
+                float(quaternion[2]),
+                float(quaternion[3]),
+            ),
+        )
+
+    def camera_calibration(self, camera: str) -> dict[str, object]:
+        """Synthetic pinhole profile with fixed extrinsics and explicit identity."""
+        import hashlib
+        import json
+
+        camera_id = self._camera_ids[camera]
+        width, height = self._config.render_width, self._config.render_height
+        focal = height / (
+            2 * math.tan(math.radians(self._model.cam_fovy[camera_id]) / 2)
+        )
+        body = int(self._model.cam_bodyid[camera_id])
+        rotation = np.empty(9)
+        mujoco.mju_quat2Mat(rotation, self._model.cam_quat[camera_id])
+        optical = rotation.reshape(3, 3) @ np.diag([1, -1, -1])
+        position = self._model.cam_pos[camera_id].copy()
+        # Collapse fixed mount ancestors; never include arm-dependent world FK.
+        while body and self._model.body(body).name != "gripper_mount":
+            mujoco.mju_quat2Mat(rotation, self._model.body_quat[body])
+            orientation = rotation.reshape(3, 3)
+            position = self._model.body_pos[body] + orientation @ position
+            optical = orientation @ optical
+            body = int(self._model.body_parentid[body])
+        quaternion = np.empty(4)
+        mujoco.mju_mat2Quat(quaternion, optical.ravel())
+        profile: dict[str, object] = dict(
+            schema_version=1,
+            camera_id=camera,
+            frame_id=f"act_lab_scene_{camera}_optical",
+            width=width,
+            height=height,
+            encoding="rgb8",
+            synthetic=True,
+            distortion_model="plumb_bob",
+            d=[0.0] * 5,
+            k=[focal, 0.0, width / 2, 0.0, focal, height / 2, 0.0, 0.0, 1.0],
+            extrinsics=dict(
+                parent_frame=self._model.body(body).name if body else "world",
+                position_xyz_m=position.tolist(),
+                quaternion_wxyz=quaternion.tolist(),
+            ),
+            acquisition_hz=self._config.environment_hz,
+            physical_device_emulation=False,
+        )
+        profile["sha256"] = hashlib.sha256(
+            json.dumps(profile, sort_keys=True, allow_nan=False).encode()
+        ).hexdigest()
+        return profile
 
     def launch_viewer(self, seed: int, *, max_steps: int | None = None) -> None:
         """Run a real-time passive viewer until its window closes."""
@@ -339,8 +413,8 @@ class MujocoUR5eEnvironment:
             self._arm_actuator_ids, targets.joint_positions_rad, strict=True
         ):
             self._data.ctrl[actuator_id] = value
-        self._data.ctrl[self._gripper_actuator_id] = (
-            targets.gripper_position * 0.025
+        self._data.ctrl[self._gripper_actuator_id] = self.gripper.control(
+            targets.gripper_position
         )
 
     def _update_settling_counter(self) -> None:
