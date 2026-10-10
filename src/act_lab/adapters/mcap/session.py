@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from act_lab import __version__
-from act_lab.adapters.mcap.recording import McapEpisodeSink
 from act_lab.application import SafeCartesianRobot
 from act_lab.application.recording import RecordingRobot
 from act_lab.domain.models import CameraFrame, Observation
@@ -71,6 +70,8 @@ def recording_robot(
     if args.record_dir is None:
         yield SafeCartesianRobot(driver, driver.limits)
         return
+    from act_lab.adapters.mcap.recording import McapEpisodeSink
+
     if args.outcome != "auto" and not args.reason:
         raise ValueError("an explicit --outcome requires --reason")
     config = driver.simulation_config

@@ -76,7 +76,7 @@ Ignored artifacts: `runs/render-gpu-smoke/`, `runs/render-gpu-loaded/`,
 
 The user's flange mounting concern is still open; this rendering change does
 not verify an adapter mating face or physical bolt pattern. See the
-[review notes](gripper-wrist-camera-review.md). Keep PR 22 in draft until that
-geometry review is resolved. NVENC/H.264 remains deferred: JPEG already lowers
+[review notes](gripper-wrist-camera-review.md). The user deferred Foxglove assembly appearance to a later follow-up; it is
+not a merge gate for PR 22. This does not establish physical mounting validity. NVENC/H.264 remains deferred: JPEG already lowers
 preview bandwidth roughly eighteen-fold at this resolution, without a video
 encoder/session dependency or inter-frame recovery semantics.

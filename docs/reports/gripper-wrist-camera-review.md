@@ -81,3 +81,63 @@ ADR 020 implements the researched GPU/JPEG path. GPU loaded viewing measured
 below 100 ms for accepted frames and camera-loss diagnostics remain independent.
 See [implementation evidence](wrist-rendering-implementation.md). Flange geometry
 review remains open; rendering acceptance does not resolve physical mounting.
+
+## Static flange mesh comparison — 2026-10-10
+
+Compared mount-local orthographic side/front/flange views from compiled MuJoCo
+visual triangles with the official pinned UR wrist DAE (including its embedded
+node transform) and the generated tool URDF. Original tool STL vertices were
+independently transformed through Pinocchio and URDF visual origins. Maximum
+tool visual bounding-extents discrepancy was 9.17e-8 m (under 0.1 micrometre).
+No tool mesh translation, scaling or rotation export error was found at home.
+The tool stays centered on the flange in both static mesh reconstructions.
+
+The Menagerie wrist visual ends 1.065 mm before the mount plane; the official
+UR wrist mesh reaches 0.035 mm beyond it. This is a small visual-seam difference,
+not evidence of a large displaced or flipped flange. The nominal arm tool0
+registration differs by 0.719 mm at home after the established Rz(pi) world
+mapping, consistent with the distinct nominal arm descriptions; the shared
+tool geometry was compared in mount coordinates rather than hiding this offset.
+
+A fresh Foxglove run was inspected with and without transform overlays. Dense
+axes and dark tool materials obscure the connection; their contribution to the
+appearance is an inference, not a verified Foxglove loader defect. Its current
+view still deserves clearer lighting/close-up acceptance. No geometry was
+changed to conceal the visual seam, and physical mating faces/adapter/bolt
+patterns remain unverified.
+
+Ignored evidence: `runs/check-flange.py`, `runs/flange-comparison/bounds.json`,
+MuJoCo and official-URDF side/front/flange PNGs, and `foxglove-live.png`.
+The official-URDF diagnostic PNGs use reconstructed mesh geometry rendered by
+MuJoCo; they are not screenshots of Foxglove's own mesh loader.
+
+## Live assembly follow-up
+
+User reports that Foxglove still appears incorrectly assembled. Static mesh
+reconstruction does not resolve this report. An isolated live DDS probe matched
+eight JointState/TF timestamps, each carrying fourteen measured joints. All
+thirty prefixed URDF link transforms agreed with independent Pinocchio FK to
+1e-8 m/rad; all eight installed tool STL assets matched source bytes exactly.
+Evidence: ignored `runs/check-viewer-transforms.py`,
+`runs/flange-dds-verification.json`, and `runs/flange-dds-verification.log`.
+
+Browser URL policy blocked the attempted live-panel inspection. Requested a
+close-up screenshot; client control mode, stored frame/joint overrides, mesh
+loading and reset-time behavior remain to be investigated. Do not describe
+Foxglove assembly as accepted or change simulator geometry to hide this issue.
+
+## User-directed deferral and CI fix
+
+The user explicitly deferred the Foxglove assembly appearance issue to a later
+follow-up. Preserve it as an open viewer acceptance item; do not claim that the
+appearance or physical mounting was validated. It is no longer a PR 22 merge
+gate. The separate hosted tooling failure imports MCAP while recording is
+disabled. Load the storage sink only after recording is requested, keeping the
+shared safety wrapper and optional ROS image dependency boundary intact.
+
+CI fix validation: the exact isolated-tooling expert command completed 20/20
+episodes with no MCAP package installed. Dev build, Ruff, mypy (68 files),
+doctor and pytest (307 passed; four existing optional skips) passed. Recording
+integration tests remain in the full suite, and a subprocess regression blocks
+MCAP/Protobuf imports while running a non-recording expert session. Evidence:
+ignored `runs/tooling-ci-expert-fixed.json` and `runs/mcap-lazy-*.log`.

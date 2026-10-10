@@ -218,3 +218,8 @@ encoder process and keyframe recovery. Raw acquisition remains authoritative.
 The separate preview profile hash identifies graphics quality; fresh source
 headers and independent 100 ms expiry survive rendering/encoding. NVENC video
 is deferred until bandwidth or resolution measurements justify its dependencies.
+
+Non-recording CLI sessions instantiate the shared safety controller without
+loading the MCAP sink or its serialization dependencies. The sink is loaded
+only after recording is requested; the isolated ROS/tooling images can run
+local expert qualification without acquiring storage framework dependencies.

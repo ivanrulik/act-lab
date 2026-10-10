@@ -324,6 +324,9 @@ local simulation workflows.
 ADR 020 adds explicit headless NVIDIA EGL and a quality-90 JPEG Foxglove
 preview. Local qualification measured 24.9 FPS on GPU and 24.8 FPS with the
 reduced-effects CPU viewer. Acquisition RGB and control freshness are unchanged.
-See [rendering evidence](reports/wrist-rendering-implementation.md). The flange
-geometry review remains open before tool-assembly acceptance. NVENC/video and
+See [rendering evidence](reports/wrist-rendering-implementation.md). The Foxglove
+assembly appearance review is deferred by user decision to a follow-up: inspect
+client mesh loading, frame/joint overrides and reset behavior. Static tool geometry
+and live DDS transforms match independently; interactive visual acceptance remains
+open and is not a merge gate for PR 22. NVENC/video and
 physical mounting validation remain deferred.

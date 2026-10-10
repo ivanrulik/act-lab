@@ -1,6 +1,6 @@
 # Articulated gripper and wrist camera — implementation plan
 
-Status: **Implemented in draft PR #22; GPU/JPEG follow-up locally qualified. Hosted CI and flange geometry review remain open.**
+Status: **Implemented in draft PR #22; GPU/JPEG follow-up locally qualified. Hosted CI remains open; Foxglove assembly appearance is deferred by user decision.**
 Branch: `feature/gripper-wrist-camera`.
 Inspected base: merged main `25c6e3220e6f4a7742a5cdb8fc83e91fe022a051`.
 Sequence: an intermediate upgrade after ROS observability, before PR 14 recording.
