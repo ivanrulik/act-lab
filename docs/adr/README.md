@@ -25,3 +25,6 @@ consequences, and status.
 
 - [ADR 017](017-read-only-ros-observability.md): optional bounded observational
   handoff, namespaced model and read-only RViz/Foxglove projections
+
+- [ADR 018](018-moving-watchdog-hold-damping.md): moving watchdog takeover
+  regression and revised bounded hold damping

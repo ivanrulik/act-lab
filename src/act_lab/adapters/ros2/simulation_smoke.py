@@ -562,7 +562,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 application_period_s=0.02,
                 task_ceiling_nm=5.0,
                 task_slew_nm_s=100.0,
-                hold_damping_nm_s_rad=[50.0, 50.0, 50.0, 10.0, 10.0, 10.0],
+                hold_damping_nm_s_rad=[30.0, 30.0, 30.0, 6.0, 6.0, 6.0],
                 hold_ceiling_nm=[150.0, 150.0, 150.0, 28.0, 28.0, 28.0],
                 watchdog_ns=100_000_000,
             ),

@@ -84,14 +84,16 @@ class MujocoEffortPlant(MujocoCartesianDriver):
         if self.mode == "ENABLED":
             self._hold_joints = self.observe().robot.joint_positions_rad
         self._restore_servos()
-        # Use position gains with explicit hold damping: 50 Nm s/rad for
-        # proximal joints, 10 for wrists. One bounded PD actuator owns each
+        # Use position gains with explicit hold damping: 30 Nm s/rad for
+        # proximal joints, 6 for wrists. The previous 50/10 gains exceeded
+        # the measured acceleration ceiling on a moving watchdog takeover.
+        # One bounded PD actuator owns each
         # joint; the second servo cannot add unbounded braking effort.
         for primary, velocity in zip(
             self._arm_ids, self._velocity_actuator_ids, strict=True
         ):
             self._model.actuator_biasprm[primary, 2] = (
-                -10.0 if primary in self._arm_ids[3:] else -50.0
+                -6.0 if primary in self._arm_ids[3:] else -30.0
             )
             self._model.actuator_gainprm[velocity] = 0.0
             self._model.actuator_biasprm[velocity] = 0.0

@@ -49,6 +49,9 @@ as executable authorization.
 
 Task effort is +/-5 Nm, slew 100 Nm/s. Fault transfer overrides task slew.
 Hold actuator ceilings are +/-150/28 Nm, separate from body gravity compensation.
+ADR 018 revises hold damping to 30 Nm s/rad for proximal joints and 6 for wrists
+after a moving watchdog takeover exceeded the unchanged acceleration bound.
+The saved pre-timeout state is a deterministic ROS-free regression fixture.
 The ROS container also drives the scripted grasp and lift through DDS/CRISP,
 then verifies loaded hold and fresh-command resume. The ROS-free fixture prepares
 a grasp with the unchanged local driver before testing effort-to-hold transfer. Every motion claim must identify
