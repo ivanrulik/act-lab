@@ -55,6 +55,17 @@ def convert_episodes(
     if stage.exists():
         raise FileExistsError(f"partial conversion already exists: {stage}")
     converted = [resample_episode(episode, fps) for episode in episodes]
+    from act_lab.application.model_compatibility import model_contract
+
+    contracts = [
+        model_contract(json.loads(str(e.provenance.get("resolved_config_json", "{}"))))
+        for e in episodes
+    ]
+    if any(contract != contracts[0] for contract in contracts):
+        raise ValueError(
+            "episodes have incompatible model/camera calibration identities"
+        )
+    lineage["model_contract"] = contracts[0]
     if any(not episode.samples for episode in converted):
         raise ValueError("resampling produced an empty episode")
     first = converted[0].samples[0]
@@ -111,7 +122,9 @@ def convert_episodes(
         repo_id=repo_id,
         fps=fps,
         root=stage,
-        robot_type="ur5e-parallel-gripper-v1",
+        robot_type=contracts[0]["model_id"]
+        if contracts[0]
+        else "ur5e-parallel-gripper-v1",
         features=features,
         use_videos=False,
     )

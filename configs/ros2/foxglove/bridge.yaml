@@ -13,5 +13,6 @@
     param_whitelist: ['^$']
     asset_uri_allowlist:
       - '^package://ur_description/meshes/ur5e/(visual|collision)/[A-Za-z0-9_./-]+\.(dae|stl|png)$'
+      - '^package://act_lab_tool_assets/(base|base_mount|coupler|driver|follower|pad|silicone_pad|spring_link)\.stl$'
     num_threads: 2
     max_qos_depth: 10

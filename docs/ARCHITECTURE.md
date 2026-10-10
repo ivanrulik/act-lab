@@ -168,3 +168,58 @@ authority. Official UR FK uses `ur_model/` frames while `act_lab_scene_tip` reta
 the measured MuJoCo pose. See [ADR 017](adr/017-read-only-ros-observability.md) and
 the [observability contract](contracts/ros2-observability.md) for freshness, loss,
 restricted bridge access and the dedicated safety review.
+
+## Optional articulated tool and wrist acquisition
+
+The explicit `ur5e_2f85_d405_v1` binding selects assembled MJCF, calibrated jaw
+actuation, TCP offset and camera identities. The default educational scene is
+unchanged. Both remain local simulation adapters around the same safety ports.
+The articulated URDF uses eight measured passive joints; a rigid nominal 50 mm
+payload URDF preserves CRISP's six effort interfaces. The tool-specific CRISP
+configuration uses 1000 N/m translational stiffness, with the existing rotational
+gains and torque/acceleration ceilings. Its loaded reference trajectory closes
+at 0.1 normalized aperture/s; faster closure can trigger the contact guard.
+
+A separate renderer receives full primitive simulator state through its own
+bounded latest-state channel. It runs forward kinematics without stepping
+physics and publishes typed capture identity plus standard RGB/CameraInfo/TF.
+The independent observer expires camera health on original steady capture age.
+A viewer cannot grant motion authority or select recorded training frames.
+
+Local recordings retain synchronized RGB and model/calibration hashes. Conversion
+rejects mixed identities; training exports that contract with saved checkpoints.
+Evaluation checks it before loading ACT and disables required-image input at
+100 ms. MCAP acquisition, conversion and learning require no ROS types.
+
+### Added dependency rationale
+
+The existing pinned Menagerie model supplies articulated contact geometry under
+retained BSD-2-Clause notices. No new Python framework is required. The optional
+`act_lab_tool_assets` ament package installs only the eight audited tool meshes
+for restricted Foxglove asset retrieval. `sensor_msgs` provides standard RGB and
+calibration projections, and Mesa/EGL in the optional observability image
+supports headless software rendering. No RealSense SDK, physical gripper driver,
+Gazebo, RViz or training framework is added to the ROS runtime. ADR 020 adds
+explicit GPU access only through the optional `tooling-gpu` profile.
+Official UR description remains pinned and its BSD-3-Clause source notice is
+retained beside the generated descriptions; upstream package-specific asset
+licenses remain with the installed upstream package.
+
+### GPU and compressed preview (ADR 020)
+
+The optional `tooling-gpu` profile reserves one NVIDIA GPU for headless OpenGL,
+using graphics/utility capabilities and verified EGL identity. It extends the
+viewer runtime only; CPU physics/control and ROS-free acquisition/learning keep
+their existing paths. CPU CI retains explicit low-cost software rendering.
+
+The JPEG preview adds Ubuntu `python3-pil` to the optional viewer image for lazy
+RGB encoding. Standard sensor_msgs/CompressedImage avoids a custom video schema,
+encoder process and keyframe recovery. Raw acquisition remains authoritative.
+The separate preview profile hash identifies graphics quality; fresh source
+headers and independent 100 ms expiry survive rendering/encoding. NVENC video
+is deferred until bandwidth or resolution measurements justify its dependencies.
+
+Non-recording CLI sessions instantiate the shared safety controller without
+loading the MCAP sink or its serialization dependencies. The sink is loaded
+only after recording is requested; the isolated ROS/tooling images can run
+local expert qualification without acquiring storage framework dependencies.

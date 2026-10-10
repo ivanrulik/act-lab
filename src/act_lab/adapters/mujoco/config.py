@@ -56,6 +56,7 @@ class ExpertConfig:
     open_dwell_steps: int
     open_gripper: float
     closed_gripper: float
+    open_gripper_tolerance: float = 0.42
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +82,7 @@ class SimulationConfig:
     control: CartesianControlConfig
     keyboard: KeyboardConfig
     expert: ExpertConfig
+    model_id: str = "ur5e_educational_v1"
 
     @property
     def substeps(self) -> int:
@@ -172,9 +174,7 @@ class SimulationConfig:
                 ),
             ),
             keyboard=KeyboardConfig(
-                translation_nudge_m=_positive_float(
-                    keyboard, "translation_nudge_m"
-                ),
+                translation_nudge_m=_positive_float(keyboard, "translation_nudge_m"),
                 gripper_nudge=_positive_float(keyboard, "gripper_nudge"),
                 translation_speed_m_s=_positive_float(
                     keyboard, "translation_speed_m_s"
@@ -182,21 +182,13 @@ class SimulationConfig:
                 gripper_speed_s=_positive_float(keyboard, "gripper_speed_s"),
             ),
             expert=ExpertConfig(
-                approach_clearance_m=_positive_float(
-                    expert, "approach_clearance_m"
-                ),
-                transit_clearance_m=_nonnegative_float(
-                    expert, "transit_clearance_m"
-                ),
-                retreat_clearance_m=_positive_float(
-                    expert, "retreat_clearance_m"
-                ),
+                approach_clearance_m=_positive_float(expert, "approach_clearance_m"),
+                transit_clearance_m=_nonnegative_float(expert, "transit_clearance_m"),
+                retreat_clearance_m=_positive_float(expert, "retreat_clearance_m"),
                 tool_to_cube_offset_m=_nonnegative_float(
                     expert, "tool_to_cube_offset_m"
                 ),
-                position_tolerance_m=_positive_float(
-                    expert, "position_tolerance_m"
-                ),
+                position_tolerance_m=_positive_float(expert, "position_tolerance_m"),
                 grasp_position_tolerance_m=_positive_float(
                     expert, "grasp_position_tolerance_m"
                 ),
@@ -205,16 +197,28 @@ class SimulationConfig:
                 open_dwell_steps=_positive_int(expert, "open_dwell_steps"),
                 open_gripper=_unit_float(expert, "open_gripper"),
                 closed_gripper=_unit_float(expert, "closed_gripper"),
+                open_gripper_tolerance=_positive_float(
+                    {
+                        "open_gripper_tolerance": expert.get(
+                            "open_gripper_tolerance", expert["gripper_tolerance"]
+                        )
+                    },
+                    "open_gripper_tolerance",
+                ),
             ),
+            model_id=robot.get("model_id", "ur5e_educational_v1"),
         )
         config._validate()
         return config
 
     def _validate(self) -> None:
+        if not isinstance(self.model_id, str) or self.model_id not in {
+            "ur5e_educational_v1",
+            "ur5e_2f85_d405_v1",
+        }:
+            raise ValueError(f"unsupported model_id: {self.model_id!r}")
         if self.physics_hz % self.environment_hz != 0:
-            raise ValueError(
-                "physics_hz must be an integer multiple of environment_hz"
-            )
+            raise ValueError("physics_hz must be an integer multiple of environment_hz")
         if 1_000_000_000 % self.physics_hz != 0:
             raise ValueError(
                 "physics_hz must divide one billion for integer timestamps"
@@ -234,7 +238,7 @@ class SimulationConfig:
             raise ValueError(
                 "command translation velocity must not exceed the measured ceiling"
             )
-        if self.expert.gripper_tolerance > 1.0:
+        if max(self.expert.gripper_tolerance, self.expert.open_gripper_tolerance) > 1.0:
             raise ValueError("gripper_tolerance must be at most 1")
         if self.expert.closed_gripper >= self.expert.open_gripper:
             raise ValueError("closed_gripper must be less than open_gripper")
@@ -296,9 +300,7 @@ def _unit_float(table: dict[str, Any], name: str) -> float:
     return value
 
 
-def _float_tuple(
-    table: dict[str, Any], name: str, length: int
-) -> tuple[float, ...]:
+def _float_tuple(table: dict[str, Any], name: str, length: int) -> tuple[float, ...]:
     value = table.get(name)
     if not isinstance(value, list) or len(value) != length:
         raise ValueError(f"{name} must contain exactly {length} values")

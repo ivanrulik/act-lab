@@ -26,3 +26,32 @@ def test_missing_ros_simulation_has_actionable_profile_hint(tmp_path):
 
     with pytest.raises(RuntimeError, match="profile ros2-simulation"):
         MotionSession(tmp_path)
+
+
+def test_nonrecording_expert_runs_without_storage_dependencies(tmp_path):
+    from pathlib import Path
+
+    config = tmp_path / "short.toml"
+    config.write_text(
+        Path("configs/sim/ur5e_pick_place.toml")
+        .read_text()
+        .replace("episode_steps = 500", "episode_steps = 3")
+    )
+    script = """
+import importlib.abc
+import sys
+
+class NoStorage(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "mcap" or fullname.startswith("mcap."):
+            raise ImportError("MCAP unavailable")
+        if fullname == "google.protobuf" or fullname.startswith("google.protobuf."):
+            raise ImportError("Protobuf unavailable")
+
+sys.meta_path.insert(0, NoStorage())
+from act_lab.cli import main
+assert main(["sim", "expert", "--config", sys.argv[1], "--episodes", "1",
+             "--min-success-rate", "0", "--json"]) == 0
+assert "act_lab.adapters.mcap.recording" not in sys.modules
+"""
+    subprocess.run([sys.executable, "-c", script, str(config)], check=True)

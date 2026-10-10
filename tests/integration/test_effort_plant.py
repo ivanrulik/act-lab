@@ -70,6 +70,50 @@ def test_nonfinite_output_inhibits_and_actuators_are_exclusive(plant) -> None:
     assert sample.accepted_gripper == 0.2
 
 
+def test_moving_watchdog_takeover_respects_measured_acceleration(plant) -> None:
+    """Reproduce main CI's pre-timeout state, independently of wall scheduling."""
+    import mujoco
+
+    positions = (
+        -0.03605151722179273,
+        -1.735067956065026,
+        -0.6191591523264554,
+        -2.3590075411456244,
+        1.5708396400579854,
+        4.67633042035226,
+    )
+    velocities = (
+        0.0004736242628733745,
+        0.020494280893616757,
+        -0.03502750624707234,
+        0.01641820344541701,
+        -9.111772623747803e-05,
+        0.00047091500638239697,
+    )
+    plant.enable(0.0)
+    for joint, position, velocity in zip(
+        plant.environment._arm_joint_ids, positions, velocities, strict=True
+    ):
+        plant._data.qpos[plant._model.jnt_qposadr[joint]] = position
+        plant._data.qvel[plant._model.jnt_dofadr[joint]] = velocity
+    mujoco.mj_forward(plant._model, plant._data)
+    before = plant.observe().robot.end_effector_pose
+    plant.hold("gateway_wall_timeout")
+    for _ in range(500):
+        sample = plant.tick()
+        assert sample.maximum_joint_acceleration_rad_s2 <= 4.0
+        assert sample.cartesian_acceleration_m_s2 <= 1.0
+        assert sample.angular_acceleration_rad_s2 <= 4.0
+        assert not any(sample.task_effort_nm)
+        assert (
+            math.dist(
+                before.position_xyz_m, sample.state.end_effector_pose.position_xyz_m
+            )
+            < 0.002
+        )
+    assert max(abs(v) for v in sample.state.joint_velocities_rad_s) < 0.01
+
+
 def test_loaded_gripper_hold_after_effort_transition(plant) -> None:
     from act_lab.application import SafeCartesianRobot
     from act_lab.application.scripted_expert import ExpertPhase, ScriptedPickPlaceExpert

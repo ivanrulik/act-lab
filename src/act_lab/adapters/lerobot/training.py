@@ -150,6 +150,15 @@ def train_act(
     try:
         with redirect_stderr(stream):
             train(cfg)
+        # Export the immutable acquisition contract with every saved checkpoint.
+        from act_lab.application.model_compatibility import CONTRACT_FILE
+
+        lineage = json.loads((Path(dataset.path) / "act_lab_lineage.json").read_text())
+        contract = lineage.get("model_contract")
+        for model_dir in (framework_dir / "checkpoints").glob("*/pretrained_model"):
+            (model_dir / CONTRACT_FILE).write_text(
+                json.dumps(contract, indent=2, sort_keys=True) + "\n"
+            )
     finally:
         stream.close()
 

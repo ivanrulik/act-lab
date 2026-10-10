@@ -131,3 +131,37 @@ jobs:
           path: |
             runs/ros2-observability*/
             ros2-observability.json
+
+  tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build articulated tool and isolated software renderer
+        run: docker compose --profile tooling build tooling
+      - name: Required assembled FK, loaded contact and generated image DDS tests
+        run: >-
+          docker compose --profile tooling run --rm --user "$(id -u):$(id -g)" tooling
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider'
+          tests/ros2_observability/test_tool_frames.py
+          tests/ros2_observability/test_wrist_camera.py
+      - name: Verify generated assembly and seeded local reachability
+        run: |
+          docker compose --profile tooling run --rm tooling python scripts/assemble-tool-model.py --check
+          docker compose --profile tooling run --rm tooling act-lab sim expert --config configs/sim/ur5e_2f85_d405.toml --episodes 20 --json > tooling-expert.json
+      - name: Qualify controller with tool payload and loaded faults
+        run: >-
+          docker compose --profile tooling run --rm --user "$(id -u):$(id -g)" tooling
+          act-lab ros2 simulation-smoke --config configs/sim/ur5e_2f85_d405.toml
+          --output runs/tooling-motion --json > tooling-motion.json
+      - name: Qualify camera projection and restricted assets
+        run: >-
+          docker compose --profile tooling run --rm --user "$(id -u):$(id -g)" tooling
+          act-lab ros2 observability-smoke --config configs/sim/ur5e_2f85_d405.toml
+          --output runs/tooling-observability --json > tooling-observability.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tooling-evidence
+          path: |
+            runs/tooling-*/
+            tooling-*.json

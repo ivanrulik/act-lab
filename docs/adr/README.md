@@ -25,3 +25,11 @@ consequences, and status.
 
 - [ADR 017](017-read-only-ros-observability.md): optional bounded observational
   handoff, namespaced model and read-only RViz/Foxglove projections
+
+- [ADR 018](018-moving-watchdog-hold-damping.md): moving watchdog takeover
+  regression and revised bounded hold damping
+
+- [ADR 019](019-articulated-tool-and-wrist-rgb.md): explicit articulated tool,
+  synthetic wrist RGB, process isolation and learning compatibility
+- [ADR 020](020-gpu-viewer-and-compressed-preview.md): explicit GPU viewing,
+  JPEG transport and an independently identified software preview profile.

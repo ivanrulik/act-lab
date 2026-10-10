@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.16)
+project(act_lab_tool_assets)
+find_package(ament_cmake REQUIRED)
+# Docker copies the same audited repository assets here; source colcon builds
+# resolve the repository originals without duplicating binary meshes in Git.
+set(asset_dir "${CMAKE_CURRENT_SOURCE_DIR}/meshes")
+if(NOT EXISTS "${asset_dir}")
+  set(asset_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../src/act_lab/adapters/mujoco/assets/robotiq_2f85/assets")
+endif()
+if(NOT EXISTS "${asset_dir}/base.stl")
+  message(FATAL_ERROR "Pinned Robotiq meshes are missing")
+endif()
+install(DIRECTORY "${asset_dir}/" DESTINATION "share/${PROJECT_NAME}")
+install(FILES LICENSE DESTINATION "share/${PROJECT_NAME}")
+ament_package()

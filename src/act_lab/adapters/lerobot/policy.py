@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from act_lab.application.model_compatibility import CONTRACT_FILE, require_compatible
 from act_lab.domain import Action, Observation, Pose
 
 
@@ -26,7 +28,20 @@ class LeRobotACTPolicy:
         device: str,
         cameras: tuple[str, ...],
         n_action_steps: int = 1,
+        model_contract: dict[str, Any] | None = None,
     ) -> None:
+        model_path = (
+            checkpoint / "pretrained_model"
+            if (checkpoint / "pretrained_model").is_dir()
+            else checkpoint
+        )
+        contract_path = model_path / CONTRACT_FILE
+        recorded = (
+            json.loads(contract_path.read_text()) if contract_path.is_file() else None
+        )
+        require_compatible(model_contract, recorded)
+        self._model_contract = model_contract
+        self.input_rejection: str | None = None
         try:
             torch = import_module("torch")
             act_module = import_module("lerobot.policies.act.modeling_act")
@@ -58,9 +73,7 @@ class LeRobotACTPolicy:
             policy_factory.make_pre_post_processors(
                 self._policy.config,
                 pretrained_path=str(model_path),
-                preprocessor_overrides={
-                    "device_processor": {"device": device}
-                },
+                preprocessor_overrides={"device_processor": {"device": device}},
                 postprocessor_overrides={"device_processor": {"device": device}},
             )
         )
@@ -73,8 +86,32 @@ class LeRobotACTPolicy:
         self._policy.reset()
 
     def act(
-        self, observation: Observation, images: dict[str, NDArray[np.uint8]]
+        self,
+        observation: Observation,
+        images: dict[str, NDArray[np.uint8]],
+        *,
+        capture_timestamp_ns: int | None = None,
     ) -> Action:
+        self.input_rejection = None
+        if self._model_contract is not None:
+            if type(capture_timestamp_ns) is not int:
+                self.input_rejection = "missing_camera_timestamp"
+            elif not 0 <= observation.timestamp_ns - capture_timestamp_ns < 100_000_000:
+                self.input_rejection = "stale_or_future_camera"
+            elif any(
+                camera not in images
+                or list(images[camera].shape) != profile["shape"]
+                or images[camera].dtype != np.uint8
+                for camera, profile in self._model_contract["cameras"].items()
+            ):
+                self.input_rejection = "missing_or_mismatched_camera"
+            if self.input_rejection:
+                return Action(
+                    observation.timestamp_ns,
+                    observation.robot.end_effector_pose,
+                    observation.robot.gripper_position,
+                    False,
+                )
         torch = self._torch
         state = observation.robot
         inputs: dict[str, Any] = {

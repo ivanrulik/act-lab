@@ -296,6 +296,9 @@ def build_parser() -> argparse.ArgumentParser:
     motion.add_argument("--output", type=Path, default=Path("runs/ros2-simulation"))
     motion.add_argument("--json", action="store_true")
     motion.add_argument(
+        "--config", type=Path, default=Path("configs/sim/ur5e_pick_place.toml")
+    )
+    motion.add_argument(
         "--paced", action="store_true", help="Pace owner ticks with a steady clock"
     )
     for name in ("observability-demo", "observability-smoke"):
@@ -307,6 +310,9 @@ def build_parser() -> argparse.ArgumentParser:
             "--duration", type=float, default=30.0 if name.endswith("demo") else 4.0
         )
         observe.add_argument("--seed", type=int, default=0)
+        observe.add_argument(
+            "--config", type=Path, default=Path("configs/sim/ur5e_pick_place.toml")
+        )
         observe.add_argument("--stepped", action="store_true")
         observe.add_argument("--json", action="store_true")
     crisp = ros_commands.add_parser(
@@ -835,11 +841,27 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 f"simulation environment_hz ({config.environment_hz})"
             )
         policy_stride = config.environment_hz // policy_hz
+        from dataclasses import asdict
+
+        from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
+        from act_lab.application.model_compatibility import model_contract
+
+        with MujocoUR5eEnvironment.from_config_file(args.config) as identity_env:
+            identity = model_contract(
+                dict(
+                    simulation=asdict(config),
+                    model_identity=identity_env.model_identity,
+                    scene_cameras={
+                        c: identity_env.camera_calibration(c) for c in config.cameras
+                    },
+                )
+            )
         learned = LeRobotACTPolicy(
             args.checkpoint,
             args.device,
             config.cameras,
             n_action_steps=1,
+            model_contract=identity,
         )
         args.output.mkdir(parents=True, exist_ok=True)
         all_results: dict[str, Any] = {}
@@ -861,6 +883,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 failure = None
                 completed_steps = 0
                 held_action = None
+                held_capture_ns = None
                 try:
                     with MujocoCartesianDriver.from_config_file(args.config) as driver:
                         robot = SafeCartesianRobot(driver, driver.limits)
@@ -897,12 +920,14 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                             if policy_name == "expert":
                                 action = expert.poll(observation)
                             elif step_index % policy_stride == 0:
+                                held_capture_ns = observation.timestamp_ns
                                 held_action = learned.act(
                                     observation,
                                     {
                                         camera: driver.environment.render(camera)
                                         for camera in config.cameras
                                     },
+                                    capture_timestamp_ns=observation.timestamp_ns,
                                 )
                                 action = held_action
                             elif held_action is not None:
@@ -912,7 +937,16 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                     timestamp_ns=observation.timestamp_ns,
                                     target_pose=held_action.target_pose,
                                     gripper_position=held_action.gripper_position,
-                                    enabled=held_action.enabled,
+                                    enabled=held_action.enabled
+                                    and (
+                                        identity is None
+                                        or (
+                                            held_capture_ns is not None
+                                            and observation.timestamp_ns
+                                            - held_capture_ns
+                                            < 100_000_000
+                                        )
+                                    ),
                                 )
                             else:
                                 raise RuntimeError("ACT has no action to hold")
@@ -1338,6 +1372,9 @@ def _train_act(args: argparse.Namespace) -> int:
             "configuration": config.to_dict(),
             "config_source": str(args.config.resolve()),
             "dataset": dataset.to_dict(),
+            "model_contract": json.loads(
+                (args.dataset / "act_lab_lineage.json").read_text()
+            ).get("model_contract"),
             "git": git_identity(Path.cwd()),
             "environment": environment_identity(),
             "reproducibility_note": (
@@ -1494,11 +1531,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.seed,
                     paced=not args.stepped,
                     smoke=args.ros2_command.endswith("smoke"),
+                    config_path=args.config,
                 )
             elif args.ros2_command == "simulation-smoke":
                 from act_lab.adapters.ros2.simulation_smoke import run_motion
 
-                result = run_motion(args.output, paced=args.paced)
+                result = run_motion(
+                    args.output, paced=args.paced, config_path=args.config
+                )
             elif args.ros2_command == "crisp-feasibility":
                 from act_lab.adapters.ros2.crisp import run_feasibility
 

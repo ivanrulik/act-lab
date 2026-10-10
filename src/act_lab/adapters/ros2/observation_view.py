@@ -21,12 +21,13 @@ def joint_fields(packet: dict[str, Any]) -> dict[str, Any]:
     state = packet["state"]
     if tuple(state["joint_names"]) != JOINT_NAMES:
         raise ValueError("observational joint order must be canonical")
+    tool = packet.get("tool_joints", {})
     return dict(
         header=state["header"],
-        name=list(JOINT_NAMES),
-        position=state["joint_positions_rad"],
-        velocity=state["joint_velocities_rad_s"],
-        effort=packet["telemetry"]["total_effort_nm"],
+        name=[*JOINT_NAMES, *tool],
+        position=[*state["joint_positions_rad"], *tool.values()],
+        velocity=[] if tool else state["joint_velocities_rad_s"],
+        effort=[] if tool else packet["telemetry"]["total_effort_nm"],
     )
 
 

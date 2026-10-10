@@ -5,10 +5,12 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
     ros-jazzy-foxglove-bridge=${FOXGLOVE_BRIDGE_VERSION} \
     ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros \
     ros-jazzy-visualization-msgs ros-jazzy-diagnostic-msgs python3-websocket \
+    libegl1 libgl1 libgl1-mesa-dri python3-pil \
     && rm -rf /var/lib/apt/lists/*
 COPY scripts/ros2-observability-entrypoint.sh /usr/local/bin/ros2-observability-entrypoint
 RUN chmod 0755 /usr/local/bin/ros2-observability-entrypoint \
     && dpkg-query -W > /opt/observability-packages.txt
 USER 1000:1000
+ENV MUJOCO_GL=egl LIBGL_ALWAYS_SOFTWARE=1 ACT_LAB_RENDERER=software
 ENTRYPOINT ["/usr/local/bin/ros2-observability-entrypoint"]
 CMD ["act-lab", "ros2", "observability-demo", "--duration", "120", "--json"]

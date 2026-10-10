@@ -11,6 +11,29 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  tooling-gpu:
+    extends:
+      service: tooling
+    profiles: ["tooling-gpu"]
+    gpus:
+      - driver: nvidia
+        count: 1
+    environment:
+      ACT_LAB_RENDERER: nvidia
+      LIBGL_ALWAYS_SOFTWARE: "0"
+      NVIDIA_DRIVER_CAPABILITIES: graphics,utility
+    command: >-
+      act-lab ros2 observability-demo --config configs/sim/ur5e_2f85_d405.toml
+      --output runs/tooling-gpu-live --duration 120 --json
+
+  tooling:
+    extends:
+      service: ros2-observability
+    profiles: ["tooling"]
+    command: >-
+      act-lab ros2 observability-demo --config configs/sim/ur5e_2f85_d405.toml
+      --output runs/tooling-live --duration 120 --json
+
   ros2-observability:
     build:
       context: .
@@ -37,7 +60,7 @@ services:
       dockerfile: Dockerfile.ros2-simulation
       additional_contexts:
         crisp_base: service:crisp-feasibility
-    profiles: ["ros2-simulation", "ros2-observability"]
+    profiles: ["ros2-simulation", "ros2-observability", "tooling", "tooling-gpu"]
     working_dir: /workspace
     init: true
     volumes:
@@ -51,7 +74,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.crisp
-    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability"]
+    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability", "tooling", "tooling-gpu"]
     working_dir: /workspace
     init: true
     volumes:

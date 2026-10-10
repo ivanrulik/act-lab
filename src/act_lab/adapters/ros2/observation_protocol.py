@@ -11,7 +11,10 @@ from typing import Any
 
 
 def bridge_probe(
-    address: str = "ws://127.0.0.1:8765", timeout: float = 15
+    address: str = "ws://127.0.0.1:8765",
+    timeout: float = 15,
+    *,
+    tool_assets: bool = False,
 ) -> dict[str, Any]:
     import websocket  # type: ignore[import-not-found]
 
@@ -127,6 +130,21 @@ def bridge_probe(
                                 op="fetchAsset", requestId=2, uri="file:///etc/passwd"
                             ),
                         ]
+                        if tool_assets:
+                            attempts.extend(
+                                [
+                                    dict(
+                                        op="fetchAsset",
+                                        requestId=3,
+                                        uri="package://act_lab_tool_assets/base.stl",
+                                    ),
+                                    dict(
+                                        op="fetchAsset",
+                                        requestId=4,
+                                        uri="package://act_lab_tool_assets/../../etc/passwd",
+                                    ),
+                                ]
+                            )
                         for attempt in attempts:
                             connection.send(json.dumps(attempt))
                         # SDK request: opcode, service/call ID, encoding, payload.
@@ -151,7 +169,7 @@ def bridge_probe(
                 and denied["clientPublish"] >= 1
                 and denied["parameters"] >= 2
                 and denied["services"] >= 1
-                and len(assets) == 2
+                and len(assets) == (4 if tool_assets else 2)
             ):
                 break
         if info is None or not payload:
@@ -164,7 +182,8 @@ def bridge_probe(
             raise RuntimeError(
                 f"bridge control denial unverified: {dict(denied)}; {replies}"
             )
-        if assets != {1: 0, 2: 1}:
+        expected_assets = {1: 0, 2: 1, 3: 0, 4: 1} if tool_assets else {1: 0, 2: 1}
+        if assets != expected_assets:
             raise RuntimeError(f"bridge asset allowlist unverified: {assets}")
         return dict(
             capabilities=info["capabilities"],

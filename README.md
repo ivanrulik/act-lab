@@ -246,3 +246,32 @@ The bounded scripted demo shows motion, producer-loss hold, recovery and reset.
 Views expose poses, effort, lease ages, ownership and faults without authorizing
 commands. [Launch instructions and safety contract](docs/contracts/ros2-observability.md)
 include viewer dependencies and cached-display limitations.
+
+## Articulated gripper and wrist RGB preset
+
+```bash
+docker compose run --rm dev act-lab sim expert \
+  --config configs/sim/ur5e_2f85_d405.toml --episodes 20 --json
+docker compose --profile tooling up --build tooling
+```
+
+Connect Foxglove to `ws://localhost:8765` and import
+`configs/ros2/foxglove/act-lab-tooling.json`. The explicit preset adds the
+articulated Robotiq 2F-85 and synthetic wrist RGB. Assembled visualization and
+rigid control URDFs live in `configs/models/ur5e_2f85_d405/`; matching MuJoCo
+assembly remains independent of ROS. Source assets and notices are pinned.
+See the [tooling contract](docs/contracts/tooling.md) for frames, aperture,
+camera freshness and checkpoint compatibility. D405-inspired geometry and RGB
+do not establish physical camera accuracy or hardware qualification.
+
+For GPU-accelerated wrist preview (NVIDIA driver and Container Toolkit required):
+
+```bash
+docker compose --profile tooling-gpu up --build tooling-gpu
+```
+
+The GPU profile verifies NVIDIA OpenGL and fails if it cannot use the requested
+GPU. `tooling` remains the explicit CPU option; run one viewer service at a time
+on port 8765. The tooling Foxglove layout selects the JPEG compressed preview.
+Recording and ACT keep original RGB. [Rendering contract and evidence](docs/adr/020-gpu-viewer-and-compressed-preview.md)
+describe profiles, transport, freshness and validation.

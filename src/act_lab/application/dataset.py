@@ -89,8 +89,11 @@ def validate_episode(episode: RecordedEpisode) -> QualityReport:
     if not camera_counts:
         issue("missing_camera", IssueSeverity.ERROR, "no policy scene-camera stream")
     acquisition = {}
+    resolved: dict[str, Any] = {}
     try:
         resolved = json.loads(str(episode.provenance.get("resolved_config_json", "{}")))
+        if not isinstance(resolved, dict):
+            raise ValueError("resolved configuration must be an object")
         acquisition = resolved.get("acquisition", {})
     except (TypeError, ValueError):
         issue(
@@ -98,6 +101,24 @@ def validate_episode(episode: RecordedEpisode) -> QualityReport:
             IssueSeverity.ERROR,
             "resolved configuration is not valid JSON",
         )
+    from act_lab.application.model_compatibility import model_contract
+
+    try:
+        contract = model_contract(resolved)
+        if contract is not None:
+            expected = {
+                name: tuple(profile["shape"][:2])
+                for name, profile in contract["cameras"].items()
+            }
+            for sample in episode.samples:
+                actual = {
+                    image.camera_id: (image.height, image.width)
+                    for image in sample.images
+                }
+                if actual != expected:
+                    raise ValueError("sample cameras do not match calibrated assembly")
+    except (ValueError, TypeError, AttributeError, KeyError) as error:
+        issue("model_camera_contract", IssueSeverity.ERROR, str(error))
     if episode.provenance.get("source") == "webcam" and not acquisition:
         issue(
             "legacy_acquisition_metadata",

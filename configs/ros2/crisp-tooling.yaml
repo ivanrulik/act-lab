@@ -1,0 +1,40 @@
+crisp:
+  ros__parameters:
+    use_sim_time: true
+    joints: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]
+    end_effector_frame: tool0
+    base_frame: world
+    use_operational_space: false
+    use_local_jacobian: false
+    topics:
+      target_pose: /act_lab/internal/crisp_target
+    task:
+      k_pos_x: 1000.0
+      k_pos_y: 1000.0
+      k_pos_z: 1000.0
+    max_delta_tau: 0.2
+    filter:
+      target_pose: 0.1
+      q: 0.0
+      dq: 0.0
+      q_ref: 0.0
+      output_torque: 1.0
+    use_gravity_compensation: false
+    use_coriolis_compensation: false
+    use_friction: false
+    noise:
+      add_random_noise: false
+    variable_stiffness:
+      enabled: false
+    external_wrench:
+      enabled: false
+    nullspace:
+      stiffness: 0.0
+      projector_type: none
+    joint_limit_repulsion:
+      enabled: false
+      max_torque: 0.0
+    friction:
+      fp1: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      fp2: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      fp3: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

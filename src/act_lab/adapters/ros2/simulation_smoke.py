@@ -18,6 +18,7 @@ from act_lab.adapters.ros2.contracts import (
 )
 from act_lab.adapters.ros2.runtime import make_message, qos_profiles, require_ros
 from act_lab.adapters.ros2.simulation import (
+    CONFIG,
     CONTROLLER,
     diagnostic_json,
     receive,
@@ -34,6 +35,7 @@ class MotionSession:
         seed: int = 0,
         paced: bool = False,
         observation_channel: Any = None,
+        config_path: Path = CONFIG,
     ) -> None:
         try:
             require_ros()
@@ -53,6 +55,7 @@ class MotionSession:
         from act_lab.adapters.ros2.simulation_gateway import gateway
 
         self.paced = paced
+        self.config_path = config_path
         self.output = output
         self.rclpy = rclpy
         rclpy.init()
@@ -68,7 +71,8 @@ class MotionSession:
         context = mp.get_context("spawn")
         self.connection, child = context.Pipe()
         self.process = context.Process(
-            target=gateway, args=(child, str(output), seed, paced, observation_channel)
+            target=gateway,
+            args=(child, str(output), seed, paced, observation_channel, config_path),
         )
         self.process.start()
         child.close()
@@ -222,9 +226,7 @@ class MotionSession:
                 self.process.join(timeout=5)
                 raise RuntimeError("gateway shutdown timeout")
             if self.process.exitcode != 0:
-                raise RuntimeError(
-                    f"gateway exited with code {self.process.exitcode}"
-                )
+                raise RuntimeError(f"gateway exited with code {self.process.exitcode}")
         finally:
             self.connection.close()
             self.node.destroy_node()
@@ -256,9 +258,19 @@ def producer_loss(session: MotionSession) -> dict[str, Any]:
     )
 
 
-def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
+def run_motion(
+    output: Path, *, paced: bool = False, config_path: Path = CONFIG
+) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
-    session = MotionSession(output, paced=paced)
+    session = MotionSession(output, paced=paced, config_path=config_path)
+    from act_lab.adapters.mujoco import SimulationConfig
+
+    config = SimulationConfig.load(config_path)
+    controller_config = Path(
+        "configs/ros2/crisp-tooling.yaml"
+        if config.model_id == "ur5e_2f85_d405_v1"
+        else "configs/ros2/crisp-simulation.yaml"
+    )
     cases: list[dict[str, Any]] = []
     try:
         initial = snapshot_state(session.value)
@@ -271,10 +283,9 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         )
         # The same measured home, source periods and intents are used locally.
         from act_lab.adapters.mujoco.cartesian_driver import MujocoCartesianDriver
-        from act_lab.adapters.ros2.simulation import CONFIG
         from act_lab.application import SafeCartesianRobot
 
-        local_driver = MujocoCartesianDriver.from_config_file(CONFIG)
+        local_driver = MujocoCartesianDriver.from_config_file(config_path)
         local_robot = SafeCartesianRobot(local_driver, local_driver.limits)
         local_robot.reset(0)
         fixtures = (
@@ -356,7 +367,16 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 )
         local_driver.close()
         for gripper in (0.8, 0.0):
-            for _ in range(30):
+            # Allow the configured aperture rate plus physical linkage settling.
+            # The articulated preset deliberately closes slower than the slides.
+            gripper_updates = max(
+                30,
+                math.ceil(
+                    (0.8 / config.control.max_gripper_velocity_s + 0.4)
+                    * config.environment_hz
+                ),
+            )
+            for _ in range(gripper_updates):
                 session.motion_command(orientation, gripper=gripper)
             if abs(snapshot_state(session.value).gripper_position - gripper) > 0.02:
                 raise RuntimeError("atomic gripper command failed")
@@ -501,8 +521,6 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         import platform
         import sys
 
-        from act_lab.adapters.ros2.simulation import CONFIG
-
         controller_pid = session.value["controller_pid"]
         physics_pid = session.value["physics_pid"]
         session.close()
@@ -562,7 +580,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 application_period_s=0.02,
                 task_ceiling_nm=5.0,
                 task_slew_nm_s=100.0,
-                hold_damping_nm_s_rad=[50.0, 50.0, 50.0, 10.0, 10.0, 10.0],
+                hold_damping_nm_s_rad=[30.0, 30.0, 30.0, 6.0, 6.0, 6.0],
                 hold_ceiling_nm=[150.0, 150.0, 150.0, 28.0, 28.0, 28.0],
                 watchdog_ns=100_000_000,
             ),
@@ -576,7 +594,9 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 platform=platform.platform(),
                 ros_distro=os.environ.get("ROS_DISTRO"),
                 rmw=os.environ.get("RMW_IMPLEMENTATION"),
-                configuration_sha256=hashlib.sha256(CONFIG.read_bytes()).hexdigest(),
+                configuration_sha256=hashlib.sha256(
+                    config_path.read_bytes()
+                ).hexdigest(),
                 scene_hashes={
                     str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                     for path in sorted(
@@ -584,7 +604,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                     )
                 },
                 controller_configuration_sha256=hashlib.sha256(
-                    Path("configs/ros2/crisp-simulation.yaml").read_bytes()
+                    controller_config.read_bytes()
                 ).hexdigest(),
                 source_hashes={
                     label: {
@@ -608,9 +628,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
                 build_flags="Release; ENABLE_NATIVE_OPTIMIZATION=OFF",
                 installed_packages=Path("/opt/simulation/packages.txt").read_text(),
                 python_packages=Path("/opt/simulation/python-packages.txt").read_text(),
-                resolved_controller_configuration=Path(
-                    "configs/ros2/crisp-simulation.yaml"
-                ).read_text(),
+                resolved_controller_configuration=controller_config.read_text(),
                 ur_model_sha256=hashlib.sha256(
                     Path("/opt/crisp/ur5e.urdf").read_bytes()
                 ).hexdigest(),
@@ -644,18 +662,18 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
 
     from act_lab.adapters.mujoco.config import SimulationConfig
     from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
-    from act_lab.adapters.ros2.simulation import CONFIG
     from act_lab.application.scripted_expert import ExpertPhase, ScriptedPickPlaceExpert
     from act_lab.domain import Observation
 
     session.rpc(dict(kind="reset", seed=0))
     session.sequence = 0
-    config = SimulationConfig.load(CONFIG)
+    config = SimulationConfig.load(session.config_path)
     environment = MujocoUR5eEnvironment(config)
     environment.reset(0)
     expert = ScriptedPickPlaceExpert(environment, config.expert)
     state = snapshot_state(session.value)
     expert.reset(Observation(state.timestamp_ns, state, config.cameras))
+    source_gripper = state.gripper_position
     try:
         for _step in range(2000):
             environment._data.qpos[:] = session.value["qpos"]  # noqa: SLF001
@@ -663,8 +681,20 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
             mujoco.mj_forward(environment._model, environment._data)  # noqa: SLF001
             state = snapshot_state(session.value)
             action = expert.poll(Observation(state.timestamp_ns, state, config.cameras))
+            if environment.binding.adaptive_gripper:
+                # Qualified contact approach for the effort-controlled tool.
+                # Faster inputs remain subject to the independent physics guard.
+                source_gripper += min(
+                    max(
+                        action.gripper_position - source_gripper,
+                        -0.1 / config.environment_hz,
+                    ),
+                    0.1 / config.environment_hz,
+                )
+            else:
+                source_gripper = action.gripper_position
             value = session.motion_command(
-                action.target_pose, action.gripper_position, action.enabled
+                action.target_pose, source_gripper, action.enabled
             )
             if value["mode"] != "ENABLED":
                 raise RuntimeError(
@@ -681,7 +711,8 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
         before = snapshot_state(session.value).end_effector_pose
         aperture = session.value["report"]["executed_command"]["gripper_position"]
         session.command(before, gripper=1.0, enabled=False)
-        session.rpc(dict(kind="advance", ticks=250))
+        hold_ticks = 1000 if environment.binding.adaptive_gripper else 250
+        session.rpc(dict(kind="advance", ticks=hold_ticks))
         after = snapshot_state(session.value).end_effector_pose
         drift = math.dist(before.position_xyz_m, after.position_xyz_m)
         if drift > 0.002 or session.value["qpos"][cube_address + 2] < cube_z - 0.01:
@@ -695,6 +726,8 @@ def grasp_lift_hold(session: MotionSession) -> dict[str, Any]:
             cube_lift_m=cube_z - config.cube_center_z_m,
             hold_drift_m=drift,
             accepted_gripper=aperture,
+            hold_duration_s=hold_ticks / config.physics_hz,
+            source_gripper_rate_s=0.1 if environment.binding.adaptive_gripper else None,
         )
         (session.output / "loaded-hold.json").write_text(
             json.dumps(result, indent=2) + "\n"

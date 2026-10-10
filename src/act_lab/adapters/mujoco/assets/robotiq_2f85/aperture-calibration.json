@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "mujoco_version": "3.12.0",
+  "method": "Fixed unloaded tool; 2000 ticks/control; production tool parameters.",
+  "assembly_sha256": "19f25aa2ef32b50cfe89ed1812fd6b635d6b9598083fe691c3b289299e7701a9",
+  "nominal_aperture_m": 0.085,
+  "samples": [
+    {
+      "control": 0.0,
+      "aperture_m": 0.08516211939017927,
+      "joints": {
+        "rq_right_driver_joint": 0.0026038902062144307,
+        "rq_right_coupler_joint": 0.00014648071643008428,
+        "rq_right_spring_link_joint": 0.002817326289006997,
+        "rq_right_follower_joint": -0.003017891964510255,
+        "rq_left_driver_joint": 0.002603890206346763,
+        "rq_left_coupler_joint": 0.0001464807165021014,
+        "rq_left_spring_link_joint": 0.0028173262888610134,
+        "rq_left_follower_joint": -0.003017891964509673
+      }
+    },
+    {
+      "control": 12.75,
+      "aperture_m": 0.08150750650659418,
+      "joints": {
+        "rq_right_driver_joint": 0.04256600556883645,
+        "rq_right_coupler_joint": 0.00014142680113524053,
+        "rq_right_spring_link_joint": 0.04258251912853551,
+        "rq_right_follower_joint": -0.041043887511883786,
+        "rq_left_driver_joint": 0.04256600556871899,
+        "rq_left_coupler_joint": 0.00014142680108517345,
+        "rq_left_spring_link_joint": 0.04258251912863604,
+        "rq_left_follower_joint": -0.04104388751189309
+      }
+    },
+    {
+      "control": 25.5,
+      "aperture_m": 0.0777418659497538,
+      "joints": {
+        "rq_right_driver_joint": 0.08252795043145185,
+        "rq_right_coupler_joint": 0.0001364916874213363,
+        "rq_right_spring_link_joint": 0.08237322159828511,
+        "rq_right_follower_joint": -0.07913984580586138,
+        "rq_left_driver_joint": 0.08252795043163152,
+        "rq_left_coupler_joint": 0.00013649168757642324,
+        "rq_left_spring_link_joint": 0.08237322159801438,
+        "rq_left_follower_joint": -0.07913984580586378
+      }
+    },
+    {
+      "control": 38.25,
+      "aperture_m": 0.07387060384816224,
+      "joints": {
+        "rq_right_driver_joint": 0.12248974521022199,
+        "rq_right_coupler_joint": 0.00013166726656585828,
+        "rq_right_spring_link_joint": 0.12218806726547418,
+        "rq_right_follower_joint": -0.11729784256799705,
+        "rq_left_driver_joint": 0.1224897452100469,
+        "rq_left_coupler_joint": 0.0001316672664656777,
+        "rq_left_spring_link_joint": 0.12218806726566923,
+        "rq_left_follower_joint": -0.11729784256799886
+      }
+    },
+    {
+      "control": 51.0,
+      "aperture_m": 0.06989933266243534,
+      "joints": {
+        "rq_right_driver_joint": 0.16245140769948602,
+        "rq_right_coupler_joint": 0.00012694603640428571,
+        "rq_right_spring_link_joint": 0.16202591467367086,
+        "rq_right_follower_joint": -0.15551066692667614,
+        "rq_left_driver_joint": 0.16245140769934147,
+        "rq_left_coupler_joint": 0.0001269460363317055,
+        "rq_left_spring_link_joint": 0.16202591467380145,
+        "rq_left_follower_joint": -0.15551066692668505
+      }
+    },
+    {
+      "control": 63.75,
+      "aperture_m": 0.06583385559546212,
+      "joints": {
+        "rq_right_driver_joint": 0.20241295349327415,
+        "rq_right_coupler_joint": 0.00012232104002717902,
+        "rq_right_spring_link_joint": 0.20188582569423308,
+        "rq_right_follower_joint": -0.19377171062161103,
+        "rq_left_driver_joint": 0.2024129534934459,
+        "rq_left_coupler_joint": 0.00012232104016262488,
+        "rq_left_spring_link_joint": 0.20188582569399652,
+        "rq_left_follower_joint": -0.19377171062160864
+      }
+    },
+    {
+      "control": 76.5,
+      "aperture_m": 0.06168015146817493,
+      "joints": {
+        "rq_right_driver_joint": 0.2423743963347988,
+        "rq_right_coupler_joint": 0.00011778580758124149,
+        "rq_right_spring_link_joint": 0.24176704822742173,
+        "rq_right_follower_joint": -0.23207487185993564,
+        "rq_left_driver_joint": 0.24237439633464314,
+        "rq_left_coupler_joint": 0.00011778580740617321,
+        "rq_left_spring_link_joint": 0.24176704822768647,
+        "rq_left_follower_joint": -0.23207487185993458
+      }
+    },
+    {
+      "control": 89.25,
+      "aperture_m": 0.05744435992108152,
+      "joints": {
+        "rq_right_driver_joint": 0.2823357484081269,
+        "rq_right_coupler_joint": 0.00011333430118813182,
+        "rq_right_spring_link_joint": 0.2816690026810551,
+        "rq_right_follower_joint": -0.270414470990081,
+        "rq_left_driver_joint": 0.28233574840825365,
+        "rq_left_coupler_joint": 0.00011333430125065845,
+        "rq_left_spring_link_joint": 0.2816690026809494,
+        "rq_left_follower_joint": -0.27041447099006954
+      }
+    },
+    {
+      "control": 102.0,
+      "aperture_m": 0.05313276682598058,
+      "joints": {
+        "rq_right_driver_joint": 0.3222970205881528,
+        "rq_right_coupler_joint": 0.00010896086677053742,
+        "rq_right_spring_link_joint": 0.3215912717862549,
+        "rq_right_follower_joint": -0.3087851756253752,
+        "rq_left_driver_joint": 0.32229702058799203,
+        "rq_left_coupler_joint": 0.00010896086668708495,
+        "rq_left_spring_link_joint": 0.32159127178639463,
+        "rq_left_follower_joint": -0.3087851756253874
+      }
+    },
+    {
+      "control": 114.75,
+      "aperture_m": 0.048751789810696514,
+      "joints": {
+        "rq_right_driver_joint": 0.36225822264925983,
+        "rq_right_coupler_joint": 0.00010466018563507797,
+        "rq_right_spring_link_joint": 0.36153359344254044,
+        "rq_right_follower_joint": -0.34718193320963403,
+        "rq_left_driver_joint": 0.3622582226494198,
+        "rq_left_coupler_joint": 0.00010466018574464447,
+        "rq_left_spring_link_joint": 0.3615335934423527,
+        "rq_left_follower_joint": -0.347181933209625
+      }
+    },
+    {
+      "control": 127.5,
+      "aperture_m": 0.0443079638128651,
+      "joints": {
+        "rq_right_driver_joint": 0.40221936344924986,
+        "rq_right_coupler_joint": 0.00010042723240578709,
+        "rq_right_spring_link_joint": 0.40149585636328483,
+        "rq_right_follower_joint": -0.3855999092883769,
+        "rq_left_driver_joint": 0.40221936344935194,
+        "rq_left_coupler_joint": 0.00010042723245119246,
+        "rq_left_spring_link_joint": 0.4014958563632074,
+        "rq_left_follower_joint": -0.3855999092883681
+      }
+    },
+    {
+      "control": 140.25,
+      "aperture_m": 0.03980792658789637,
+      "joints": {
+        "rq_right_driver_joint": 0.44218045108578374,
+        "rq_right_coupler_joint": 9.625723285173248e-05,
+        "rq_right_spring_link_joint": 0.44147809840404734,
+        "rq_right_follower_joint": -0.42403442995024915,
+        "rq_left_driver_joint": 0.4421804510859584,
+        "rq_left_coupler_joint": 9.625723305546715e-05,
+        "rq_left_spring_link_joint": 0.4414780984037677,
+        "rq_left_follower_joint": -0.4240344299502312
+      }
+    },
+    {
+      "control": 153.0,
+      "aperture_m": 0.0352584041014406,
+      "joints": {
+        "rq_right_driver_joint": 0.4821414930375446,
+        "rq_right_coupler_joint": 9.214562611904053e-05,
+        "rq_right_spring_link_joint": 0.4814805075237273,
+        "rq_right_follower_joint": -0.46248092703964494,
+        "rq_left_driver_joint": 0.48214149303739007,
+        "rq_left_coupler_joint": 9.214562604071129e-05,
+        "rq_left_spring_link_joint": 0.48148050752385163,
+        "rq_left_follower_joint": -0.46248092703965915
+      }
+    },
+    {
+      "control": 165.75,
+      "aperture_m": 0.03066619573845341,
+      "joints": {
+        "rq_right_driver_joint": 0.5221024962888987,
+        "rq_right_coupler_joint": 8.808802627717911e-05,
+        "rq_right_spring_link_joint": 0.5215034254272459,
+        "rq_right_follower_joint": -0.5009348848242904,
+        "rq_left_driver_joint": 0.5221024962887651,
+        "rq_left_coupler_joint": 8.808802621444701e-05,
+        "rq_left_spring_link_joint": 0.521503425427347,
+        "rq_left_follower_joint": -0.5009348848243027
+      }
+    },
+    {
+      "control": 178.5,
+      "aperture_m": 0.026038159259170742,
+      "joints": {
+        "rq_right_driver_joint": 0.5620634674466404,
+        "rq_right_coupler_joint": 8.408018754025967e-05,
+        "rq_right_spring_link_joint": 0.5615473540108746,
+        "rq_right_follower_joint": -0.5393917868303387,
+        "rq_left_driver_joint": 0.5620634674465002,
+        "rq_left_coupler_joint": 8.408018742582766e-05,
+        "rq_left_spring_link_joint": 0.5615473540110485,
+        "rq_left_follower_joint": -0.5393917868303559
+      }
+    },
+    {
+      "control": 191.25,
+      "aperture_m": 0.02138119542701532,
+      "joints": {
+        "rq_right_driver_joint": 0.6020244128479217,
+        "rq_right_coupler_joint": 8.01179681363517e-05,
+        "rq_right_spring_link_joint": 0.6016129648380627,
+        "rq_right_follower_joint": -0.5778470615362435,
+        "rq_left_driver_joint": 0.6020244128477885,
+        "rq_left_coupler_joint": 8.011796805101918e-05,
+        "rq_left_spring_link_joint": 0.6016129648381724,
+        "rq_left_follower_joint": -0.577847061536262
+      }
+    },
+    {
+      "control": 204.0,
+      "aperture_m": 0.016702232224143507,
+      "joints": {
+        "rq_right_driver_joint": 0.6419853386656257,
+        "rq_right_coupler_joint": 7.619729561851255e-05,
+        "rq_right_spring_link_joint": 0.641701111967982,
+        "rq_right_follower_joint": -0.6162960255392524,
+        "rq_left_driver_joint": 0.6419853386654888,
+        "rq_left_coupler_joint": 7.619729552449252e-05,
+        "rq_left_spring_link_joint": 0.6417011119681318,
+        "rq_left_follower_joint": -0.6162960255392695
+      }
+    },
+    {
+      "control": 216.75,
+      "aperture_m": 0.012008208556494844,
+      "joints": {
+        "rq_right_driver_joint": 0.6819462510129798,
+        "rq_right_coupler_joint": 7.231413113177788e-05,
+        "rq_right_spring_link_joint": 0.6818128485898088,
+        "rq_right_follower_joint": -0.654733822671843,
+        "rq_left_driver_joint": 0.681946251013113,
+        "rq_left_coupler_joint": 7.23141312055908e-05,
+        "rq_left_spring_link_joint": 0.6818128485897027,
+        "rq_left_follower_joint": -0.6547338226718235
+      }
+    },
+    {
+      "control": 229.5,
+      "aperture_m": 0.0073060573309261245,
+      "joints": {
+        "rq_right_driver_joint": 0.7219071560520851,
+        "rq_right_coupler_joint": 6.846443371274442e-05,
+        "rq_right_spring_link_joint": 0.7219494480581353,
+        "rq_right_follower_joint": -0.6931553573372432,
+        "rq_left_driver_joint": 0.7219071560519719,
+        "rq_left_coupler_joint": 6.84644336561159e-05,
+        "rq_left_spring_link_joint": 0.7219494480582128,
+        "rq_left_follower_joint": -0.6931553573372584
+      }
+    },
+    {
+      "control": 242.25,
+      "aperture_m": 0.002602687760943997,
+      "joints": {
+        "rq_right_driver_joint": 0.761868060107016,
+        "rq_right_coupler_joint": 6.464412175680201e-05,
+        "rq_right_spring_link_joint": 0.7621124301137271,
+        "rq_right_follower_joint": -0.7315552200405249,
+        "rq_left_driver_joint": 0.761868060107188,
+        "rq_left_coupler_joint": 6.464412190236005e-05,
+        "rq_left_spring_link_joint": 0.7621124301135239,
+        "rq_left_follower_joint": -0.7315552200404908
+      }
+    },
+    {
+      "control": 255.0,
+      "aperture_m": 0.0008820954060320819,
+      "joints": {
+        "rq_right_driver_joint": 0.7808007786233686,
+        "rq_right_coupler_joint": 0.0005151520126461099,
+        "rq_right_spring_link_joint": 0.779881307287032,
+        "rq_right_follower_joint": -0.755568161733695,
+        "rq_left_driver_joint": 0.7808019347369641,
+        "rq_left_coupler_joint": 0.0005124526451209454,
+        "rq_left_spring_link_joint": 0.7798903707901423,
+        "rq_left_follower_joint": -0.7555202289244858
+      }
+    }
+  ]
+}

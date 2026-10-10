@@ -16,7 +16,7 @@ from typing import Any
 
 from act_lab.adapters.ros2.observability import ObservationChannel, read_report_snapshot
 from act_lab.adapters.ros2.observation_runtime import ViewerProcesses, observer_process
-from act_lab.adapters.ros2.simulation import snapshot_state
+from act_lab.adapters.ros2.simulation import CONFIG, snapshot_state
 from act_lab.adapters.ros2.simulation_smoke import MotionSession
 
 
@@ -26,6 +26,7 @@ def run_observability(
     seed: int = 0,
     paced: bool = True,
     smoke: bool = False,
+    config_path: Path = CONFIG,
 ) -> dict[str, Any]:
     if not 2.0 <= duration <= 3600.0 or not math.isfinite(duration):
         raise ValueError(
@@ -37,18 +38,33 @@ def run_observability(
             "run --build --rm ros2-observability"
         )
     output.mkdir(parents=True, exist_ok=True)
-    channel = ObservationChannel()
+    from act_lab.adapters.mujoco.config import SimulationConfig
+
+    config = SimulationConfig.load(config_path)
+    channel = ObservationChannel(camera=config.model_id != "ur5e_educational_v1")
     context = mp.get_context("spawn")
     stop = context.Event()
     observer = context.Process(
         target=observer_process, args=(channel, stop, str(output))
     )
-    views = ViewerProcesses(output)
+    views = ViewerProcesses(output, config_path=config_path)
     session = None
     events: list[dict[str, Any]] = []
     observer.start()
+    camera = None
+    if channel.camera is not None:
+        from act_lab.adapters.ros2.camera_runtime import camera_process
+
+        camera = context.Process(
+            target=camera_process, args=(channel.camera, stop, str(output), config_path)
+        )
+        camera.start()
     try:
-        session = MotionSession(output, seed, paced, channel)
+        session = MotionSession(output, seed, paced, channel, config_path)
+        if channel.camera is not None and not smoke:
+            from act_lab.adapters.ros2.simulation_smoke import grasp_lift_hold
+
+            events.append(grasp_lift_hold(session))
         initial = snapshot_state(session.value).end_effector_pose
         start = time.monotonic()
         for phase in range(4):
@@ -56,6 +72,7 @@ def run_observability(
             if phase == 3:
                 session.rpc(dict(kind="reset", seed=seed))
                 session.sequence = 0
+                initial = snapshot_state(session.value).end_effector_pose
                 events[-1]["reset"] = True
             phase_start = time.monotonic()
             while time.monotonic() - phase_start < duration / 4:
@@ -73,18 +90,26 @@ def run_observability(
                             *initial.position_xyz_m[1:],
                         ),
                     )
-                    session.motion_command(target, gripper=0.2)
+                    session.motion_command(
+                        target, gripper=(0.0 if channel.camera is not None else 0.2)
+                    )
                 if not observer.is_alive():
                     raise RuntimeError("observer process exited")
+                if camera is not None and not camera.is_alive():
+                    raise RuntimeError(
+                        "camera renderer exited; inspect camera evidence"
+                    )
                 if any(process.poll() is not None for process in views.processes):
                     raise RuntimeError(
                         "viewer infrastructure exited; inspect viewer logs"
                     )
         final = read_report_snapshot(channel)
+        if channel.camera is not None and not channel.camera.last_delivery_ns.value:
+            raise RuntimeError("wrist camera produced no current frames")
         if smoke:
             from act_lab.adapters.ros2.observation_protocol import bridge_probe
 
-            probe = bridge_probe()
+            probe = bridge_probe(tool_assets=channel.camera is not None)
         else:
             probe = None
         result = dict(
@@ -119,6 +144,8 @@ def run_observability(
             final_telemetry=final["telemetry"],
             bridge=probe,
             observer_pid=observer.pid,
+            renderer_pid=camera.pid if camera else None,
+            model_id=config.model_id,
             physics_pid=session.value["physics_pid"],
             paced=paced,
             seed=seed,
@@ -128,12 +155,16 @@ def run_observability(
         (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
         return result
     finally:
-        if session:
-            session.close()
-        time.sleep(0.05)
-        stop.set()
-        observer.join(timeout=5)
-        if observer.is_alive():
-            observer.terminate()
-            observer.join(timeout=5)
-        views.close()
+        try:
+            if session:
+                session.close()
+        finally:
+            stop.set()
+            for child in (observer, camera):
+                if child is None:
+                    continue
+                child.join(timeout=5)
+                if child.is_alive():
+                    child.terminate()
+                    child.join(timeout=5)
+            views.close()

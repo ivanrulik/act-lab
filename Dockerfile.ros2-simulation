@@ -9,6 +9,8 @@ RUN /opt/act-lab-venv/bin/pip install --no-cache-dir \
     --constraint /opt/simulation-constraints.txt mujoco==3.12.0
 COPY ros2/act_lab_interfaces /opt/simulation/src/act_lab_interfaces
 COPY ros2/act_lab_mujoco_system /opt/simulation/src/act_lab_mujoco_system
+COPY ros2/act_lab_tool_assets /opt/simulation/src/act_lab_tool_assets
+COPY src/act_lab/adapters/mujoco/assets/robotiq_2f85/assets /opt/simulation/src/act_lab_tool_assets/meshes
 RUN . /opt/ros/jazzy/setup.sh && . /opt/crisp/install/setup.sh && cd /opt/simulation \
     && colcon build --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release \
     && dpkg-query -W > /opt/simulation/packages.txt \
