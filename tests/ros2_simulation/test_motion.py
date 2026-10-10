@@ -192,3 +192,31 @@ def test_controller_preparation_requires_separate_fresh_intent(tmp_path):
         assert session.sequence > previous_sequence
     finally:
         session.close()
+
+
+def test_producer_loss_when_wall_watchdog_expires_before_simulation_time(tmp_path):
+    import json
+    import time
+
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession, producer_loss
+
+    session = MotionSession(tmp_path)
+    try:
+        pose = snapshot_state(session.value).end_effector_pose
+        fresh_enabled(session, pose)
+        source_ns = session.trace[-1]["source_timestamp_ns"]
+        sequence = session.sequence
+        # No new intent: force wall expiry before the subsequent tick batch.
+        time.sleep(0.12)
+        result = producer_loss(session)
+        assert result["reason"] == "gateway_wall_timeout"
+        assert result["source_timestamp_ns"] == source_ns
+        assert result["command_sequence"] == sequence
+        assert result["final_source_age_ns"] >= 100_000_000
+    finally:
+        session.close()
+    rows = json.loads((tmp_path / "physics.json").read_text())
+    fault_rows = [r for r in rows if r["reason"] == "gateway_wall_timeout"]
+    assert fault_rows
+    assert all(not any(r["task_effort_nm"]) for r in fault_rows)

@@ -36,7 +36,7 @@ as executable authorization.
 | Startup / missing input | Position hold, task effort zero | Real 250-tick startup integration test |
 | Disabled / invalid frame/numeric/quaternion | Shared application rejection, dynamic hold | DDS cases and ROS-free application tests |
 | Stale / future command | Preserve source age, >=100 ms hold | Exact guard boundaries and DDS cases |
-| Producer loss | Cached source expires; no refreshed receipt | Advance-only DDS runner case |
+| Producer loss | First expired source or wall lease inhibits effort; no refreshed source/receipt | Advance-only DDS case and forced wall-first regression |
 | Gateway loss | Owner wall/EOF watchdog, hold continues | Process-loss test; no cleanup assumption |
 | Controller loss/stall | Independent owner lease; discard late generation | Controller SIGKILL/restart and lease tests |
 | Pause | Steady progress expiration; fresh sequence on resume | Injected clock case / exact boundary tests |
@@ -93,3 +93,11 @@ fixtures still fail assessment. Both schedulers use the 2 mm
 physical comparison bound; bitwise equality additionally requires identical
 clock and fault inputs. Precise
 watchdog boundaries always use injected clocks, independently of wall scheduling.
+
+The producer-loss assessment advances 250 ticks without publishing new intent.
+Simulation source age and wall time can expire in either order on a shared runner.
+It requires fault hold, unchanged sequence, source age of at least 100 ms, and a
+source/gateway/controller lease rejection; the full trace must contain zero task
+effort during hold. The actual first rejection is recorded. Exact individual
+lease boundaries remain covered with injected clocks; runtime checks do not
+require source expiry to beat an independent wall watchdog.

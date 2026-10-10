@@ -82,3 +82,18 @@ crossing is independently rejected by the effort predictor. These rejection
 tests do not qualify motion through a singularity.
 
 Merge validation also requires confirmed enabled fresh intent before producer-loss, clock-fault, and controller-loss fixtures. Recovery uses the same bounded preparation and fresh-sequence path as nominal motion; fault messages themselves remain single explicit publications, and expiry assertions remain unchanged.
+
+## Main CI producer-loss regression
+
+The post-merge run on `97db334` failed the producer-loss assertion while seven
+other ROS tests passed. Its trace confirmed enabled intent followed by
+`gateway_wall_timeout`: the real wall lease expired before advancing simulation
+reached the source-age boundary. The assessment incorrectly required only
+`stale_source`, despite both clocks being authoritative independent guards.
+
+The assessment now records the first source or wall rejection, requires unchanged
+sequence and at least 100 ms final source age, and retains the full-trace assertion
+that holds contain zero task effort. A dedicated DDS regression waits without
+producing intent to force wall expiry first. Injected guard tests continue to
+check exact individual 100 ms boundaries. No runtime watchdog, actuation limit,
+or controller behavior changed.

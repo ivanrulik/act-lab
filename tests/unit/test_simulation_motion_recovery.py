@@ -71,3 +71,42 @@ def test_nominal_recovery_records_transport_loss_before_fresh_intent():
     assert session.motion_command(pose)["mode"] == "ENABLED"
     assert session.trace[0]["transport_loss_recovery"] is True
     assert session.trace[0]["wall_fault_recovery"] is False
+
+
+@pytest.mark.parametrize(
+    "mode,reason,age_ns,expected",
+    [
+        ("FAULT_HOLD", "stale_source", 100_000_000, True),
+        ("FAULT_HOLD", "gateway_wall_timeout", 500_000_000, True),
+        ("FAULT_HOLD", "controller_wall_timeout", 500_000_000, True),
+        ("ENABLED", "authorized", 500_000_000, False),
+        ("FAULT_HOLD", "invalid_numeric", 500_000_000, False),
+        ("FAULT_HOLD", "stale_source", 99_999_999, False),
+    ],
+)
+def test_producer_loss_requires_aged_intent_and_a_lease_fault(
+    monkeypatch, mode, reason, age_ns, expected
+):
+    from types import SimpleNamespace
+
+    from act_lab.adapters.ros2.simulation_smoke import producer_loss
+
+    session = MotionSession.__new__(MotionSession)
+    session.value = dict(mode="ENABLED")
+    session.sequence = 42
+    session.trace = [dict(source_timestamp_ns=20_000_000)]
+    session.rpc = Mock(return_value=dict(mode=mode, reason=reason))
+    monkeypatch.setattr(
+        "act_lab.adapters.ros2.simulation_smoke.snapshot_state",
+        lambda value: SimpleNamespace(timestamp_ns=20_000_000 + age_ns),
+    )
+    if expected:
+        result = producer_loss(session)
+        assert result["reason"] == reason
+        assert result["source_timestamp_ns"] == 20_000_000
+        assert result["command_sequence"] == 42
+    else:
+        with pytest.raises(RuntimeError, match="did not inhibit"):
+            producer_loss(session)
+    session.rpc.assert_called_once_with(dict(kind="advance", ticks=250))
+    assert session.sequence == 42
