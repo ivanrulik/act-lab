@@ -22,3 +22,6 @@ consequences, and status.
 
 - [ADR 016](016-crisp-moving-simulation.md): independent physics ownership,
   bounded dynamic hold and measured frame residual correction for moving CRISP
+
+- [ADR 017](017-read-only-ros-observability.md): optional bounded observational
+  handoff, namespaced model and read-only RViz/Foxglove projections

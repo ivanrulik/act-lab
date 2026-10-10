@@ -43,6 +43,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
         self.intent: Action | None = None
         self.sequence = 0
         self.receipt_ns = 0
+        self.view_intent: dict[str, Any] | None = None
         self._sync()
 
     def _sync(self) -> None:
@@ -65,6 +66,10 @@ class RosSimulationDriver(MujocoCartesianDriver):
 
     def set_execution(self, intent: Action | None) -> None:
         self.intent = intent
+        if self.view_intent is not None and intent is not None:
+            from act_lab.adapters.ros2.contracts import encode_pose
+
+            self.view_intent["approved"] = encode_pose(intent.target_pose)
 
     def step(
         self, joints: JointVector, joint_velocity: JointVector, gripper: float
@@ -86,13 +91,24 @@ class RosSimulationDriver(MujocoCartesianDriver):
                 quaternion_wxyz=q.tolist(),
                 gripper=gripper,
             )
-        self.runtime.rpc(dict(kind="execute", authorization=authorization, ticks=10))
+        self.runtime.rpc(
+            dict(
+                kind="execute",
+                authorization=authorization,
+                ticks=10,
+                observation=self.view_intent,
+            )
+        )
         self._sync()
         return self.observe().robot
 
 
 def gateway(
-    connection: Connection, output: str, seed: int, paced: bool = False
+    connection: Connection,
+    output: str,
+    seed: int,
+    paced: bool = False,
+    observation_channel: Any = None,
 ) -> None:
     import rclpy  # type: ignore[import-not-found]
     from rclpy.parameter import Parameter  # type: ignore[import-not-found]
@@ -104,7 +120,7 @@ def gateway(
         "act_lab_command_gateway",
         parameter_overrides=[Parameter("use_sim_time", value=True)],
     )
-    runtime = SimulationProcess(Path(output), seed, paced)
+    runtime = SimulationProcess(Path(output), seed, paced, observation_channel)
     driver = RosSimulationDriver(runtime)
     robot = SafeCartesianRobot(driver, driver.limits)
     robot.reset(seed)
@@ -116,11 +132,13 @@ def gateway(
     )
     latest: CommandEnvelope | None = None
     receipt = 0
+    wall_receipt = 0
     arrivals = 0
 
     def callback(message: Any) -> None:
-        nonlocal latest, receipt, arrivals
+        nonlocal latest, receipt, wall_receipt, arrivals
         arrivals += 1
+        wall_receipt = time.monotonic_ns()
         receipt = runtime.snapshot["steady_ns"]
         try:
             latest = decode_command(message_fields(message))
@@ -213,6 +231,19 @@ def gateway(
             )
             driver.sequence = latest.sequence if latest else 0
             driver.receipt_ns = receipt
+            driver.view_intent = None
+            if latest is not None and observation_channel is not None:
+                from act_lab.adapters.ros2.contracts import encode_pose
+
+                driver.view_intent = dict(
+                    sequence=latest.sequence,
+                    source_episode_id=latest.episode_id,
+                    requested_frame=latest.action.target_pose.frame_id,
+                    source_ns=latest.action.timestamp_ns,
+                    wall_receipt_ns=wall_receipt,
+                    requested=diagnostic_json(encode_pose(latest.action.target_pose)),
+                    approved=None,
+                )
             state = robot.command(inbox.poll(observation, steady))
             report = robot.last_report
             assert report is not None
@@ -238,5 +269,5 @@ def gateway(
             runtime.close()
         driver.close()
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
         connection.close()

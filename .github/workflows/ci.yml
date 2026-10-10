@@ -107,3 +107,27 @@ jobs:
           path: |
             runs/ros2-simulation*/
             ros2-simulation.json
+
+  ros2-observability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated read-only viewer runtime
+        run: docker compose --profile ros2-observability build ros2-observability
+      - name: Required telemetry, model, fault and WebSocket denial tests
+        run: >-
+          docker compose --profile ros2-observability run --rm --user "$(id -u):$(id -g)" ros2-observability
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/ros2_observability
+          --basetemp=runs/ros2-observability-tests
+      - name: Record bounded live evidence
+        run: >-
+          docker compose --profile ros2-observability run --rm --user "$(id -u):$(id -g)" ros2-observability
+          act-lab ros2 observability-smoke --output runs/ros2-observability --json
+          > ros2-observability.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ros2-observability-evidence
+          path: |
+            runs/ros2-observability*/
+            ros2-observability.json

@@ -248,14 +248,18 @@ trajectories and inspectable command outcomes; workspace, joint, torque, and
 rate limits hold; disabled, stale, invalid, and lost commands stop safely; the
 default headless workflow does not require ROS 2 or CRISP.
 
-### Proposed follow-up — ROS observability
+### Follow-up — ROS observability
 
-Add optional read-only RViz2 and Foxglove views of the MuJoCo/CRISP runtime.
+Implementation plan: [ROS observability](plans/ros2-observability.md), based on
+merged main `2ef41b9`. [Implemented evidence](reports/ros2-observability.md) is
+under draft review; Foxglove interactive acceptance passed. PR 14 remains recording.
+
+Add optional read-only Foxglove views of the MuJoCo/CRISP runtime.
 Publish standard joint states, TF, target and measured pose markers, plus
 inspectable effort, command age, watchdog faults and recovery telemetry. Ship
-a saved RViz configuration and Foxglove layout. Preserve the shared application
-safety path, v1 contracts and ROS-free local learning workflows. This proposal
-needs its own implementation plan and PR; the viewers do not own control.
+a saved Foxglove layout. Preserve the shared application
+safety path, v1 contracts and ROS-free local learning workflows. The optional
+observer and viewers do not own control.
 
 Connect the telemetry to PR 14's MCAP recording and replay work. Foxglove
 deployment and licensing requirements must be checked when selecting the viewer.

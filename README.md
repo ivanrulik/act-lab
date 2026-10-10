@@ -233,3 +233,16 @@ actuator ownership/effort, fault cases and runtime provenance. See the
 [simulation contract and safety review](docs/contracts/ros2-simulation.md) and
 [ADR 016](docs/adr/016-crisp-moving-simulation.md). This is stepped simulation;
 hardware and ROS recording remain later roadmap work. Learning remains ROS-free.
+
+## Optional Foxglove views
+
+```bash
+docker compose --profile ros2-observability up --build ros2-observability
+```
+
+Connect Foxglove to `ws://localhost:8765` and import
+`configs/ros2/foxglove/act-lab.json`.
+The bounded scripted demo shows motion, producer-loss hold, recovery and reset.
+Views expose poses, effort, lease ages, ownership and faults without authorizing
+commands. [Launch instructions and safety contract](docs/contracts/ros2-observability.md)
+include viewer dependencies and cached-display limitations.

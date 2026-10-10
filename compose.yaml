@@ -11,13 +11,33 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  ros2-observability:
+    build:
+      context: .
+      dockerfile: Dockerfile.ros2-observability
+      target: headless
+      additional_contexts:
+        simulation_base: service:ros2-simulation
+    profiles: ["ros2-observability"]
+    working_dir: /workspace
+    init: true
+    volumes:
+      - .:/workspace
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      ROS_DOMAIN_ID: "45"
+    stop_grace_period: 20s
+
   ros2-simulation:
     build:
       context: .
       dockerfile: Dockerfile.ros2-simulation
       additional_contexts:
         crisp_base: service:crisp-feasibility
-    profiles: ["ros2-simulation"]
+    profiles: ["ros2-simulation", "ros2-observability"]
     working_dir: /workspace
     init: true
     volumes:
@@ -31,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.crisp
-    profiles: ["crisp-feasibility", "ros2-simulation"]
+    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability"]
     working_dir: /workspace
     init: true
     volumes:

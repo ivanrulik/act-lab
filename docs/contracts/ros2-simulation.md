@@ -108,3 +108,13 @@ separate from motion authority: the owner continues checking its 100 ms wall
 watchdog and integrating dynamic hold while waiting. A late response cannot
 restore expired authorization. Recovery requires reactivation and a fresh
 sequence; a missing response at the drain deadline remains a controller failure.
+
+### Shutdown evidence completion
+
+The physics owner integrates 250 shutdown-hold ticks before finalization. It
+writes compact physics JSON to a partial file and atomically publishes the
+completed artifact before acknowledging shutdown. Controller and ROS cleanup
+also precede that acknowledgment. The parent allows up to 60 seconds for this
+non-motion finalization; the gateway supervisor allows 75 seconds. Motion lease
+watchdogs remain 100 ms. Timeouts or nonzero owner exits fail execution rather
+than claiming successful shutdown or complete evidence.
