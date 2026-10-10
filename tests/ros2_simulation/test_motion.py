@@ -192,3 +192,65 @@ def test_controller_preparation_requires_separate_fresh_intent(tmp_path):
         assert session.sequence > previous_sequence
     finally:
         session.close()
+
+
+def test_producer_loss_when_wall_watchdog_expires_before_simulation_time(tmp_path):
+    import json
+    import time
+
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession, producer_loss
+
+    session = MotionSession(tmp_path)
+    try:
+        pose = snapshot_state(session.value).end_effector_pose
+        fresh_enabled(session, pose)
+        source_ns = session.trace[-1]["source_timestamp_ns"]
+        sequence = session.sequence
+        # No new intent: force wall expiry before the subsequent tick batch.
+        time.sleep(0.12)
+        result = producer_loss(session)
+        assert result["reason"] == "gateway_wall_timeout"
+        assert result["source_timestamp_ns"] == source_ns
+        assert result["command_sequence"] == sequence
+        assert result["final_source_age_ns"] >= 100_000_000
+    finally:
+        session.close()
+    rows = json.loads((tmp_path / "physics.json").read_text())
+    fault_rows = [r for r in rows if r["reason"] == "gateway_wall_timeout"]
+    assert fault_rows
+    assert all(not any(r["task_effort_nm"]) for r in fault_rows)
+
+
+def test_late_native_reply_cannot_enable_expired_intent(tmp_path):
+    import json
+    import os
+    import signal
+    import threading
+
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession
+
+    session = MotionSession(tmp_path)
+    resume = None
+    try:
+        pose = snapshot_state(session.value).end_effector_pose
+        fresh_enabled(session, pose)
+        pid = session.value["controller_pid"]
+        os.kill(pid, signal.SIGSTOP)
+        resume = threading.Timer(0.3, os.kill, args=(pid, signal.SIGCONT))
+        resume.start()
+        value = session.command(pose, gripper=1.0)
+        assert value["mode"] == "FAULT_HOLD"
+        assert value["reason"] in {"controller_wall_timeout", "gateway_wall_timeout"}
+        resume.join()
+        fresh_enabled(session, snapshot_state(session.value).end_effector_pose)
+        assert session.value["mode"] == "ENABLED"
+    finally:
+        if resume:
+            resume.join()
+        session.close()
+    rows = json.loads((tmp_path / "physics.json").read_text())
+    late = [r for r in rows if r["mode"] == "FAULT_HOLD" and r.get("raw_effort_nm")]
+    assert late
+    assert all(not any(r["task_effort_nm"]) for r in late)

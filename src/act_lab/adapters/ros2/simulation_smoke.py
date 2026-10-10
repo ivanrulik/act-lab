@@ -212,6 +212,30 @@ class MotionSession:
             self.rclpy.shutdown()
 
 
+def producer_loss(session: MotionSession) -> dict[str, Any]:
+    """Stop producing intent; whichever independent lease expires first wins."""
+    if session.value["mode"] != "ENABLED":
+        raise RuntimeError("producer-loss fixture requires enabled intent")
+    source_ns = session.trace[-1]["source_timestamp_ns"]
+    sequence = session.sequence
+    value = session.rpc(dict(kind="advance", ticks=250))
+    age_ns = snapshot_state(value).timestamp_ns - source_ns
+    if (
+        value["mode"] != "FAULT_HOLD"
+        or value["reason"] not in {
+            "stale_source", "gateway_wall_timeout", "controller_wall_timeout"
+        }
+        or age_ns < 100_000_000
+        or session.sequence != sequence
+    ):
+        raise RuntimeError("producer disappearance did not inhibit expired intent")
+    return dict(
+        case="producer_loss", reason=value["reason"],
+        source_timestamp_ns=source_ns, final_source_age_ns=age_ns,
+        command_sequence=sequence,
+    )
+
+
 def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     session = MotionSession(output, paced=paced)
@@ -353,10 +377,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
         cases.append(dict(case="clock_forward_jump", mode=value["mode"]))
         session.motion_command(target)
         session.motion_command(target)
-        value = session.rpc(dict(kind="advance", ticks=250))
-        if value["mode"] != "FAULT_HOLD" or value["reason"] != "stale_source":
-            raise RuntimeError("producer disappearance did not expire source lease")
-        cases.append(dict(case="producer_loss", reason=value["reason"]))
+        cases.append(producer_loss(session))
         session.motion_command(target)
         value = session.rpc(
             dict(
