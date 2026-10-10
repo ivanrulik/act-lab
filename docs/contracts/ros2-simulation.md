@@ -101,3 +101,10 @@ source/gateway/controller lease rejection; the full trace must contain zero task
 effort during hold. The actual first rejection is recorded. Exact individual
 lease boundaries remain covered with injected clocks; runtime checks do not
 require source expiry to beat an independent wall watchdog.
+
+Ordinary native-controller responses have a bounded two-second drain deadline,
+covering the native one-second DDS acknowledgment wait. This transport wait is
+separate from motion authority: the owner continues checking its 100 ms wall
+watchdog and integrating dynamic hold while waiting. A late response cannot
+restore expired authorization. Recovery requires reactivation and a fresh
+sequence; a missing response at the drain deadline remains a controller failure.

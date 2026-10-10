@@ -74,8 +74,11 @@ class ControllerProcess:
             json.dumps({**value, "schema_version": 1}, allow_nan=False).encode() + b"\n"
         )
         self.process.stdin.flush()
+        # The native DDS acknowledgment may take up to one second. Keep
+        # draining the bounded response while on_wait independently inhibits
+        # motion at 100 ms; transport completion never renews authorization.
         end = time.monotonic() + (
-            20.0 if "joints" in value or value.get("recover") else 0.12
+            20.0 if "joints" in value or value.get("recover") else 2.0
         )
         while time.monotonic() < end:
             while b"\n" in self.buffer:
@@ -403,6 +406,7 @@ def physics_owner(
                     rows.append(asdict(plant.tick()))
                     publish()
                     steady += 2_000_000
+                    guard.clock(plant.observe().timestamp_ns, episode, steady)
 
             for _ in range(command.get("ticks", 10)):
                 tick_deadline = time.monotonic() + 0.002
