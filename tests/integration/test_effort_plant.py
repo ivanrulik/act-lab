@@ -203,3 +203,27 @@ def test_predicted_joint_margin_crossing_is_replaced_by_dynamic_hold(plant):
         assert sample.state.timestamp_ns == 2_000_000
     finally:
         bounded.close()
+
+
+def test_observational_reads_preserve_the_same_effort_and_hold_path(plant):
+    other = MujocoEffortPlant(
+        SimulationConfig.load(Path("configs/sim/ur5e_pick_place.toml"))
+    )
+    other.reset(0)
+    try:
+        plant.enable(0.4)
+        other.enable(0.4)
+        for tick in range(150):
+            if tick == 25:
+                plant.hold("producer_loss")
+                other.hold("producer_loss")
+            effort = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0] if tick < 25 else None
+            expected = plant.tick(effort)
+            actual = other.tick(effort)
+            snapshot = other.observation_sample()
+            assert actual == expected
+            assert snapshot.state == actual.state
+            assert snapshot.total_effort_nm == actual.total_effort_nm
+            assert snapshot.accepted_gripper == 0.4
+    finally:
+        other.close()

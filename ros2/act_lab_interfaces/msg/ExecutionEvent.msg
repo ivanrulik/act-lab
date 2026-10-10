@@ -1,0 +1,12 @@
+std_msgs/Header header
+uint32 schema_version
+string episode_id
+uint64 event_id
+uint64 physics_tick
+uint64 generation
+string mode
+string reason
+string source_episode_id
+bool source_valid
+uint64 command_sequence
+int64 source_timestamp_ns

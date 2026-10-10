@@ -1,0 +1,52 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Global Options:
+    Fixed Frame: world
+    Background Color: 30; 32; 38
+    Frame Rate: 30
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: World grid
+      Enabled: true
+      Cell Size: 0.1
+      Plane: XY
+    - Class: rviz_default_plugins/RobotModel
+      Name: Official UR model (separate scene tip)
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /act_lab/view/robot_description
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+        History Policy: Keep Last
+        Depth: 1
+      TF Prefix: ur_model
+    - Class: rviz_default_plugins/TF
+      Name: Model and measured tip frames
+      Enabled: true
+      Show Names: true
+      Show Axes: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Requested amber; approved cyan; measured green
+      Enabled: true
+      Marker Topic:
+        Value: /act_lab/view/poses
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 1
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 1.7
+      Focal Point: {X: 0.35, Y: 0.0, Z: 0.4}
+      Pitch: 0.5
+      Yaw: 0.8
+Window Geometry:
+  Width: 1200
+  Height: 800

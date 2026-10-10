@@ -120,7 +120,11 @@ class ControllerProcess:
 
 
 def physics_owner(
-    connection: Connection, output: str, seed: int, paced: bool = False
+    connection: Connection,
+    output: str,
+    seed: int,
+    paced: bool = False,
+    observation_channel: Any = None,
 ) -> None:
     """The only process with live MuJoCo access; controller death leaves it running."""
     from act_lab.adapters.mujoco.config import SimulationConfig
@@ -163,7 +167,39 @@ def physics_owner(
         qos["clock"],
     )
 
+    from act_lab.adapters.ros2.observability import ObservationCapture
+
+    capture = ObservationCapture(observation_channel) if observation_channel else None
+    observation_intent: dict[str, Any] | None = None
+    latest_raw: Any = None
+    latest_output_wall = time.monotonic_ns()
+
+    def capture_observation() -> None:
+        if capture:
+            try:
+                capture.capture(
+                    plant.observe().robot,
+                    str(episode),
+                    plant.environment.physics_ticks,
+                    plant.mode,
+                    plant.reason,
+                    guard.generation,
+                    steady,
+                    guard,
+                    plant.observation_sample(),
+                    latest_raw,
+                    time.monotonic_ns(),
+                    latest_output_wall,
+                    observation_intent,
+                    residual_m,
+                    residual_rad,
+                )
+            except Exception:
+                # Observation failure cannot change motion authority.
+                observation_channel.dropped.value += 1
+
     def publish() -> None:
+        capture_observation()
         clock_pub.publish(
             make_message("Clock", {"clock": encode_stamp(plant.observe().timestamp_ns)})
         )
@@ -248,8 +284,9 @@ def physics_owner(
         return value
 
     def inhibit(reason: str) -> None:
-        nonlocal prepared_generation
+        nonlocal prepared_generation, latest_raw
         prepared_generation = -1
+        latest_raw = None
         guard.fault(reason)
         plant.hold(reason)
 
@@ -279,18 +316,22 @@ def physics_owner(
             else:
                 command = receive(connection)
             kind = command.get("kind")
+            observation_intent = command.get("observation")
             if kind == "shutdown":
                 plant.hold("shutdown", shutdown=True)
                 for _ in range(250):
                     rows.append(asdict(plant.tick()))
+                capture_observation()
                 send(connection, snapshot())
                 break
             if kind == "snapshot":
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind == "kill_controller":
                 controller.process.kill()
                 controller.process.wait(timeout=5)
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind == "restart_controller":
@@ -300,6 +341,7 @@ def physics_owner(
                 controller.close()
                 controller = ControllerProcess(plant.observe().robot, folder)
                 controller.request(request(True), publish)
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind == "prepare_controller":
@@ -320,9 +362,11 @@ def physics_owner(
                 # sequence can use this ready generation and enable effort.
                 prepared_generation = guard.generation
                 plant.hold("fresh_authorization_required")
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind == "reset":
+                latest_raw = None
                 prepared_generation = -1
                 plant.reset(command["seed"])
                 episode = uuid4()
@@ -330,6 +374,7 @@ def physics_owner(
                 guard.clock(0, episode, steady)
                 target = None
                 generation_recovered = -1
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind == "forward_jump":
@@ -350,6 +395,7 @@ def physics_owner(
                 guard.clock(command["domain_ns"], UUID(command["episode"]), steady)
                 if not guard.allowed(steady):
                     plant.hold(guard.reason)
+                capture_observation()
                 send(connection, snapshot())
                 continue
             if kind not in {"execute", "advance"}:
@@ -446,6 +492,12 @@ def physics_owner(
                         response = controller.request(request(), watchdog_wait)
                         effort = tuple(response["effort"])
                         raw_effort = diagnostic_json(effort)
+                        latest_raw = dict(
+                            values=raw_effort,
+                            episode=response["episode"],
+                            generation=response["generation"],
+                            tick=response["tick"],
+                        )
                         if guard.output(
                             UUID(response["episode"]),
                             response["generation"],
@@ -456,6 +508,7 @@ def physics_owner(
                             # Valid output advances the wall lease, just as it
                             # advances the injected steady-clock output lease.
                             output_wall[0] = time.monotonic_ns()
+                            latest_output_wall = output_wall[0]
                             if plant.mode != "ENABLED":
                                 plant.enable(guard.gripper)
                             else:
@@ -521,10 +574,12 @@ def physics_owner(
         plant.hold("gateway_disconnected")
         for _ in range(250):
             rows.append(asdict(plant.tick()))
+            capture_observation()
     except BaseException as error:
         plant.hold("owner_error")
         for _ in range(250):
             rows.append(asdict(plant.tick()))
+            capture_observation()
         try:
             send(connection, dict(error=str(error)))
         except (BrokenPipeError, EOFError):
@@ -543,7 +598,13 @@ def physics_owner(
 
 
 class SimulationProcess:
-    def __init__(self, output: Path, seed: int = 0, paced: bool = False) -> None:
+    def __init__(
+        self,
+        output: Path,
+        seed: int = 0,
+        paced: bool = False,
+        observation_channel: Any = None,
+    ) -> None:
         if not Path(CONTROLLER).exists() or shutil.which("ros2") is None:
             raise RuntimeError(
                 "ROS simulation requires: docker compose --profile ros2-simulation "
@@ -552,7 +613,8 @@ class SimulationProcess:
         context = mp.get_context("spawn")
         self.connection, child = context.Pipe()
         self.process = context.Process(
-            target=physics_owner, args=(child, str(output), seed, paced)
+            target=physics_owner,
+            args=(child, str(output), seed, paced, observation_channel),
         )
         self.process.start()
         child.close()

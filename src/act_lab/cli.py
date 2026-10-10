@@ -298,6 +298,17 @@ def build_parser() -> argparse.ArgumentParser:
     motion.add_argument(
         "--paced", action="store_true", help="Pace owner ticks with a steady clock"
     )
+    for name in ("observability-demo", "observability-smoke"):
+        observe = ros_commands.add_parser(name, help="Read-only ROS viewer telemetry")
+        observe.add_argument(
+            "--output", type=Path, default=Path("runs/ros2-observability")
+        )
+        observe.add_argument(
+            "--duration", type=float, default=30.0 if name.endswith("demo") else 4.0
+        )
+        observe.add_argument("--seed", type=int, default=0)
+        observe.add_argument("--stepped", action="store_true")
+        observe.add_argument("--json", action="store_true")
     crisp = ros_commands.add_parser(
         "crisp-feasibility", help="Pinned stationary CRISP controller assessment"
     )
@@ -838,9 +849,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 video_path = args.output / "videos" / policy_name / f"seed-{seed}.mp4"
                 writer = None
                 trace_stream = None
-                trace_path = (
-                    args.output / "traces" / policy_name / f"seed-{seed}.jsonl"
-                )
+                trace_path = args.output / "traces" / policy_name / f"seed-{seed}.jsonl"
                 events = {
                     "grasp": 0,
                     "drop": 0,
@@ -1035,9 +1044,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                             "seed": seed,
                             "success": False,
                             "completion_time_s": None,
-                            "elapsed_time_s": (
-                                completed_steps / config.environment_hz
-                            ),
+                            "elapsed_time_s": (completed_steps / config.environment_hz),
                             "steps": completed_steps,
                             "failure_reason": f"evaluation_error: {error}",
                             "events": events,
@@ -1478,7 +1485,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "ros2":
         try:
-            if args.ros2_command == "simulation-smoke":
+            if args.ros2_command.startswith("observability-"):
+                from act_lab.adapters.ros2.observation_demo import run_observability
+
+                result = run_observability(
+                    args.output,
+                    args.duration,
+                    args.seed,
+                    paced=not args.stepped,
+                    smoke=args.ros2_command.endswith("smoke"),
+                )
+            elif args.ros2_command == "simulation-smoke":
                 from act_lab.adapters.ros2.simulation_smoke import run_motion
 
                 result = run_motion(args.output, paced=args.paced)
@@ -1494,7 +1511,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(str(error), file=sys.stderr)
             return 1
         ros_label = (
-            "simulation" if args.ros2_command == "simulation-smoke" else "contracts"
+            "observability"
+            if args.ros2_command.startswith("observability-")
+            else "simulation"
+            if args.ros2_command == "simulation-smoke"
+            else "contracts"
         )
         print(
             json.dumps(result, indent=2)

@@ -155,3 +155,13 @@ and payload dynamics. Measured frame residual correction reconciles official UR
 FK with the local scene inside reviewed bounds. ADR 016 supersedes the stationary
 mapping-only use for this moving adapter. See the
 [moving contract](contracts/ros2-simulation.md) for safety evidence and limits.
+
+## Optional live ROS observability
+
+The physics owner offers bounded primitive copies to a separate observer process.
+ROS serialization, model publication and Foxglove delivery occur outside control.
+Generated execution telemetry/events are additive; the viewer receives no command
+authority. Official UR FK uses `ur_model/` frames while `act_lab_scene_tip` retains
+the measured MuJoCo pose. See [ADR 017](adr/017-read-only-ros-observability.md) and
+the [observability contract](contracts/ros2-observability.md) for freshness, loss,
+restricted bridge access and the dedicated safety review.

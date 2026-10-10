@@ -1,0 +1,231 @@
+{
+  "name": "ACT Lab live observability",
+  "configById": {
+    "3D!actlab": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 1.6,
+        "phi": 65,
+        "thetaOffset": 45,
+        "targetOffset": [
+          0.35,
+          0,
+          0.4
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.01,
+        "far": 100
+      },
+      "followTf": "world",
+      "topics": {
+        "/act_lab/view/poses": {
+          "visible": true
+        },
+        "/act_lab/view/robot_description": {
+          "visible": true
+        }
+      },
+      "transforms": {},
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "axisSize": 0.08
+        },
+        "labelScaleFactor": 0.5
+      },
+      "layers": {
+        "ur-model": {
+          "layerId": "foxglove.Urdf",
+          "instanceId": "ur-model",
+          "sourceType": "topic",
+          "topic": "/act_lab/view/robot_description",
+          "framePrefix": "ur_model/",
+          "controlMode": "transforms",
+          "visible": true,
+          "label": "Official UR5e model",
+          "displayMode": "visual",
+          "showOutlines": false,
+          "order": 1,
+          "opacity": 1,
+          "showAxis": false,
+          "fallbackColor": "#ffffff"
+        }
+      },
+      "fixedFrame": "world",
+      "followMode": "follow-none"
+    },
+    "Plot!effort": {
+      "title": "Task / hold / total effort (Nm)",
+      "paths": [
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[0]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[1]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[2]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[3]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[4]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.task_effort_nm[5]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[0]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[1]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[2]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[3]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[4]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.hold_effort_nm[5]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[0]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[1]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[2]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[3]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[4]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.total_effort_nm[5]",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "xAxisVal": "timestamp",
+      "showLegend": false
+    },
+    "Plot!ages": {
+      "title": "Source and wall ages (ns)",
+      "paths": [
+        {
+          "value": "/act_lab/view/telemetry.source_age_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.wall_receipt_age_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.wall_clock_age_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/act_lab/view/telemetry.wall_output_age_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!state": {
+      "topicPath": "/act_lab/view/telemetry",
+      "diffEnabled": false
+    },
+    "RawMessages!events": {
+      "topicPath": "/act_lab/view/events",
+      "diffEnabled": false
+    },
+    "RawMessages!report": {
+      "topicPath": "/act_lab/v1/command_report",
+      "diffEnabled": false
+    }
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!actlab",
+    "second": {
+      "direction": "column",
+      "first": "Plot!effort",
+      "second": {
+        "direction": "column",
+        "first": "Plot!ages",
+        "second": {
+          "direction": "row",
+          "first": "RawMessages!state",
+          "second": {
+            "direction": "row",
+            "first": "RawMessages!events",
+            "second": "RawMessages!report"
+          }
+        }
+      }
+    },
+    "splitPercentage": 45
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  }
+}

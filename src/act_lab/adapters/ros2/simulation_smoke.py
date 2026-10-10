@@ -28,7 +28,13 @@ from act_lab.domain import Action, Pose
 
 
 class MotionSession:
-    def __init__(self, output: Path, seed: int = 0, paced: bool = False) -> None:
+    def __init__(
+        self,
+        output: Path,
+        seed: int = 0,
+        paced: bool = False,
+        observation_channel: Any = None,
+    ) -> None:
         try:
             require_ros()
         except RuntimeError as error:
@@ -62,7 +68,7 @@ class MotionSession:
         context = mp.get_context("spawn")
         self.connection, child = context.Pipe()
         self.process = context.Process(
-            target=gateway, args=(child, str(output), seed, paced)
+            target=gateway, args=(child, str(output), seed, paced, observation_channel)
         )
         self.process.start()
         child.close()
@@ -222,16 +228,17 @@ def producer_loss(session: MotionSession) -> dict[str, Any]:
     age_ns = snapshot_state(value).timestamp_ns - source_ns
     if (
         value["mode"] != "FAULT_HOLD"
-        or value["reason"] not in {
-            "stale_source", "gateway_wall_timeout", "controller_wall_timeout"
-        }
+        or value["reason"]
+        not in {"stale_source", "gateway_wall_timeout", "controller_wall_timeout"}
         or age_ns < 100_000_000
         or session.sequence != sequence
     ):
         raise RuntimeError("producer disappearance did not inhibit expired intent")
     return dict(
-        case="producer_loss", reason=value["reason"],
-        source_timestamp_ns=source_ns, final_source_age_ns=age_ns,
+        case="producer_loss",
+        reason=value["reason"],
+        source_timestamp_ns=source_ns,
+        final_source_age_ns=age_ns,
         command_sequence=sequence,
     )
 
@@ -445,9 +452,7 @@ def run_motion(output: Path, *, paced: bool = False) -> dict[str, Any]:
             repeated_trajectory.append(session.trace[-1])
         repeat_error = max(
             math.dist(a["measured"], b["measured"])
-            for a, b in zip(
-                    first_trajectory, repeated_trajectory, strict=True
-            )
+            for a, b in zip(first_trajectory, repeated_trajectory, strict=True)
         )
         # Wall watchdog events are external inputs even in stepped mode. Keep
         # the physical comparison tolerance authoritative; report bitwise

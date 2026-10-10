@@ -1,0 +1,17 @@
+/act_lab/view/foxglove_bridge:
+  ros__parameters:
+    use_sim_time: true
+    address: 0.0.0.0
+    port: 8765
+    capabilities: [connectionGraph, assets]
+    topic_whitelist:
+      - '^/act_lab/view/.*$'
+      - '^/act_lab/v1/(state|command_report)$'
+      - '^/(joint_states|tf|tf_static|clock)$'
+    client_topic_whitelist: ['^$']
+    service_whitelist: ['^$']
+    param_whitelist: ['^$']
+    asset_uri_allowlist:
+      - '^package://ur_description/meshes/ur5e/(visual|collision)/[A-Za-z0-9_./-]+\.(dae|stl|png)$'
+    num_threads: 2
+    max_qos_depth: 10

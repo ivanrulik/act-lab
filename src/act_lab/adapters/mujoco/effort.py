@@ -117,6 +117,28 @@ class MujocoEffortPlant(MujocoCartesianDriver):
         self.reason = "authorized"
         self.accepted_gripper = gripper
 
+    def observation_sample(self) -> EffortSample:
+        """Read actuator forces without advancing or modifying physics."""
+        primary = tuple(float(self._data.actuator_force[a]) for a in self._arm_ids)
+        velocity = tuple(
+            float(self._data.actuator_force[a]) for a in self._velocity_actuator_ids
+        )
+        total = tuple(a + b for a, b in zip(primary, velocity, strict=True))
+        return EffortSample(
+            self.observe().robot,
+            self.mode,
+            self.reason,
+            primary if self.mode == "ENABLED" else (0.0,) * 6,
+            total if self.mode != "ENABLED" else (0.0,) * 6,
+            total,
+            self.accepted_gripper,
+            float(np.linalg.norm(self._twist()[:3])),
+            0.0,
+            float(np.linalg.norm(self._twist()[3:])),
+            0.0,
+            0.0,
+        )
+
     def tick(self, effort_nm: Sequence[float] | None = None) -> EffortSample:
         """Advance one 2 ms tick; hold continues real dynamics and gripper contact."""
         if self.mode == "ENABLED":
