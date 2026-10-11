@@ -1,0 +1,21 @@
+# CI image names for Bake; Compose remains the build definition.
+services:
+  ci:
+    build:
+      context: .
+      target: ci
+    image: act-lab-ci
+  train-cpu:
+    image: act-lab-train-cpu
+  ros2-contracts:
+    image: act-lab-ros2-contracts
+  crisp-feasibility:
+    image: act-lab-crisp-feasibility
+  ros2-simulation:
+    image: act-lab-ros2-simulation
+  ros2-observability:
+    image: act-lab-ros2-observability
+  tooling:
+    image: act-lab-tooling
+  ros2-recording:
+    image: act-lab-ros2-recording

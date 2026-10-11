@@ -5,8 +5,15 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
+
+env:
+  COMPOSE_FILE: compose.yaml:compose.ci-runtime.yaml
 
 jobs:
   container:
@@ -14,7 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build CI image
-        run: docker build --target ci --tag act-lab-ci .
+        uses: ./.github/actions/compose-build
+        with:
+          service: ci
       - name: Lint
         run: docker run --rm act-lab-ci ruff check .
       - name: Type check
@@ -29,7 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build CPU training image
-        run: docker build --target train-cpu --tag act-lab-train-cpu .
+        uses: ./.github/actions/compose-build
+        with:
+          service: train-cpu
       - name: Dataset and ACT training tests
         run: >-
           docker run --rm act-lab-train-cpu pytest
@@ -49,7 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build isolated Jazzy interfaces and runtime
-        run: docker compose --profile ros2-contracts build ros2-contracts
+        uses: ./.github/actions/compose-build
+        with:
+          service: ros2-contracts
       - name: Required generated serialization and DDS fault tests
         run: >-
           docker compose --profile ros2-contracts run --rm ros2-contracts
@@ -68,7 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build pinned CRISP and stationary mock bench
-        run: docker compose --profile crisp-feasibility build crisp-feasibility
+        uses: ./.github/actions/compose-build
+        with:
+          service: crisp-feasibility
       - name: Required lifecycle frame numeric DDS guard and compensation tests
         run: >-
           docker compose --profile crisp-feasibility run --rm --user "$(id -u):$(id -g)" crisp-feasibility
@@ -91,7 +106,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build isolated moving CRISP runtime
-        run: docker compose --profile ros2-simulation build ros2-simulation
+        uses: ./.github/actions/compose-build
+        with:
+          service: ros2-simulation
       - name: Required motion, ownership, lifecycle and independent hold tests
         run: >-
           docker compose --profile ros2-simulation run --rm --user "$(id -u):$(id -g)" ros2-simulation
@@ -113,7 +130,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build isolated read-only viewer runtime
-        run: docker compose --profile ros2-observability build ros2-observability
+        uses: ./.github/actions/compose-build
+        with:
+          service: ros2-observability
       - name: Required telemetry, model, fault and WebSocket denial tests
         run: >-
           docker compose --profile ros2-observability run --rm --user "$(id -u):$(id -g)" ros2-observability
@@ -137,7 +156,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build articulated tool and isolated software renderer
-        run: docker compose --profile tooling build tooling
+        uses: ./.github/actions/compose-build
+        with:
+          service: tooling
       - name: Required assembled FK, loaded contact and generated image DDS tests
         run: >-
           docker compose --profile tooling run --rm --user "$(id -u):$(id -g)" tooling
@@ -171,7 +192,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build isolated rosbag2 MCAP acquisition runtime
-        run: docker compose --profile ros2-recording build ros2-recording
+        uses: ./.github/actions/compose-build
+        with:
+          service: ros2-recording
       - name: Required CDR DDS storage lifecycle and equivalence tests
         run: >-
           docker compose --profile ros2-recording run --rm --user "$(id -u):$(id -g)" ros2-recording
@@ -199,7 +222,9 @@ jobs:
           name: ros2-recording-evidence
           path: .
       - name: Build ROS-free CPU conversion image
-        run: docker compose --profile training build train-cpu
+        uses: ./.github/actions/compose-build
+        with:
+          service: train-cpu
       - name: Compare validated local and ROS LeRobot datasets
         run: >-
           docker compose --profile training run --rm --user "$(id -u):$(id -g)" train-cpu

@@ -215,6 +215,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [Experiment contract](docs/contracts/experiments.md)
 - [ADRs](docs/adr/README.md)
 - [Contributing](CONTRIBUTING.md)
+- [CI builds and caching](docs/ci.md)
 
 ## Optional ROS/CRISP simulation motion
 

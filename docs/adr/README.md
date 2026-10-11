@@ -39,3 +39,6 @@ consequences, and status.
 
 - [ADR 022](022-stepped-acquisition-hold.md): explicit authorization revocation
   before offline CRISP rendering and recorder ACK waits.
+
+- [ADR 023](023-compose-ci-build-cache.md): Compose-derived cached CI builds,
+  bounded optional cache exports and superseded PR cancellation.

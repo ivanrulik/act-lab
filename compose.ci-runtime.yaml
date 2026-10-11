@@ -1,0 +1,26 @@
+# Run already-built CI images without rebuilding service build dependencies.
+services:
+  train-cpu:
+    build: !reset null
+    image: act-lab-train-cpu
+  ros2-contracts:
+    build: !reset null
+    image: act-lab-ros2-contracts
+  crisp-feasibility:
+    build: !reset null
+    image: act-lab-crisp-feasibility
+  ros2-simulation:
+    build: !reset null
+    image: act-lab-ros2-simulation
+  ros2-observability:
+    build: !reset null
+    image: act-lab-ros2-observability
+  tooling:
+    build: !reset null
+    image: act-lab-tooling
+  tooling-gpu:
+    build: !reset null
+    image: act-lab-tooling
+  ros2-recording:
+    build: !reset null
+    image: act-lab-ros2-recording
