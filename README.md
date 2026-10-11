@@ -292,3 +292,22 @@ failure. Capture is stepped and does not claim real-time throughput. Training
 remains ROS-free. [Usage, replay and conversion](docs/ros2-recording.md),
 [ADR 021](docs/adr/021-ros-mcap-acquisition-equivalence.md) and the
 [safety contract](docs/contracts/ros2-recording.md) describe limits.
+
+### Optional continuous capture
+
+Paced CRISP acquisition moves rendering and recorder ACK waits into a bounded
+worker, preserving original RGB/source timestamps while physics continues:
+
+```bash
+docker compose --profile ros2-recording-gpu run --build --rm ros2-recording-gpu \
+  act-lab ros2 recording-demo --controller crisp --paced --steps 30 \
+  --output runs/paced-recording --json
+```
+
+The requested NVIDIA renderer is verified. Full quality is default. For explicit
+CPU qualification, use `ros2-recording`, `--capture-profile reduced-effects`, and
+`--config configs/sim/ur5e_2f85_d405_capture_bench.toml`. Reduced effects have a
+distinct camera fingerprint; they are not silently mixed with full-quality data.
+Capture over 100 ms, queue overload or worker loss interrupts recording and
+requests the existing hold. This is simulation evidence, not hardware validation.
+See [the implementation plan](docs/plans/continuous-ros-recording.md).

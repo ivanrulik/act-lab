@@ -34,7 +34,7 @@ receipt time remains monotonic across resets using a steady clock anchored to a
 wall epoch. Import ignores receipt time for sample reconstruction. Pauses generate
 no synthetic repeated samples; backward source time inside an attempt is invalid.
 Finish the recorded attempt before resetting the stepped CRISP runtime. Begin a
-new recorded attempt afterward. Paced CRISP acquisition is explicitly rejected.
+new recorded attempt afterward. Paced CRISP acquisition is opt-in under ADR 024.
 
 During stepped CRISP recording, the owner revokes task authorization into its
 existing bounded hold immediately after each commanded interval, before rendering
@@ -45,6 +45,29 @@ or samples. Independent watchdog faults still preserve actual elapsed simulation
 time and may make a recording invalid for training. See ADR 022.
 
 ## Storage and import
+
+### Optional paced capture
+
+`--controller crisp --paced` keeps the owner integrating physics while a separate
+worker renders immutable post-command snapshots and waits for recorder ACKs.
+All camera images, measured state and command report retain one original source
+timestamp. The worker never steps physics or refreshes command intent.
+
+The control side offers without waiting, with four pending samples maximum.
+At 100 ms of pending receipt/render/ACK age, on queue overload, lost worker or
+out-of-order completion, acquisition interrupts through the existing disabled
+gripper-preserving hold and owner cleanup. No snapshot is overwritten. The
+independent source/receipt/output watchdog remains authoritative if the producer
+or gateway disappears. Startup/warmup and final drain occur under hold. Active
+reset remains rejected; a new attempt creates a new worker and episode UUID,
+while acquisition packet ordering continues across attempts.
+
+Full rendering remains default. `--capture-profile reduced-effects` explicitly
+disables shadows/reflections and multisampling; those settings enter each camera
+fingerprint. Full and reduced effects are incompatible acquisition identities.
+The optional `ros2-recording-gpu` service verifies the requested NVIDIA renderer;
+it cannot silently fall back. Capture failure is retained as partial evidence,
+not converted into a successful recording or a promised real-time rate.
 
 The recorder writes `bag.partial`, closing, syncing and renaming it to `bag` only
 on orderly completion. MCAP uses Zstd, chunk and data CRCs. rosbag2's buffered
@@ -100,7 +123,7 @@ that UID need not have a passwd entry. This permits dependencies using Python
 
 ## Deferred limits
 
-Continuous paced capture, camera hardware synchronization, rosbag crash repair,
+Long-duration paced throughput qualification, camera hardware synchronization, rosbag crash repair,
 multiple producers/recorders, physical mounting, depth/stereo and hardware use
 remain deferred. The Foxglove flange assembly appearance follow-up remains open.
 Stationary/short CRISP recording does not establish successful pick/place or

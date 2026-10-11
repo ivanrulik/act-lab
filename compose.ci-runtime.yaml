@@ -24,3 +24,6 @@ services:
   ros2-recording:
     build: !reset null
     image: act-lab-ros2-recording
+  ros2-recording-gpu:
+    build: !reset null
+    image: act-lab-ros2-recording

@@ -42,3 +42,6 @@ consequences, and status.
 
 - [ADR 023](023-compose-ci-build-cache.md): Compose-derived cached CI builds,
   bounded optional cache exports and superseded PR cancellation.
+
+- [ADR 024](024-paced-acquisition-worker.md): bounded asynchronous paced
+  acquisition, capture overload/loss holds and explicit rendering identities.

@@ -168,10 +168,6 @@ def gateway(
             request = receive(connection)
             kind = request["kind"]
             if kind == "record_start":
-                if paced:
-                    raise ValueError(
-                        "synchronized acquisition requires stepped simulation"
-                    )
                 if recording_manager is not None:
                     raise ValueError("recording already active")
                 import argparse
@@ -179,12 +175,32 @@ def gateway(
                 from act_lab.adapters.mcap.session import recording_robot
                 from act_lab.adapters.ros2.recording import RosEpisodeSink
 
-                recording_sink = RosEpisodeSink(
-                    node,
-                    episode=lambda: runtime.snapshot["episode"],
-                    sequence_start=recording_sequence,
-                    command_sequence=lambda: driver.sequence,
-                )
+                if paced:
+                    from act_lab.adapters.ros2.paced_recording import PacedEpisodeSink
+
+                    observation = robot.observe()
+                    robot.command(
+                        Action(
+                            observation.timestamp_ns,
+                            observation.robot.end_effector_pose,
+                            observation.robot.gripper_position,
+                            False,
+                        )
+                    )
+                    recording_sink = PacedEpisodeSink(
+                        driver,
+                        Path(output) / "acquisition",
+                        delay_s=request.get("capture_delay_s", 0.0),
+                        sequence_start=recording_sequence,
+                        capture_profile=request.get("capture_profile", "full"),
+                    )
+                else:
+                    recording_sink = RosEpisodeSink(
+                        node,
+                        episode=lambda: runtime.snapshot["episode"],
+                        sequence_start=recording_sequence,
+                        command_sequence=lambda: driver.sequence,
+                    )
                 args = argparse.Namespace(
                     record_dir=Path(output) / "acquisition",
                     outcome="failure",
@@ -194,12 +210,13 @@ def gateway(
                 recording_manager = recording_robot(
                     driver,
                     args,
-                    "ros-crisp",
+                    "ros-crisp-paced" if paced else "ros-crisp",
                     request["seed"],
                     sink_factory=recording_sink.for_directory,
+                    image_provider=(lambda _: ()) if paced else None,
                 )
                 robot = recording_manager.__enter__()
-                driver.acquisition_active = True
+                driver.acquisition_active = not paced
                 robot.reset(request["seed"])
                 inbox = CommandInbox()
                 latest = None
@@ -223,11 +240,16 @@ def gateway(
                     )
                 )
                 recording_manager.__exit__(None, None, None)
-                recording_sequence = recording_sink.sequence
+                recording_sequence = (
+                    recording_sink.result["packet_sequence"]
+                    if paced
+                    else recording_sink.sequence
+                )
+                recording_result = recording_sink.result if paced else {}
                 recording_manager = None
                 driver.acquisition_active = False
                 robot = SafeCartesianRobot(driver, driver.limits)
-                send(connection, runtime.snapshot)
+                send(connection, dict(**runtime.snapshot, capture=recording_result))
                 continue
             if kind == "shutdown":
                 if recording_manager is not None:
@@ -239,6 +261,13 @@ def gateway(
                 runtime.close()
                 send(connection, dict(closed=True))
                 break
+            if kind == "kill_capture_worker":
+                if not paced or recording_manager is None:
+                    raise ValueError("no paced capture worker")
+                recording_sink.process.kill()
+                recording_sink.process.join(5)
+                send(connection, runtime.snapshot)
+                continue
             if kind == "snapshot":
                 runtime.rpc(request)
                 driver._sync()
@@ -274,6 +303,23 @@ def gateway(
                 continue
             if kind != "poll":
                 raise ValueError("unknown gateway request")
+            if paced and recording_manager is not None:
+                try:
+                    recording_sink.check()
+                except RuntimeError:
+                    observation = robot.observe()
+                    try:
+                        robot.command(
+                            Action(
+                                observation.timestamp_ns,
+                                observation.robot.end_effector_pose,
+                                observation.robot.gripper_position,
+                                False,
+                            )
+                        )
+                    finally:
+                        recording_sink.interrupt()
+                    raise
             if paced:
                 runtime.rpc(dict(kind="snapshot"))
                 driver._sync()

@@ -333,6 +333,17 @@ def build_parser() -> argparse.ArgumentParser:
             "--controller", choices=("local", "crisp"), default="local"
         )
         acquisition.add_argument("--json", action="store_true")
+        acquisition.add_argument(
+            "--capture-profile",
+            choices=("full", "reduced-effects"),
+            default="full",
+            help="Explicit paced RGB quality; reduced effects change camera identity",
+        )
+        acquisition.add_argument(
+            "--paced",
+            action="store_true",
+            help="Continuous CRISP owner with bounded asynchronous RGB acquisition",
+        )
     importer = ros_commands.add_parser(
         "recording-import", help="Translate rosbag2 MCAP to canonical episodes"
     )
@@ -1560,6 +1571,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     steps=args.steps,
                     controller=args.controller,
                     smoke=args.ros2_command.endswith("smoke"),
+                    paced=args.paced,
+                    capture_profile=args.capture_profile,
                 )
             elif args.ros2_command.startswith("observability-"):
                 from act_lab.adapters.ros2.observation_demo import run_observability

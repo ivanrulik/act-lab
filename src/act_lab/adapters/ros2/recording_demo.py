@@ -1,4 +1,4 @@
-"""Live stepped capture and transport equivalence against the canonical writer."""
+"""Stepped or bounded paced capture, with canonical transport equivalence."""
 
 from __future__ import annotations
 
@@ -114,15 +114,25 @@ def _local(output: Path, config: Path, seed: int, steps: int) -> dict[str, Any]:
         rclpy.try_shutdown()
 
 
-def _crisp(output: Path, config: Path, seed: int, steps: int) -> dict[str, Any]:
+def _crisp(
+    output: Path,
+    config: Path,
+    seed: int,
+    steps: int,
+    paced: bool = False,
+    capture_profile: str = "full",
+) -> dict[str, Any]:
     from act_lab.adapters.ros2.simulation import snapshot_state
     from act_lab.adapters.ros2.simulation_smoke import MotionSession
 
     session = MotionSession(
-        output / "motion", seed=seed, paced=False, config_path=config
+        output / "motion", seed=seed, paced=paced, config_path=config
     )
+    failed = False
     try:
-        session.rpc(dict(kind="record_start", seed=seed))
+        session.rpc(
+            dict(kind="record_start", seed=seed, capture_profile=capture_profile)
+        )
         initial = snapshot_state(session.value)
         from dataclasses import replace
 
@@ -143,9 +153,20 @@ def _crisp(output: Path, config: Path, seed: int, steps: int) -> dict[str, Any]:
             else session.process.pid,
             controller="crisp",
             physics_pid=session.value["physics_pid"],
+            scheduler="paced" if paced else "stepped",
+            capture=session.value.get("capture"),
         )
+    except BaseException:
+        failed = True
+        raise
     finally:
-        session.close()
+        if failed:
+            try:
+                session.close()
+            except (RuntimeError, OSError, EOFError):
+                pass  # Preserve the original acquisition error after owner cleanup.
+        else:
+            session.close()
 
 
 def run_recording(
@@ -156,22 +177,35 @@ def run_recording(
     steps: int = 0,
     controller: str = "local",
     smoke: bool = False,
+    paced: bool = False,
+    capture_profile: str = "full",
 ) -> dict[str, Any]:
     require_recording()
     if output.exists():
         raise FileExistsError(str(output))
     if steps < 0 or controller not in {"local", "crisp"}:
         raise ValueError("invalid recording configuration")
+    if paced and controller != "crisp":
+        raise ValueError("paced acquisition requires --controller crisp")
+    if capture_profile not in {"full", "reduced-effects"}:
+        raise ValueError("unknown capture profile")
+    if capture_profile != "full" and not paced:
+        raise ValueError("capture profile selection requires paced acquisition")
     output.mkdir(parents=True)
     recorder = Recorder(output / "rosbag")
     try:
-        acquisition = (_local if controller == "local" else _crisp)(
-            output, config, seed, steps
+        acquisition = (
+            _local(output, config, seed, steps)
+            if controller == "local"
+            else _crisp(output, config, seed, steps, paced, capture_profile)
         )
         storage = recorder.close()
     except BaseException:
         if recorder.process.is_alive():
-            recorder.close(False)
+            try:
+                recorder.close(False)
+            except (RuntimeError, OSError, EOFError):
+                pass  # Preserve the acquisition error; partial evidence remains.
         raise
     imported = import_bag(output / "rosbag" / "bag", output / "imported")
     if storage["pid"] == acquisition["producer_pid"]:
@@ -180,12 +214,15 @@ def run_recording(
         dict(name="two_process_dds_and_rosbag2_mcap", passed=True),
         dict(name="canonical_import", passed=True, episodes=imported["cases"]),
     ]
-    if controller == "local":
+    if controller == "local" or paced:
         from act_lab.adapters.mcap.reading import read_episode
         from act_lab.application.dataset import resample_episode, validate_episode
 
         episode = acquisition["episode_id"]
-        local = read_episode(output / "local" / f"{episode}.mcap")
+        local_directory = (
+            output / "motion" / "acquisition" if paced else output / "local"
+        )
+        local = read_episode(local_directory / f"{episode}.mcap")
         ros = read_episode(output / "imported" / f"{episode}.mcap")
         if (
             local != ros
