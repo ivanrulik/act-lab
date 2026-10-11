@@ -369,6 +369,13 @@ def physics_owner(
         command: dict[str, Any]
         while True:
             if not connection.poll(0.0 if paced else 0.002):
+                if capture is not None:
+                    try:
+                        capture.retry_pending()
+                    except Exception:
+                        # A failed optional observer never owns physics progress.
+                        observation_channel.dropped.value += 1
+                        capture.pending = None
                 # Both schedulers share authorization and actuator state machines.
                 if (
                     plant.mode == "ENABLED"

@@ -59,3 +59,24 @@ was not validated in this PR**. The earlier Foxglove flange appearance review re
 explicitly deferred. No robot model or replay-to-command control is provided in the
 recording layout. Continuous paced acquisition, physical timestamp synchronization,
 crash-prefix repair and full CRISP pick/place qualification remain follow-ups.
+
+## CI reset-handoff follow-up
+
+The first remote run failed the existing observer reset check while the recording,
+container, learning and controller checks progressed. CI retained four handoff
+drops. Inspection found that an idle stepped reset offered its new-episode
+snapshot only once: if the observer held the shared lock, the optional offer was
+lost permanently until another capture.
+
+The fix retains one bounded encoded pending snapshot and retries its nonblocking
+offer during idle. Retries preserve capture identity, timestamp and freshness;
+new captures supersede old pending snapshots, oversized packets are dropped, and
+observer errors cannot affect physics ownership. The required DDS reset test now
+forces lock contention during reset. ROS-free regressions cover delivery, latest
+replacement, oversized capture and the unchanged exact 100 ms staleness boundary.
+
+Follow-up validation passed: Compose dev build, Ruff, mypy (71 source files),
+doctor, and default pytest (333 passed, four optional-environment skips). The
+required observer DDS suite passed all six tests with forced reset contention;
+the two targeted owner watchdog tests also passed. Remote CI must pass on the
+updated branch before merge.
