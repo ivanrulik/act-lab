@@ -280,6 +280,10 @@ drivers and mounting, ROS recording, hardware and Gazebo remain deferred.
 
 ### PR 14 — ROS MCAP recording and conversion equivalence
 
+CI follow-up: ADR 022 adds explicit stepped acquisition hold before offline
+rendering/ACK waits. Qualification includes a 250 ms pause regression and unchanged
+independent owner fault tests. Continuous paced capture remains deferred.
+
 Implemented on `feature/pr14-ros-mcap-equivalence`, based on merged `5e2116a`:
 ordered generated acquisition packets, separate-process rosbag2 MCAP capture,
 original RGB/calibration replay projections and canonical import with preserved

@@ -226,6 +226,12 @@ local expert qualification without acquiring storage framework dependencies.
 
 ## Optional ROS MCAP acquisition
 
+Stepped CRISP acquisition revokes authorization into the existing owner hold
+after each completed interval and before RGB rendering/ACK waits. The owner
+reports completed execution separately from current hold ownership; fresh enabled
+intent requires recovery. ADR 022 defines this offline handoff. Continuous paced
+acquisition requires a separate design.
+
 The `ros2-recording` profile captures ordered, acknowledged acquisition packets
 through a separate rosbag2 MCAP process. `RecordingRobot` samples post-command
 state and original RGB on the local driver or the stepped CRISP scratch gateway.

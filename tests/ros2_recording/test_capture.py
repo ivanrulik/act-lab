@@ -1,5 +1,6 @@
 """Required generated CDR, DDS, rosbag2 storage and fail-closed import tests."""
 
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -92,6 +93,47 @@ def test_real_crisp_synchronized_acquisition(tmp_path):
         case["quality"]["valid"] and not case["quality"]["training_eligible"]
         for case in result["import_report"]["cases"]
     )
+
+
+def test_offline_acquisition_revokes_motion_before_slow_capture(tmp_path):
+    from act_lab.adapters.ros2.simulation import snapshot_state
+    from act_lab.adapters.ros2.simulation_smoke import MotionSession
+
+    recorder = Recorder(tmp_path / "rosbag")
+    session = None
+    try:
+        session = MotionSession(tmp_path / "motion")
+        session.rpc(dict(kind="record_start", seed=0))
+        target = snapshot_state(session.value).end_effector_pose
+        first = session.motion_command(target, gripper=0.4)
+        assert first["mode"] == "FAULT_HOLD"
+        assert first["reason"] == "acquisition_pause"
+        assert first["acquisition_execution_mode"] == "ENABLED"
+        # Deliberately exceed the wall watchdog while offline I/O is idle.
+        time.sleep(0.25)
+        idle = session.rpc(dict(kind="snapshot"))
+        assert idle["state"] == first["state"]
+        assert idle["reason"] == "acquisition_pause"
+        assert idle["accepted_gripper"] == first["accepted_gripper"]
+        second = session.motion_command(target, gripper=0.4)
+        assert second["acquisition_execution_mode"] == "ENABLED"
+        assert (
+            snapshot_state(second).timestamp_ns - snapshot_state(first).timestamp_ns
+            == 20_000_000
+        )
+        session.rpc(dict(kind="record_stop"))
+        recorder.close()
+        imported = import_bag(tmp_path / "rosbag" / "bag", tmp_path / "imported")
+        assert imported["samples"] == 3
+        assert all(case["quality"]["valid"] for case in imported["cases"])
+        assert all(
+            not case["quality"]["training_eligible"] for case in imported["cases"]
+        )
+    finally:
+        if session is not None:
+            session.close()
+        if recorder.process.is_alive():
+            recorder.close(False)
 
 
 @pytest.mark.parametrize(

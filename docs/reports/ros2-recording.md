@@ -80,3 +80,23 @@ doctor, and default pytest (333 passed, four optional-environment skips). The
 required observer DDS suite passed all six tests with forced reset contention;
 the two targeted owner watchdog tests also passed. Remote CI must pass on the
 updated branch before merge.
+
+## CI acquisition-gap follow-up
+
+The observer repair passed remote CI. The recording job then exposed an offline
+handoff problem: four samples spanned 1.206 seconds; 573 owner ticks were labelled
+`gateway_wall_timeout`. RGB capture/ACK waits outlasted the unchanged 100 ms
+authorization watchdog. The quality gate correctly rejected `sample_gap`.
+
+ADR 022 makes the acquisition pause explicit: the owner revokes task authorization
+atomically after each command interval and before returning the snapshot used for
+rendering. Actual hold state and completed execution status are distinct. Fresh
+commands recover normally. No quality threshold, timestamp or watchdog is relaxed.
+The regression deliberately pauses for 250 ms and checks nominal sample spacing,
+hold ownership, retained gripper and valid failed-episode import.
+
+Local follow-up qualification passed: dev image build, Ruff, strict mypy,
+doctor, 333 default tests (four expected optional-environment skips), all 13
+required ROS recording tests and all 10 moving/controller fault tests. The
+combined required ROS run passed 23 tests in 161.34 seconds. Remote qualification
+must run on the updated commit; the earlier failed run is retained as evidence.

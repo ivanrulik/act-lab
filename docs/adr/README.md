@@ -36,3 +36,6 @@ consequences, and status.
 
 - [ADR 021](021-ros-mcap-acquisition-equivalence.md): acknowledged stepped ROS
   acquisition, rosbag2 MCAP, canonical import and ROS-free dataset equivalence.
+
+- [ADR 022](022-stepped-acquisition-hold.md): explicit authorization revocation
+  before offline CRISP rendering and recorder ACK waits.

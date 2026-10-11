@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-10
+- Stepped command/acquisition handoff refined by ADR 022.
 
 ## Context
 

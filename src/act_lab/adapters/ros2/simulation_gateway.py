@@ -44,6 +44,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
         self.sequence = 0
         self.receipt_ns = 0
         self.view_intent: dict[str, Any] | None = None
+        self.acquisition_active = False
         self._sync()
 
     def _sync(self) -> None:
@@ -97,6 +98,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
                 authorization=authorization,
                 ticks=10,
                 observation=self.view_intent,
+                hold_after=self.acquisition_active,
             )
         )
         self._sync()
@@ -197,6 +199,7 @@ def gateway(
                     sink_factory=recording_sink.for_directory,
                 )
                 robot = recording_manager.__enter__()
+                driver.acquisition_active = True
                 robot.reset(request["seed"])
                 inbox = CommandInbox()
                 latest = None
@@ -222,6 +225,7 @@ def gateway(
                 recording_manager.__exit__(None, None, None)
                 recording_sequence = recording_sink.sequence
                 recording_manager = None
+                driver.acquisition_active = False
                 robot = SafeCartesianRobot(driver, driver.limits)
                 send(connection, runtime.snapshot)
                 continue

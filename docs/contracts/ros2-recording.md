@@ -36,6 +36,14 @@ no synthetic repeated samples; backward source time inside an attempt is invalid
 Finish the recorded attempt before resetting the stepped CRISP runtime. Begin a
 new recorded attempt afterward. Paced CRISP acquisition is explicitly rejected.
 
+During stepped CRISP recording, the owner revokes task authorization into its
+existing bounded hold immediately after each commanded interval, before rendering
+and ACK waits. Snapshots retain the actual hold mode and separately report the
+completed interval's mode/reason. Fresh enabled intent requires guard recovery;
+the accepted gripper aperture is retained. Offline pauses add no synthetic ticks
+or samples. Independent watchdog faults still preserve actual elapsed simulation
+time and may make a recording invalid for training. See ADR 022.
+
 ## Storage and import
 
 The recorder writes `bag.partial`, closing, syncing and renaming it to `bag` only
