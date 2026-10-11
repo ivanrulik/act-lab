@@ -1,7 +1,8 @@
 # CI optimization research and staged plan
 
 Date: 2026-10-10. Baseline: GitHub run 38106912264, commit f9f580b.
-This is a proposal; no workflow caching or test-selection changes are implemented.
+Stages 1–2 are implemented on `codex/ci-build-cache`; hosted cold/warm qualification
+is pending. Later stages remain proposed. Test selection is unchanged.
 
 ## Measured costs
 
@@ -88,3 +89,23 @@ valid samples, one preserved rejected attempt and no sample-gap error. The count
 must match observed DDS attempts plus the terminal disabled sample, rather than
 assuming every initial attempt arrives without recovery. Keep original quality
 and fault assertions intact.
+
+## Initial implementation
+
+Run 38108031631 on 4815f42 passed all nine jobs before caching changes. The
+separate cache branch keeps that recording PR intact. ADR 023 adds a composite
+Buildx/Bake action using Compose build definitions and per-service GitHub cache
+scopes. Only the selected target exports; dependency targets import its cache.
+Exports time out after two minutes without failing successful test builds.
+Existing test/evidence commands remain unchanged. Superseded PR runs cancel;
+main runs retain distinct concurrency groups. No cache storage/billing setting
+is changed, and automatic Docker build-record uploads are disabled.
+
+Local validation passed: dev build, Ruff, strict mypy (71 files), doctor and
+default pytest (333 passed, four expected optional skips). Actionlint and Compose
+configuration checks passed. Actual Bake builds loaded the CI, ROS-contract and
+recording targets. Three dedicated ROS-contract tests passed; the 13 recording
+tests passed. An initial combined suite incorrectly ran contract provenance
+checks in the recording image; those checks passed in the dedicated image.
+The runtime override removes build definitions so test startup cannot rebuild
+unloaded parent targets. Hosted cold/warm performance remains unqualified.

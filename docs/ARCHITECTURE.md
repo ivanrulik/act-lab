@@ -108,6 +108,11 @@ Docker Compose is the supported local orchestrator. CPU/headless execution is
 the baseline. Webcam, display, and GPU access are opt-in profiles with narrow
 host permissions. The host owns source and artifacts; images own dependencies.
 
+CI builds the same Compose targets through Docker Bake, with a CI override for
+local image names and the CI target. External GitHub build caches are optional
+acceleration; all test/evidence jobs still execute on current source. ADR 023
+defines cache scopes, export bounds and obsolete PR-run cancellation.
+
 ## ROS 2 boundary
 
 PR 11 supplies optional generated ROS interfaces and executable contracts in

@@ -346,3 +346,11 @@ client mesh loading, frame/joint overrides and reset behavior. Static tool geome
 and live DDS transforms match independently; interactive visual acceptance remains
 open and is not a merge gate for PR 22. NVENC/video and
 physical mounting validation remain deferred.
+
+### CI optimization follow-up
+
+ADR 023 adds optional BuildKit caches through the existing Compose graph and
+cancels superseded PR runs. All nine acceptance jobs remain required. Hosted
+cold/warm qualification is pending. Dependency-layer restructuring, duplicate
+evidence reduction and change routing are deferred stages in
+[the CI optimization plan](plans/ci-optimization.md).
