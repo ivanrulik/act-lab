@@ -111,3 +111,16 @@ has no passwd entry in the image, and `etils.epy.env_utils` initializes via
 changing its actual runtime UID/GID or privilege. Reproduction under UID/GID
 1001 with that identity passes full validated local/ROS conversion and retains
 the original matching dataset fingerprint. No ROS dependency enters conversion.
+
+## CI recovery-attempt count follow-up
+
+Run 38106912264 passed seven jobs; recording's new pause regression then expected
+three samples but received four. Uploaded import evidence is valid, with one
+preserved rejected command and no sample-gap error. The pause, retained-state,
+gripper and consecutive 20 ms checks all passed. The assertion now counts actual
+DDS command attempts plus the terminal disabled sample. A deliberately disabled
+attempt makes preservation of extra samples deterministic in the regression.
+No watchdog, quality gate or motion assertion is relaxed. Full conversion in the
+rebuilt CPU image also passes as UID/GID 1001 without an environment override.
+The [CI optimization research](../plans/ci-optimization.md) records measured build
+costs and staged recommendations; workflow optimization remains proposed.

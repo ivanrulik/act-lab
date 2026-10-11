@@ -105,6 +105,8 @@ def test_offline_acquisition_revokes_motion_before_slow_capture(tmp_path):
         session = MotionSession(tmp_path / "motion")
         session.rpc(dict(kind="record_start", seed=0))
         target = snapshot_state(session.value).end_effector_pose
+        # Retain a disabled attempt too; it must not disappear from acquisition.
+        session.command(target, gripper=0.4, enabled=False)
         first = session.motion_command(target, gripper=0.4)
         assert first["mode"] == "FAULT_HOLD"
         assert first["reason"] == "acquisition_pause"
@@ -124,7 +126,9 @@ def test_offline_acquisition_revokes_motion_before_slow_capture(tmp_path):
         session.rpc(dict(kind="record_stop"))
         recorder.close()
         imported = import_bag(tmp_path / "rosbag" / "bag", tmp_path / "imported")
-        assert imported["samples"] == 3
+        # Every DDS attempt is evidence, including bounded recovery attempts.
+        # record_stop adds one final disabled sample outside session.command().
+        assert imported["samples"] == len(session.trace) + 1
         assert all(case["quality"]["valid"] for case in imported["cases"])
         assert all(
             not case["quality"]["training_eligible"] for case in imported["cases"]
