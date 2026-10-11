@@ -66,6 +66,11 @@ Imports never overwrite existing output. Complete failed/discarded episodes rema
 inspectable. Local/ROS equality is defined over complete decoded episodes, including
 pixels and metadata, not MCAP container bytes; import adds source lineage metadata.
 
+The ROS-free conversion image sets `LOGNAME=actlab` as its logical service
+identity. CI runs it with the runner's numeric UID/GID for artifact ownership;
+that UID need not have a passwd entry. This permits dependencies using Python
+`getpass.getuser()` to initialize without changing runtime privileges.
+
 ## ROS safety review
 
 | Case | Acquisition behavior | Motion ownership / acceptance |

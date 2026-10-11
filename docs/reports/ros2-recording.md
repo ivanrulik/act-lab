@@ -100,3 +100,14 @@ doctor, 333 default tests (four expected optional-environment skips), all 13
 required ROS recording tests and all 10 moving/controller fault tests. The
 combined required ROS run passed 23 tests in 161.34 seconds. Remote qualification
 must run on the updated commit; the earlier failed run is retained as evidence.
+
+## CI numeric-user conversion follow-up
+
+CI run 38104044726 passed recording, simulation, observability, tooling, contracts,
+CRISP feasibility, CPU training and the default container checks. Conversion then
+failed with `getpwuid(): uid not found: 1001`: CI's artifact-owning numeric UID
+has no passwd entry in the image, and `etils.epy.env_utils` initializes via
+`getpass.getuser()`. The image now declares logical `LOGNAME=actlab` without
+changing its actual runtime UID/GID or privilege. Reproduction under UID/GID
+1001 with that identity passes full validated local/ROS conversion and retains
+the original matching dataset fingerprint. No ROS dependency enters conversion.
