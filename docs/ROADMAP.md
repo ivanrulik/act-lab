@@ -282,7 +282,8 @@ drivers and mounting, ROS recording, hardware and Gazebo remain deferred.
 
 CI follow-up: ADR 022 adds explicit stepped acquisition hold before offline
 rendering/ACK waits. Qualification includes a 250 ms pause regression and unchanged
-independent owner fault tests. Continuous paced capture remains deferred.
+independent owner fault tests. ADR 024 adds an opt-in paced worker on the
+continuous-recording follow-up branch.
 
 Implemented on `feature/pr14-ros-mcap-equivalence`, based on merged `5e2116a`:
 ordered generated acquisition packets, separate-process rosbag2 MCAP capture,
@@ -293,7 +294,9 @@ expert comparison qualifies through the unchanged quality and LeRobot pipeline.
 See [ADR 021](adr/021-ros-mcap-acquisition-equivalence.md),
 [contract and safety review](contracts/ros2-recording.md),
 [usage](ros2-recording.md) and [local evidence](reports/ros2-recording.md).
-Continuous paced acquisition, hardware synchronization, crash-prefix repair
+Continuous paced acquisition is being implemented on
+`feature/continuous-ros-recording`; see [the plan](plans/continuous-ros-recording.md)
+and [ADR 024](adr/024-paced-acquisition-worker.md). Hardware synchronization, crash-prefix repair
 and full CRISP task qualification remain scoped follow-ups.
 
 Record synchronized ROS topics through rosbag2 MCAP and translate them into

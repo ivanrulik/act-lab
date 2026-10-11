@@ -149,6 +149,8 @@ class MotionSession:
             dict(kind="poll", wait_delivery=True, delivery_barrier=True),
         )
         ready = receive(self.connection)
+        if "error" in ready:
+            raise RuntimeError(ready["error"])
         if ready.get("ready_delivery") is not True:
             raise RuntimeError("gateway did not establish DDS delivery barrier")
         self.pub.publish(make_message("CartesianCommand", encode_command(envelope)))

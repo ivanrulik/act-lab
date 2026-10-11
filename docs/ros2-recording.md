@@ -1,5 +1,42 @@
 # Record and convert ROS simulation episodes
 
+## Continuous simulation capture
+
+The existing commands below remain stepped by default. To capture while the
+CRISP owner continues integrating physics, select `--controller crisp --paced`:
+
+```bash
+docker compose --profile ros2-recording-gpu run --build --rm ros2-recording-gpu \
+  act-lab ros2 recording-demo --controller crisp --paced --steps 30 \
+  --output runs/continuous-ros --json
+```
+
+This explicitly requests a verified NVIDIA EGL renderer. Original full-quality
+RGB, complete command reports, metadata, canonical mirror and rosbag import are
+retained. `capture` in the report contains worker PID, renderer identity, packet
+sequence, per-sample receipt-to-ACK age and selected capture profile. This bounded
+movement is labelled failure, not a successful task demonstration.
+
+For CPU fault/identity qualification with a small wrist-only fixture:
+
+```bash
+docker compose --profile ros2-recording run --rm ros2-recording \
+  act-lab ros2 recording-smoke --controller crisp --paced \
+  --capture-profile reduced-effects \
+  --config configs/sim/ur5e_2f85_d405_capture_bench.toml \
+  --output runs/continuous-cpu --json
+```
+
+Reduced effects are an explicit quality choice with a different camera fingerprint.
+They are never an automatic fallback and are incompatible with full-quality
+checkpoints. Four pending samples maximum and a 100 ms deadline bound acquisition.
+Slow rendering/ACKs, queue overload and worker loss fail acquisition through the
+existing disabled hold. `capture-failure.json`, canonical partial files and
+`bag.partial` remain evidence; do not train from them. Finish an attempt before
+resetting. A fresh attempt uses a new worker/UUID and continuous packet ordering.
+Long-duration throughput, hardware safety and interactive Foxglove acceptance
+remain separate qualification; use the existing saved bag layout for replay.
+
 ```bash
 docker compose --profile ros2-recording build ros2-recording
 docker compose --profile ros2-recording run --rm ros2-recording \
@@ -93,4 +130,4 @@ docker compose --profile training run --rm train-cpu \
 This runs the public quality/manifest/conversion CLI for both canonical versions,
 verifies dataset lineage and compares logical fingerprints without loading ROS.
 See the [contract and safety matrix](contracts/ros2-recording.md) for interruption,
-reset, loss, backpressure and deferred paced/hardware requirements.
+reset, loss, backpressure and paced/hardware requirements.

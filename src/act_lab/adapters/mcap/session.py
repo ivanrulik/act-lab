@@ -68,6 +68,8 @@ def recording_robot(
     seed: int,
     teleoperator: WebcamTeleoperator | None = None,
     sink_factory: Callable[[Path], EpisodeSink] | None = None,
+    image_provider: Callable[[Observation], tuple[tuple[str, CameraFrame], ...]]
+    | None = None,
 ) -> Iterator[SafeCartesianRobot]:
     if args.record_dir is None:
         yield SafeCartesianRobot(driver, driver.limits)
@@ -173,7 +175,7 @@ def recording_robot(
             )
 
     robot = RecordingRobot(
-        driver, driver.limits, sink, provenance, images, after_sample
+        driver, driver.limits, sink, provenance, image_provider or images, after_sample
     )
     try:
         yield robot

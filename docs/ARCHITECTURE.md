@@ -234,8 +234,14 @@ local expert qualification without acquiring storage framework dependencies.
 Stepped CRISP acquisition revokes authorization into the existing owner hold
 after each completed interval and before RGB rendering/ACK waits. The owner
 reports completed execution separately from current hold ownership; fresh enabled
-intent requires recovery. ADR 022 defines this offline handoff. Continuous paced
-acquisition requires a separate design.
+intent requires recovery. ADR 022 defines this offline handoff. ADR 024 supplies
+the separate paced acquisition design.
+
+ADR 024 adds an opt-in paced acquisition worker. Immutable post-command snapshots
+and complete reports cross a bounded process queue; rendering and ACK waits stay
+outside control. Capture expires at 100 ms or fails on queue/worker loss through
+the shared hold path. Full rendering is default; explicitly reduced effects have
+their own camera fingerprints. The independent owner watchdog is unchanged.
 
 The `ros2-recording` profile captures ordered, acknowledged acquisition packets
 through a separate rosbag2 MCAP process. `RecordingRobot` samples post-command
@@ -249,4 +255,4 @@ episodes with embedded source-bag hashes. Existing quality, selection, determini
 resampling and LeRobot conversion remain authoritative and ROS-free.
 [ADR 021](adr/021-ros-mcap-acquisition-equivalence.md) and the
 [safety contract](contracts/ros2-recording.md) describe bounded stepped capture
-and its limits; continuous paced acquisition remains deferred.
+and its stepped limits. Paced worker qualification is described by ADR 024.

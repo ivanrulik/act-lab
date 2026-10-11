@@ -11,6 +11,18 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  ros2-recording-gpu:
+    extends:
+      service: ros2-recording
+    profiles: ["ros2-recording-gpu"]
+    gpus:
+      - driver: nvidia
+        count: 1
+    environment:
+      ACT_LAB_RENDERER: nvidia
+      LIBGL_ALWAYS_SOFTWARE: "0"
+      NVIDIA_DRIVER_CAPABILITIES: graphics,utility
+
   ros2-recording:
     build:
       context: .
