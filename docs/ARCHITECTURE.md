@@ -223,3 +223,19 @@ Non-recording CLI sessions instantiate the shared safety controller without
 loading the MCAP sink or its serialization dependencies. The sink is loaded
 only after recording is requested; the isolated ROS/tooling images can run
 local expert qualification without acquiring storage framework dependencies.
+
+## Optional ROS MCAP acquisition
+
+The `ros2-recording` profile captures ordered, acknowledged acquisition packets
+through a separate rosbag2 MCAP process. `RecordingRobot` samples post-command
+state and original RGB on the local driver or the stepped CRISP scratch gateway.
+Rendering stays outside the independent physics owner. Viewer JPEG and dropped
+latest-state frames do not enter training acquisition.
+
+Import validates generated CDR, CRCs, episode lifecycle, packet continuity,
+source timestamps and camera completeness, then publishes canonical Protobuf
+episodes with embedded source-bag hashes. Existing quality, selection, deterministic
+resampling and LeRobot conversion remain authoritative and ROS-free.
+[ADR 021](adr/021-ros-mcap-acquisition-equivalence.md) and the
+[safety contract](contracts/ros2-recording.md) describe bounded stepped capture
+and its limits; continuous paced acquisition remains deferred.

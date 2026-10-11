@@ -33,3 +33,6 @@ consequences, and status.
   synthetic wrist RGB, process isolation and learning compatibility
 - [ADR 020](020-gpu-viewer-and-compressed-preview.md): explicit GPU viewing,
   JPEG transport and an independently identified software preview profile.
+
+- [ADR 021](021-ros-mcap-acquisition-equivalence.md): acknowledged stepped ROS
+  acquisition, rosbag2 MCAP, canonical import and ROS-free dataset equivalence.
