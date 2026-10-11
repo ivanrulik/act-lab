@@ -8,7 +8,7 @@ import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, BinaryIO
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from mcap.writer import CompressionType, Writer
 
@@ -37,9 +37,18 @@ def publish(partial: Path, final: Path) -> None:
 class McapEpisodeSink:
     """One attempt per sink; failed/discarded attempts retain all acquisition data."""
 
-    def __init__(self, directory: Path) -> None:
+    def __init__(
+        self,
+        directory: Path,
+        episode_id: str | None = None,
+        *,
+        lineage: dict[str, str] | None = None,
+    ) -> None:
+        self.lineage = lineage
         self.directory = directory
-        self.episode_id = str(uuid4())
+        self.episode_id = str(uuid4()) if episode_id is None else episode_id
+        if str(UUID(self.episode_id)) != self.episode_id:
+            raise ValueError("episode ID must be a canonical UUID")
         self.partial_path = directory / f"{self.episode_id}.mcap.partial"
         self.final_path = directory / f"{self.episode_id}.mcap"
         self._stream: BinaryIO | None = None
@@ -69,6 +78,8 @@ class McapEpisodeSink:
             enable_crcs=True,
         )
         self._writer.start(profile=PROFILE)
+        if self.lineage is not None:
+            self._writer.add_metadata("act_lab.ros2_import.v1", self.lineage)
         values = asdict(provenance)
         values.update(
             timestamp_ns=timestamp_ns, episode_id=self.episode_id, schema_version=1

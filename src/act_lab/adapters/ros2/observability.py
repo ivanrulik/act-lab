@@ -31,6 +31,10 @@ class ObservationChannel:
 
     def offer(self, packet: dict[str, Any]) -> bool:
         data = json.dumps(packet, allow_nan=False, separators=(",", ":")).encode()
+        return self.offer_encoded(data)
+
+    def offer_encoded(self, data: bytes) -> bool:
+        """Reuse a bounded encoded snapshot for nonblocking delivery retries."""
         if len(data) > MAX_OBSERVATION_BYTES or not self.lock.acquire(False):
             self.dropped.value += 1
             return False
@@ -71,6 +75,7 @@ def read_report_snapshot(
 class ObserverFreshness:
     def __init__(self) -> None:
         self.received_ns: int | None = None
+        self.captured_ns: int | None = None
         self.identity: tuple[Any, ...] | None = None
         self.episode: str | None = None
 
@@ -83,10 +88,16 @@ class ObserverFreshness:
         self.identity = identity
         self.episode = value["episode_id"]
         self.received_ns = now_ns
+        self.captured_ns = packet.get("capture_steady_ns", now_ns)
         return reset
 
     def stale(self, now_ns: int) -> bool:
-        return self.received_ns is None or now_ns - self.received_ns >= STALE_NS
+        return (
+            self.received_ns is None
+            or now_ns - self.received_ns >= STALE_NS
+            or self.captured_ns is None
+            or now_ns - self.captured_ns >= STALE_NS
+        )
 
 
 class ObservationCapture:
@@ -100,6 +111,7 @@ class ObservationCapture:
         self.intent: dict[str, Any] | None = None
         self.progress_wall_ns = 0
         self.domain_ns = -1
+        self.pending: bytes | None = None
 
     def capture(
         self,
@@ -203,19 +215,34 @@ class ObservationCapture:
         fields["event_drops"] = self.events_dropped
         if tick % 10 == 0 or changed:
             self.sample_id += 1
-            self.channel.offer(
-                dict(
-                    schema_version=1,
-                    sample_id=self.sample_id,
-                    telemetry=fields,
-                    state=encode_state(state, episode),
-                    events=list(self.events),
-                    measured_pose=encode_pose(state.end_effector_pose),
-                    requested=source.get("requested") if source else None,
-                    requested_frame=source.get("requested_frame", "world")
-                    if source
-                    else "",
-                    approved=source.get("approved") if source else None,
-                    tool_joints=tool_joints or {},
-                )
+            packet = dict(
+                schema_version=1,
+                sample_id=self.sample_id,
+                capture_steady_ns=wall_ns,
+                telemetry=fields,
+                state=encode_state(state, episode),
+                events=list(self.events),
+                measured_pose=encode_pose(state.end_effector_pose),
+                requested=source.get("requested") if source else None,
+                requested_frame=source.get("requested_frame", "world")
+                if source
+                else "",
+                approved=source.get("approved") if source else None,
+                tool_joints=tool_joints or {},
             )
+            data = json.dumps(packet, allow_nan=False, separators=(",", ":")).encode()
+            if len(data) > MAX_OBSERVATION_BYTES:
+                self.channel.dropped.value += 1
+                self.pending = None
+            else:
+                self.pending = data
+                self.retry_pending()
+
+    def retry_pending(self) -> bool:
+        """Retry only an undelivered snapshot, without renewing clocks or identity."""
+        if self.pending is None:
+            return False
+        if not self.channel.offer_encoded(self.pending):
+            return False
+        self.pending = None
+        return True

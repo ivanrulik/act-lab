@@ -191,7 +191,13 @@ def test_model_and_authority_dds_delivery_reset_and_stale(tmp_path):
         assert np.linalg.norm(actual[:3, 3] - expected[:3, 3]) <= 0.002
         assert np.linalg.norm(pin.log3(actual[:3, :3].T @ expected[:3, :3])) <= 0.02
         old_episode = seen["/act_lab/view/telemetry"].episode_id
-        session.rpc(dict(kind="reset", seed=0))
+        # Force the nonblocking reset handoff to lose its first offer. The
+        # idle stepped owner must retry the original snapshot after release.
+        channel.lock.acquire()
+        try:
+            session.rpc(dict(kind="reset", seed=0))
+        finally:
+            channel.lock.release()
         wait_for(lambda: seen["/act_lab/view/telemetry"].episode_id != old_episode)
         assert not seen["/act_lab/view/telemetry"].source_valid
         # Freeze the authority handoff independently of DDS and its steady heartbeat.

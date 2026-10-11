@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -20,6 +20,7 @@ from act_lab import __version__
 from act_lab.application import SafeCartesianRobot
 from act_lab.application.recording import RecordingRobot
 from act_lab.domain.models import CameraFrame, Observation
+from act_lab.domain.ports import EpisodeSink
 from act_lab.domain.recording import EpisodeOutcome, EpisodeProvenance
 
 if TYPE_CHECKING:
@@ -66,6 +67,7 @@ def recording_robot(
     source: str,
     seed: int,
     teleoperator: WebcamTeleoperator | None = None,
+    sink_factory: Callable[[Path], EpisodeSink] | None = None,
 ) -> Iterator[SafeCartesianRobot]:
     if args.record_dir is None:
         yield SafeCartesianRobot(driver, driver.limits)
@@ -122,7 +124,7 @@ def recording_robot(
             sort_keys=True,
         ),
     )
-    sink = McapEpisodeSink(Path(args.record_dir))
+    sink = (sink_factory or McapEpisodeSink)(Path(args.record_dir))
 
     def images(observation: Observation) -> tuple[tuple[str, CameraFrame], ...]:
         frames = []
@@ -182,11 +184,10 @@ def recording_robot(
             else EpisodeOutcome(args.outcome)
         )
         robot.finish(outcome, args.reason or task.reason or "session_ended")
-        print(f"recorded episode: {sink.final_path}", file=sys.stderr)
+        print(f"recorded episode in: {args.record_dir}", file=sys.stderr)
     except BaseException:
         sink.interrupt()
-        if sink.partial_path.exists():
-            print(f"interrupted recording: {sink.partial_path}", file=sys.stderr)
+        print(f"interrupted recording in: {args.record_dir}", file=sys.stderr)
         raise
 
 

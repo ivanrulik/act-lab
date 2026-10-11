@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -66,6 +67,7 @@ def test_duplicate_snapshot_does_not_refresh_observer_receipt():
     assert not freshness.receive(packet, 99_999_999)
     assert freshness.stale(100_000_000)
     packet["telemetry"]["episode_id"] = str(UUID(int=2))
+    packet["capture_steady_ns"] = 100_000_001
     assert freshness.receive(packet, 100_000_001)
     assert not freshness.stale(100_000_001)
 
@@ -261,3 +263,98 @@ def test_report_reader_missing_input_fails_at_bounded_deadline():
             channel, timeout_s=0.01, steady_now=lambda: elapsed[0], wait=advance
         )
     assert elapsed[0] == 0.01
+
+
+def test_busy_handoff_retries_reset_without_refreshing_source():
+    _, channel, capture, state, guard, sample = packet_fixture()
+    old_id = capture.sample_id
+    new_episode = str(UUID(int=2))
+    channel.lock.acquire()
+    try:
+        capture.capture(
+            state,
+            new_episode,
+            0,
+            "STARTUP_HOLD",
+            "reset",
+            1,
+            5,
+            guard,
+            sample,
+            None,
+            123,
+            120,
+        )
+        assert capture.pending is not None
+        pending = json.loads(capture.pending)
+        assert pending["telemetry"]["episode_id"] == new_episode
+        assert pending["telemetry"]["source_valid"] is False
+        assert not capture.retry_pending()
+    finally:
+        channel.lock.release()
+    assert capture.retry_pending()
+    delivered = channel.read()
+    assert delivered == pending
+    assert delivered["sample_id"] == old_id + 1
+    assert delivered["telemetry"]["header"]["stamp"] == {"sec": 1, "nanosec": 0}
+    assert capture.pending is None
+    assert not capture.retry_pending()
+    freshness = ObserverFreshness()
+    freshness.receive(delivered, 123)
+    freshness.receive(delivered, 100_000_122)
+    assert freshness.stale(100_000_123)
+
+
+def test_new_capture_replaces_undelivered_old_episode():
+    _, channel, capture, state, guard, sample = packet_fixture()
+    channel.lock.acquire()
+    try:
+        for identity in (2, 3):
+            capture.capture(
+                state,
+                str(UUID(int=identity)),
+                0,
+                "STARTUP_HOLD",
+                "reset",
+                identity,
+                0,
+                guard,
+                sample,
+                None,
+                0,
+                0,
+            )
+    finally:
+        channel.lock.release()
+    assert capture.retry_pending()
+    assert channel.read()["telemetry"]["episode_id"] == str(UUID(int=3))
+
+
+def test_oversized_capture_is_dropped_without_idle_retry():
+    _, channel, capture, state, guard, sample = packet_fixture()
+    before = channel.dropped.value
+    capture.capture(
+        state,
+        str(guard.episode),
+        0,
+        "FAULT_HOLD",
+        "invalid",
+        1,
+        0,
+        guard,
+        sample,
+        "x" * 65536,
+        0,
+        0,
+    )
+    assert channel.dropped.value == before + 1
+    assert capture.pending is None
+    assert not capture.retry_pending()
+
+
+def test_delayed_snapshot_is_stale_at_first_delivery():
+    packet, *_ = packet_fixture()
+    freshness = ObserverFreshness()
+    freshness.receive(packet, 100_000_000)
+    assert freshness.received_ns == 100_000_000
+    assert freshness.stale(100_000_000)
