@@ -11,6 +11,23 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  ros2-recording:
+    build:
+      context: .
+      dockerfile: Dockerfile.ros2-recording
+      additional_contexts:
+        observability_base: service:ros2-observability
+    profiles: ["ros2-recording"]
+    working_dir: /workspace
+    init: true
+    volumes:
+      - .:/workspace
+    environment:
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      ROS_DOMAIN_ID: "46"
+    stop_grace_period: 20s
+
   tooling-gpu:
     extends:
       service: tooling
@@ -41,7 +58,7 @@ services:
       target: headless
       additional_contexts:
         simulation_base: service:ros2-simulation
-    profiles: ["ros2-observability"]
+    profiles: ["ros2-observability", "ros2-recording"]
     working_dir: /workspace
     init: true
     volumes:
@@ -60,7 +77,7 @@ services:
       dockerfile: Dockerfile.ros2-simulation
       additional_contexts:
         crisp_base: service:crisp-feasibility
-    profiles: ["ros2-simulation", "ros2-observability", "tooling", "tooling-gpu"]
+    profiles: ["ros2-simulation", "ros2-observability", "tooling", "tooling-gpu", "ros2-recording"]
     working_dir: /workspace
     init: true
     volumes:
@@ -74,7 +91,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.crisp
-    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability", "tooling", "tooling-gpu"]
+    profiles: ["crisp-feasibility", "ros2-simulation", "ros2-observability", "tooling", "tooling-gpu", "ros2-recording"]
     working_dir: /workspace
     init: true
     volumes:

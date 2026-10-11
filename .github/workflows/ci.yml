@@ -165,3 +165,48 @@ jobs:
           path: |
             runs/tooling-*/
             tooling-*.json
+
+  ros2-recording:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated rosbag2 MCAP acquisition runtime
+        run: docker compose --profile ros2-recording build ros2-recording
+      - name: Required CDR DDS storage lifecycle and equivalence tests
+        run: >-
+          docker compose --profile ros2-recording run --rm --user "$(id -u):$(id -g)" ros2-recording
+          python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/ros2_recording
+          --basetemp=runs/ros2-recording-tests
+      - name: Record synchronized original RGB and conversion evidence
+        run: >-
+          docker compose --profile ros2-recording run --rm --user "$(id -u):$(id -g)" ros2-recording
+          act-lab ros2 recording-demo --output runs/ros2-recording --json > ros2-recording.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ros2-recording-evidence
+          path: |
+            runs/ros2-recording*/
+            ros2-recording.json
+
+  ros2-recording-conversion:
+    needs: ros2-recording
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ros2-recording-evidence
+          path: .
+      - name: Build ROS-free CPU conversion image
+        run: docker compose --profile training build train-cpu
+      - name: Compare validated local and ROS LeRobot datasets
+        run: >-
+          docker compose --profile training run --rm --user "$(id -u):$(id -g)" train-cpu
+          python scripts/check-ros-recording-equivalence.py
+          --capture runs/ros2-recording --output runs/ros2-recording-conversion
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ros2-recording-conversion-evidence
+          path: runs/ros2-recording-conversion/

@@ -184,16 +184,22 @@ class MotionSession:
         deadline = time.monotonic() + 15
         while True:
             value = self.command(pose, gripper)
-            if value["mode"] == "ENABLED":
+            if value["mode"] == "ENABLED" or (
+                value["reason"] == "acquisition_pause"
+                and value.get("acquisition_execution_mode") == "ENABLED"
+            ):
                 return value
             missing_delivery = value.get("transport_rejection") == "delivery_timeout"
-            if not missing_delivery and value["reason"] not in {
+            execution_reason = value.get(
+                "acquisition_execution_reason", value["reason"]
+            )
+            if not missing_delivery and execution_reason not in {
                 "controller_wall_timeout",
                 "gateway_wall_timeout",
                 "clock_paused",
                 "stale_source",
             }:
-                raise RuntimeError(f"nominal motion rejected: {value['reason']}")
+                raise RuntimeError(f"nominal motion rejected: {execution_reason}")
             self.trace[-1]["wall_fault_recovery"] = not missing_delivery
             self.trace[-1]["transport_loss_recovery"] = missing_delivery
             if time.monotonic() >= deadline:

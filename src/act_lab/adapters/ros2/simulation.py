@@ -299,6 +299,7 @@ def physics_owner(
             qvel=plant._data.qvel.tolist(),
             mode=plant.mode,
             reason=plant.reason,
+            accepted_gripper=plant.accepted_gripper,
             controller_pid=controller.process.pid if controller else None,
             physics_pid=os.getpid(),
         )
@@ -369,6 +370,13 @@ def physics_owner(
         command: dict[str, Any]
         while True:
             if not connection.poll(0.0 if paced else 0.002):
+                if capture is not None:
+                    try:
+                        capture.retry_pending()
+                    except Exception:
+                        # A failed optional observer never owns physics progress.
+                        observation_channel.dropped.value += 1
+                        capture.pending = None
                 # Both schedulers share authorization and actuator state machines.
                 if (
                     plant.mode == "ENABLED"
@@ -634,6 +642,19 @@ def physics_owner(
                         time.sleep(remaining)
             if command.get("internal"):
                 continue
+            acquisition_result: dict[str, Any] = {}
+            if command.get("hold_after"):
+                if paced:
+                    raise ValueError("acquisition hold requires stepped simulation")
+                # Offline rendering/ACKs happen after this atomic boundary.
+                # Revoke task authorization without integrating synthetic time;
+                # the next enabled command must recover with fresh authorization.
+                acquisition_result = dict(
+                    acquisition_execution_mode=plant.mode,
+                    acquisition_execution_reason=plant.reason,
+                )
+                prepared_generation = -1
+                inhibit("acquisition_pause")
             send(
                 connection,
                 dict(
@@ -641,6 +662,7 @@ def physics_owner(
                     generation=guard.generation,
                     recovered_generation=generation_recovered,
                     guard_reason=guard.reason,
+                    **acquisition_result,
                 ),
             )
     except EOFError:

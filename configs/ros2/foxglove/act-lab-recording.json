@@ -1,0 +1,46 @@
+{
+  "name": "ACT Lab ROS recording replay",
+  "configById": {
+    "Image!wrist": {
+      "title": "Original wrist RGB",
+      "synchronize": true,
+      "imageMode": {
+        "imageTopic": "/act_lab/recording/v1/camera/wrist/image_raw",
+        "calibrationTopic": "/act_lab/recording/v1/camera/wrist/camera_info"
+      }
+    },
+    "RawMessages!report": {
+      "topicPath": "/act_lab/recording/v1/command_report",
+      "diffEnabled": false
+    },
+    "RawMessages!packet": {
+      "topicPath": "/act_lab/recording/v1/packet",
+      "diffEnabled": false
+    },
+    "Plot!age": {
+      "title": "Source command age (ms)",
+      "paths": [
+        {
+          "value": "/act_lab/recording/v1/command_report.command_age_ms",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ]
+    }
+  },
+  "layout": {
+    "direction": "row",
+    "first": "Image!wrist",
+    "second": {
+      "direction": "column",
+      "first": "Plot!age",
+      "second": {
+        "direction": "row",
+        "first": "RawMessages!report",
+        "second": "RawMessages!packet"
+      }
+    },
+    "splitPercentage": 55
+  },
+  "globalVariables": {}
+}

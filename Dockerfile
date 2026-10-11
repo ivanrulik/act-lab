@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1.7
 FROM python:3.12-slim-bookworm AS base
 
+# Keep the service identity available to getpass when CI supplies a numeric UID
+# with no passwd entry. The runtime UID still controls filesystem permissions.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    LOGNAME=actlab \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     MUJOCO_GL=egl \
     MESA_SHADER_CACHE_DIR=/tmp/act-lab-mesa-cache \

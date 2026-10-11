@@ -315,6 +315,30 @@ def build_parser() -> argparse.ArgumentParser:
         )
         observe.add_argument("--stepped", action="store_true")
         observe.add_argument("--json", action="store_true")
+    for name in ("recording-demo", "recording-smoke"):
+        acquisition = ros_commands.add_parser(
+            name, help="Acknowledged ROS MCAP acquisition"
+        )
+        acquisition.add_argument(
+            "--output", type=Path, default=Path("runs/ros2-recording")
+        )
+        acquisition.add_argument(
+            "--config", type=Path, default=Path("configs/sim/ur5e_2f85_d405.toml")
+        )
+        acquisition.add_argument("--seed", type=int, default=0)
+        acquisition.add_argument(
+            "--steps", type=int, default=3 if name.endswith("smoke") else 0
+        )
+        acquisition.add_argument(
+            "--controller", choices=("local", "crisp"), default="local"
+        )
+        acquisition.add_argument("--json", action="store_true")
+    importer = ros_commands.add_parser(
+        "recording-import", help="Translate rosbag2 MCAP to canonical episodes"
+    )
+    importer.add_argument("--bag", type=Path, required=True)
+    importer.add_argument("--output", type=Path, required=True)
+    importer.add_argument("--json", action="store_true")
     crisp = ros_commands.add_parser(
         "crisp-feasibility", help="Pinned stationary CRISP controller assessment"
     )
@@ -1522,7 +1546,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "ros2":
         try:
-            if args.ros2_command.startswith("observability-"):
+            if args.ros2_command == "recording-import":
+                from act_lab.adapters.ros2.recording import import_bag
+
+                result = import_bag(args.bag, args.output)
+            elif args.ros2_command.startswith("recording-"):
+                from act_lab.adapters.ros2.recording_demo import run_recording
+
+                result = run_recording(
+                    args.output,
+                    config=args.config,
+                    seed=args.seed,
+                    steps=args.steps,
+                    controller=args.controller,
+                    smoke=args.ros2_command.endswith("smoke"),
+                )
+            elif args.ros2_command.startswith("observability-"):
                 from act_lab.adapters.ros2.observation_demo import run_observability
 
                 result = run_observability(
@@ -1551,7 +1590,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(str(error), file=sys.stderr)
             return 1
         ros_label = (
-            "observability"
+            "recording"
+            if args.ros2_command.startswith("recording-")
+            else "observability"
             if args.ros2_command.startswith("observability-")
             else "simulation"
             if args.ros2_command == "simulation-smoke"

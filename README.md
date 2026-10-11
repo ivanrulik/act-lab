@@ -275,3 +275,19 @@ GPU. `tooling` remains the explicit CPU option; run one viewer service at a time
 on port 8765. The tooling Foxglove layout selects the JPEG compressed preview.
 Recording and ACT keep original RGB. [Rendering contract and evidence](docs/adr/020-gpu-viewer-and-compressed-preview.md)
 describe profiles, transport, freshness and validation.
+
+## Optional ROS MCAP acquisition
+
+```bash
+docker compose --profile ros2-recording build ros2-recording
+docker compose --profile ros2-recording run --rm ros2-recording \
+  act-lab ros2 recording-demo --output runs/ros-expert --json
+```
+
+Capture original synchronized RGB and full safety reports through two-process DDS
+and rosbag2 MCAP, then import into the existing quality/selection/LeRobot pipeline.
+`--controller crisp --steps 20` records a bounded real CRISP movement, labelled
+failure. Capture is stepped and does not claim real-time throughput. Training
+remains ROS-free. [Usage, replay and conversion](docs/ros2-recording.md),
+[ADR 021](docs/adr/021-ros-mcap-acquisition-equivalence.md) and the
+[safety contract](docs/contracts/ros2-recording.md) describe limits.

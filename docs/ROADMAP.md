@@ -280,6 +280,22 @@ drivers and mounting, ROS recording, hardware and Gazebo remain deferred.
 
 ### PR 14 — ROS MCAP recording and conversion equivalence
 
+CI follow-up: ADR 022 adds explicit stepped acquisition hold before offline
+rendering/ACK waits. Qualification includes a 250 ms pause regression and unchanged
+independent owner fault tests. Continuous paced capture remains deferred.
+
+Implemented on `feature/pr14-ros-mcap-equivalence`, based on merged `5e2116a`:
+ordered generated acquisition packets, separate-process rosbag2 MCAP capture,
+original RGB/calibration replay projections and canonical import with preserved
+episode IDs, timestamps, reports and source hashes. Local and stepped CRISP
+capture use the shared recording/safety path. The complete 569-sample local/ROS
+expert comparison qualifies through the unchanged quality and LeRobot pipeline.
+See [ADR 021](adr/021-ros-mcap-acquisition-equivalence.md),
+[contract and safety review](contracts/ros2-recording.md),
+[usage](ros2-recording.md) and [local evidence](reports/ros2-recording.md).
+Continuous paced acquisition, hardware synchronization, crash-prefix repair
+and full CRISP task qualification remain scoped follow-ups.
+
 Record synchronized ROS topics through rosbag2 MCAP and translate them into
 the existing versioned raw-recording contract. Reuse the validator, episode
 selection manifest, deterministic converter, and LeRobotDataset representation.

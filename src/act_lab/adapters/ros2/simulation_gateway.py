@@ -44,6 +44,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
         self.sequence = 0
         self.receipt_ns = 0
         self.view_intent: dict[str, Any] | None = None
+        self.acquisition_active = False
         self._sync()
 
     def _sync(self) -> None:
@@ -97,6 +98,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
                 authorization=authorization,
                 ticks=10,
                 observation=self.view_intent,
+                hold_after=self.acquisition_active,
             )
         )
         self._sync()
@@ -137,6 +139,9 @@ def gateway(
     receipt = 0
     wall_receipt = 0
     arrivals = 0
+    recording_manager: Any = None
+    recording_sink: Any = None
+    recording_sequence = 0
 
     def callback(message: Any) -> None:
         nonlocal latest, receipt, wall_receipt, arrivals
@@ -162,7 +167,75 @@ def gateway(
         while True:
             request = receive(connection)
             kind = request["kind"]
+            if kind == "record_start":
+                if paced:
+                    raise ValueError(
+                        "synchronized acquisition requires stepped simulation"
+                    )
+                if recording_manager is not None:
+                    raise ValueError("recording already active")
+                import argparse
+
+                from act_lab.adapters.mcap.session import recording_robot
+                from act_lab.adapters.ros2.recording import RosEpisodeSink
+
+                recording_sink = RosEpisodeSink(
+                    node,
+                    episode=lambda: runtime.snapshot["episode"],
+                    sequence_start=recording_sequence,
+                    command_sequence=lambda: driver.sequence,
+                )
+                args = argparse.Namespace(
+                    record_dir=Path(output) / "acquisition",
+                    outcome="failure",
+                    reason="bounded_ros_demo",
+                    operator="",
+                )
+                recording_manager = recording_robot(
+                    driver,
+                    args,
+                    "ros-crisp",
+                    request["seed"],
+                    sink_factory=recording_sink.for_directory,
+                )
+                robot = recording_manager.__enter__()
+                driver.acquisition_active = True
+                robot.reset(request["seed"])
+                inbox = CommandInbox()
+                latest = None
+                inbox.update_clock(
+                    driver.observe().timestamp_ns + 1_000_000_000,
+                    runtime.snapshot["episode"],
+                    runtime.snapshot["steady_ns"],
+                )
+                send(connection, runtime.snapshot)
+                continue
+            if kind == "record_stop":
+                if recording_manager is None:
+                    raise ValueError("no active recording")
+                observation = robot.observe()
+                robot.command(
+                    Action(
+                        observation.timestamp_ns,
+                        observation.robot.end_effector_pose,
+                        observation.robot.gripper_position,
+                        False,
+                    )
+                )
+                recording_manager.__exit__(None, None, None)
+                recording_sequence = recording_sink.sequence
+                recording_manager = None
+                driver.acquisition_active = False
+                robot = SafeCartesianRobot(driver, driver.limits)
+                send(connection, runtime.snapshot)
+                continue
             if kind == "shutdown":
+                if recording_manager is not None:
+                    recording_manager.__exit__(
+                        RuntimeError,
+                        RuntimeError("shutdown interrupted acquisition"),
+                        None,
+                    )
                 runtime.close()
                 send(connection, dict(closed=True))
                 break
@@ -180,6 +253,8 @@ def gateway(
                 "advance",
                 "forward_jump",
             }:
+                if kind == "reset" and recording_manager is not None:
+                    raise ValueError("finish the recorded attempt before resetting")
                 if kind == "reset":
                     # Reset application motion history together with authority,
                     # otherwise a new episode inherits old limiter velocities.
@@ -252,6 +327,27 @@ def gateway(
             assert report is not None
             fields = encode_report(report, runtime.snapshot["episode"], driver.sequence)
             report_pub.publish(make_message("CommandReport", fields))
+            if recording_manager is not None:
+                import json
+
+                recording_sink.diagnostics(
+                    state.timestamp_ns,
+                    time.monotonic_ns(),
+                    json.dumps(
+                        dict(
+                            transport_rejection=inbox.last_rejection_reason,
+                            source_episode_id=latest.episode_id if latest else None,
+                            source_sequence=latest.sequence if latest else None,
+                            source_timestamp_ns=latest.action.timestamp_ns
+                            if latest
+                            else None,
+                            mode=runtime.snapshot["mode"],
+                            reason=runtime.snapshot["reason"],
+                        ),
+                        sort_keys=True,
+                    ),
+                    "{}",
+                )
             send(
                 connection,
                 dict(
@@ -268,6 +364,8 @@ def gateway(
             pass
         raise
     finally:
+        if recording_manager is not None:
+            recording_sink.interrupt()
         if runtime.process.is_alive():
             runtime.close()
         driver.close()

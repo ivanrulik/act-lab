@@ -1,0 +1,15 @@
+# Optional acquisition image; preserves Ubuntu ROS numerical packages.
+FROM observability_base
+USER root
+RUN apt-get update && apt-get install --yes --no-install-recommends \
+    ros-jazzy-rosbag2-py ros-jazzy-rosbag2-storage-mcap \
+    && rm -rf /var/lib/apt/lists/*
+RUN /opt/act-lab-venv/bin/pip install --no-cache-dir \
+    mcap==1.3.0 protobuf==5.29.4 lz4==4.4.5 zstandard==0.25.0
+COPY pyproject.toml README.md hatch_build.py /opt/recording-project/
+COPY proto /opt/recording-project/proto
+COPY src /opt/recording-project/src
+RUN /opt/act-lab-venv/bin/pip install --no-deps /opt/recording-project \
+    && dpkg-query -W > /opt/recording-packages.txt
+USER 1000:1000
+CMD ["act-lab", "ros2", "recording-smoke", "--output", "runs/ros2-recording", "--json"]

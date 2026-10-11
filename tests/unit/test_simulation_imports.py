@@ -55,3 +55,28 @@ assert main(["sim", "expert", "--config", sys.argv[1], "--episodes", "1",
 assert "act_lab.adapters.mcap.recording" not in sys.modules
 """
     subprocess.run([sys.executable, "-c", script, str(config)], check=True)
+
+
+def test_recording_transport_imports_are_lazy():
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import act_lab.adapters.ros2.recording; "
+            "import act_lab.adapters.ros2.recording_demo; "
+            "import act_lab.adapters.ros2.recording_contracts; "
+            "assert not any(n in sys.modules for n in "
+            "('rclpy', 'rosbag2_py', 'mcap', 'google.protobuf', "
+            "'act_lab_interfaces.msg', 'mujoco'))",
+        ],
+        check=True,
+    )
+
+
+def test_missing_ros_recording_has_compose_hint(tmp_path):
+    import pytest
+
+    from act_lab.adapters.ros2.recording_demo import run_recording
+
+    with pytest.raises(RuntimeError, match="profile ros2-recording"):
+        run_recording(tmp_path / "recording")

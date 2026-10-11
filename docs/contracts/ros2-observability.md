@@ -157,3 +157,15 @@ seconds when producing its final report. A busy slot is not evidence of absent
 telemetry. This reporting wait retains the original snapshot timestamps and
 metadata; owner offers and observer freshness remain unchanged. Persistent
 missing data fails execution rather than silently producing incomplete evidence.
+
+### Idle reset delivery
+
+A lock-contended offer retains one encoded snapshot of at most 64 KiB. The idle
+physics owner retries that snapshot nonblockingly until delivery or replacement
+by a newer capture. Snapshot ID, source timestamp and lease ages remain unchanged;
+retrying cannot renew command authorization or observer freshness. The observer
+also checks original steady capture age, so late first delivery is immediately
+stale at the 100 ms boundary. Oversized
+snapshots are dropped rather than repeatedly encoded during idle. Optional retry
+errors remain isolated from physics. This lets a stepped reset reach the observer
+after lock contention without requiring another motion command.
