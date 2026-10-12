@@ -49,9 +49,14 @@ as executable authorization.
 
 Task effort is +/-5 Nm, slew 100 Nm/s. Fault transfer overrides task slew.
 Hold actuator ceilings are +/-150/28 Nm, separate from body gravity compensation.
-ADR 018 revises hold damping to 30 Nm s/rad for proximal joints and 6 for wrists
-after a moving watchdog takeover exceeded the unchanged acceleration bound.
-The saved pre-timeout state is a deterministic ROS-free regression fixture.
+ADR 026 selects model-specific hold tuning: the legacy educational model retains
+scene stiffness and 30/6 Nm s/rad proximal/wrist damping; the articulated 2F-85
+model uses half scene stiffness and 10/2 damping. The saved nine articulated
+pre-timeout arm states and earlier legacy state are deterministic ROS-free
+regression fixtures. Passive finger positions are reconstructed; this is not a
+full internal-state replay. Loaded ROS fault tests enforce whole-trace motion
+bounds as well as retained grip and drift. Runtime provenance reports the selected
+model's stiffness scale and damping from the same parameter function as the plant.
 The ROS container also drives the scripted grasp and lift through DDS/CRISP,
 then verifies loaded hold and fresh-command resume. The ROS-free fixture prepares
 a grasp with the unchanged local driver before testing effort-to-hold transfer. Every motion claim must identify

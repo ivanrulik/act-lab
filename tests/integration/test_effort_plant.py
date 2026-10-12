@@ -1,5 +1,6 @@
 """Real torque integration and dynamic holds, without ROS or state freezing."""
 
+import json
 import math
 from pathlib import Path
 
@@ -112,6 +113,68 @@ def test_moving_watchdog_takeover_respects_measured_acceleration(plant) -> None:
             < 0.002
         )
     assert max(abs(v) for v in sample.state.joint_velocities_rad_s) < 0.01
+
+
+@pytest.mark.parametrize(
+    "case",
+    json.loads(
+        (
+            Path(__file__).parents[1] / "fixtures/mujoco/watchdog_takeovers.json"
+        ).read_text()
+    )["cases"],
+    ids=lambda case: case["case"],
+)
+def test_articulated_loaded_watchdog_takeovers(case) -> None:
+    """Reconstruct main CI's saved loaded arm states independently of scheduling.
+
+    Passive fingers are reconstructed; this is not a full internal-state replay.
+    """
+    import mujoco
+
+    value = MujocoEffortPlant(
+        SimulationConfig.load(Path("configs/sim/ur5e_2f85_d405_crisp_task_bench.toml"))
+    )
+    try:
+        value.reset(0)
+        value.enable(case["accepted_aperture"])
+        for joint, position, velocity in zip(
+            value.environment._arm_joint_ids,
+            case["joint_positions_rad"],
+            case["joint_velocities_rad_s"],
+            strict=True,
+        ):
+            value._data.qpos[value._model.jnt_qposadr[joint]] = position
+            value._data.qvel[value._model.jnt_dofadr[joint]] = velocity
+        value.environment.gripper.set_kinematic(value._data, case["measured_aperture"])
+        cube_address = value._model.jnt_qposadr[value.environment._cube_joint_id]
+        value._data.qpos[cube_address : cube_address + 3] = case["cube_xyz_m"]
+        mujoco.mj_forward(value._model, value._data)
+        before = value.observe().robot.end_effector_pose.position_xyz_m
+        cube_z = value.environment.task_state().cube_pose.position_xyz_m[2]
+        value.hold(case["fault"])
+        for _ in range(500):
+            sample = value.tick()
+            assert sample.maximum_joint_acceleration_rad_s2 <= 4.0
+            assert sample.cartesian_acceleration_m_s2 <= 1.0
+            assert sample.angular_acceleration_rad_s2 <= 4.0
+            assert sample.mode == "FAULT_HOLD"
+            assert sample.reason == case["fault"]
+            assert not any(sample.task_effort_nm)
+            assert sample.accepted_gripper == case["accepted_aperture"]
+            assert (
+                math.dist(before, sample.state.end_effector_pose.position_xyz_m) < 0.002
+            )
+            assert (
+                value.environment.task_state().cube_pose.position_xyz_m[2]
+                > cube_z - 0.01
+            )
+            assert any(
+                value._is_pad_cube_contact(int(c.geom1), int(c.geom2))
+                for c in value._data.contact[: value._data.ncon]
+            )
+        assert max(abs(v) for v in sample.state.joint_velocities_rad_s) < 0.01
+    finally:
+        value.close()
 
 
 def test_loaded_gripper_hold_after_effort_transition(plant) -> None:
