@@ -17,6 +17,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from act_lab.adapters.ros2.contracts import JOINT_NAMES, decode_state, encode_state
+from act_lab.adapters.ros2.physics_trace import PhysicsTrace
 from act_lab.adapters.ros2.simulation_guard import Authorization, SimulationGuard
 from act_lab.domain import Pose
 
@@ -56,8 +57,13 @@ def receive(connection: Connection, timeout: float = 20.0) -> dict[str, Any]:
     return value
 
 
-def finalize_physics_trace(folder: Path, rows: list[dict[str, Any]]) -> None:
+def finalize_physics_trace(
+    folder: Path, rows: list[dict[str, Any]] | PhysicsTrace
+) -> None:
     """Publish complete evidence atomically without a second large JSON string."""
+    if isinstance(rows, PhysicsTrace):
+        rows.close()
+        return
     temporary = folder / "physics.json.partial"
     with temporary.open("w") as stream:
         json.dump(rows, stream, allow_nan=False, separators=(",", ":"))
@@ -67,7 +73,11 @@ def finalize_physics_trace(folder: Path, rows: list[dict[str, Any]]) -> None:
 
 class ControllerProcess:
     def __init__(
-        self, state: Any, output: Path, description: str | None = None
+        self,
+        state: Any,
+        output: Path,
+        description: str | None = None,
+        params_file: Path | None = None,
     ) -> None:
         self.log = (output / "controller.log").open("a")
         self.process = subprocess.Popen(
@@ -82,6 +92,8 @@ class ControllerProcess:
         if description is not None:
             initial["robot_description"] = description
             initial["params_file"] = "/workspace/configs/ros2/crisp-tooling.yaml"
+        if params_file is not None:
+            initial["params_file"] = str(params_file.resolve())
         self.request(initial)
 
     def request(self, value: dict[str, Any], on_wait: Any = None) -> dict[str, Any]:
@@ -149,6 +161,23 @@ def physics_owner(
 
     folder = Path(output)
     folder.mkdir(parents=True, exist_ok=True)
+    import hashlib
+    import tomllib
+
+    configured = tomllib.loads(config_path.read_text()).get("ros2", {})
+    parameter_path = Path(configured["controller_parameters"]) if configured else None
+    parameter_source = parameter_path or Path(
+        "configs/ros2/crisp-tooling.yaml"
+        if SimulationConfig.load(config_path).model_id == "ur5e_2f85_d405_v1"
+        else "configs/ros2/crisp-simulation.yaml"
+    )
+    parameter_text = parameter_source.read_text()
+    (folder / "controller-parameters.yaml").write_text(parameter_text)
+    controller_identity = dict(
+        name=parameter_source.name,
+        sha256=hashlib.sha256(parameter_text.encode()).hexdigest(),
+        parameters_yaml=parameter_text,
+    )
     plant = MujocoEffortPlant(SimulationConfig.load(config_path))
     plant.reset(seed)
     description = None
@@ -170,7 +199,21 @@ def physics_owner(
     steady = 0
     last_authorization_wall = time.monotonic_ns()
     controller: ControllerProcess | None = None
-    rows: list[dict[str, Any]] = []
+    rows = PhysicsTrace(folder)
+    cube_address = int(plant._model.jnt_qposadr[plant.environment._cube_joint_id])
+
+    def load_evidence() -> dict[str, Any]:
+        return dict(
+            cube_xyz_m=plant._data.qpos[cube_address : cube_address + 3].tolist(),
+            cube_gripper_contacts=sum(
+                plant._is_pad_cube_contact(int(c.geom1), int(c.geom2))
+                for c in plant._data.contact[: plant._data.ncon]
+            ),
+        )
+
+    def recorded_tick() -> dict[str, Any]:
+        return dict(**asdict(plant.tick()), **load_evidence(), episode=str(episode))
+
     shutdown_snapshot: dict[str, Any] | None = None
     import rclpy  # type: ignore[import-not-found]
     from rclpy.parameter import Parameter  # type: ignore[import-not-found]
@@ -300,7 +343,16 @@ def physics_owner(
             mode=plant.mode,
             reason=plant.reason,
             accepted_gripper=plant.accepted_gripper,
+            cube_gripper_contacts=sum(
+                plant._is_pad_cube_contact(int(c.geom1), int(c.geom2))
+                for c in plant._data.contact[: plant._data.ncon]
+            ),
+            task=asdict(plant.environment.task_state()),
+            task_timestamp_ns=plant.observe().timestamp_ns,
+            settled_steps=plant.environment.task_status().settled_steps,
+            environment_steps=plant.environment.environment_steps,
             controller_pid=controller.process.pid if controller else None,
+            controller_configuration=controller_identity,
             physics_pid=os.getpid(),
         )
 
@@ -363,7 +415,9 @@ def physics_owner(
 
     try:
         publish()
-        controller = ControllerProcess(plant.observe().robot, folder, description)
+        controller = ControllerProcess(
+            plant.observe().robot, folder, description, parameter_path
+        )
         # Lifecycle/DDS preparation happens under startup hold, before authorization.
         controller.request(request(True), publish)
         send(connection, snapshot())
@@ -387,7 +441,7 @@ def physics_owner(
                     command = dict(kind="advance", ticks=1, internal=True)
                 else:
                     if plant.reason == "gateway_wall_timeout":
-                        rows.append(asdict(plant.tick()))
+                        rows.append(recorded_tick())
                         publish()
                         steady += 2_000_000
                     continue
@@ -398,7 +452,7 @@ def physics_owner(
             if kind == "shutdown":
                 plant.hold("shutdown", shutdown=True)
                 for _ in range(250):
-                    rows.append(asdict(plant.tick()))
+                    rows.append(recorded_tick())
                 capture_observation()
                 shutdown_snapshot = snapshot()
                 break
@@ -418,7 +472,7 @@ def physics_owner(
                 guard.fault("controller_restart")
                 controller.close()
                 controller = ControllerProcess(
-                    plant.observe().robot, folder, description
+                    plant.observe().robot, folder, description, parameter_path
                 )
                 controller.request(request(True), publish)
                 capture_observation()
@@ -430,7 +484,7 @@ def physics_owner(
 
                 def prepare_wait(preparing_episode: UUID = episode) -> None:
                     nonlocal steady
-                    rows.append(asdict(plant.tick()))
+                    rows.append(recorded_tick())
                     publish()
                     steady += 2_000_000
                     guard.clock(plant.observe().timestamp_ns, preparing_episode, steady)
@@ -471,8 +525,16 @@ def physics_owner(
                 continue
             if kind == "clock":
                 prepared_generation = -1
-                steady = command["steady_ns"]
-                guard.clock(command["domain_ns"], UUID(command["episode"]), steady)
+                if "pause_ns" in command:
+                    # Inject a precise paused-clock boundary at the current
+                    # authoritative state, avoiding a racy old producer snapshot.
+                    domain_ns = plant.observe().timestamp_ns
+                    guard.clock(domain_ns, episode, steady)
+                    steady += command["pause_ns"]
+                    guard.clock(domain_ns, episode, steady)
+                else:
+                    steady = command["steady_ns"]
+                    guard.clock(command["domain_ns"], UUID(command["episode"]), steady)
                 if not guard.allowed(steady):
                     plant.hold(guard.reason)
                 capture_observation()
@@ -533,7 +595,7 @@ def physics_owner(
                 nonlocal steady
                 if time.monotonic_ns() - lease[0] >= 100_000_000:
                     inhibit("controller_wall_timeout")
-                    rows.append(asdict(plant.tick()))
+                    rows.append(recorded_tick())
                     publish()
                     steady += 2_000_000
                     guard.clock(plant.observe().timestamp_ns, waiting_episode, steady)
@@ -616,6 +678,7 @@ def physics_owner(
                 rows.append(
                     dict(
                         **asdict(sample),
+                        **load_evidence(),
                         episode=str(episode),
                         steady_ns=steady,
                         frame_residual_m=residual_m,
@@ -669,12 +732,12 @@ def physics_owner(
         # Gateway process death cannot execute its cleanup. The owner can.
         plant.hold("gateway_disconnected")
         for _ in range(250):
-            rows.append(asdict(plant.tick()))
+            rows.append(recorded_tick())
             capture_observation()
     except BaseException as error:
         plant.hold("owner_error")
         for _ in range(250):
-            rows.append(asdict(plant.tick()))
+            rows.append(recorded_tick())
             capture_observation()
         try:
             send(connection, dict(error=str(error)))
@@ -682,12 +745,14 @@ def physics_owner(
             pass
         raise
     finally:
-        finalize_physics_trace(folder, rows)
-        if controller:
-            controller.close()
-        node.destroy_node()
-        rclpy.try_shutdown()
-        plant.close()
+        try:
+            finalize_physics_trace(folder, rows)
+        finally:
+            if controller:
+                controller.close()
+            node.destroy_node()
+            rclpy.try_shutdown()
+            plant.close()
         # Acknowledgment means evidence and resources are finalized. It must
         # not let the parent terminate an owner still serializing a long run.
         if shutdown_snapshot is not None:

@@ -54,6 +54,18 @@ class ExpertSettings(Protocol):
     @property
     def closed_gripper(self) -> float: ...
 
+    @property
+    def transfer_waypoints_xyz_m(self) -> tuple[tuple[float, float, float], ...]: ...
+
+    @property
+    def destination_transit_clearance_m(self) -> float | None: ...
+
+    @property
+    def release_position_tolerance_m(self) -> float | None: ...
+
+    @property
+    def approach_cube_clearance_m(self) -> float | None: ...
+
 
 class ExpertPhase(StrEnum):
     OPEN_RAISE = "open_raise"
@@ -94,6 +106,7 @@ class ScriptedPickPlaceExpert:
         self._safe_z = 0.0
         self._transit_z = 0.0
         self._dwell_steps = 0
+        self._waypoint_index = 0
         self._failure_reason: str | None = None
 
     @property
@@ -122,6 +135,7 @@ class ScriptedPickPlaceExpert:
         )
         self._phase = ExpertPhase.OPEN_RAISE
         self._dwell_steps = 0
+        self._waypoint_index = 0
         self._failure_reason = None
 
     def record_command_report(self, report: CommandReport) -> None:
@@ -154,17 +168,19 @@ class ScriptedPickPlaceExpert:
             return
         target, gripper = self._target_for_phase()
         precise_phases = {
-            ExpertPhase.APPROACH_CUBE,
             ExpertPhase.DESCEND,
             ExpertPhase.CLOSE_DWELL,
-            ExpertPhase.LOWER,
-            ExpertPhase.OPEN_DWELL,
         }
         position_tolerance = (
             self._settings.grasp_position_tolerance_m
             if self._phase in precise_phases
             else self._settings.position_tolerance_m
         )
+        if (
+            self._phase is ExpertPhase.LOWER
+            and self._settings.release_position_tolerance_m is not None
+        ):
+            position_tolerance = self._settings.release_position_tolerance_m
         pose_reached = (
             math.dist(
                 observation.robot.end_effector_pose.position_xyz_m,
@@ -192,6 +208,11 @@ class ScriptedPickPlaceExpert:
             )
             return
         if not pose_reached or not gripper_reached:
+            return
+        if self._phase is ExpertPhase.TRANSIT and (
+            self._waypoint_index < len(self._settings.transfer_waypoints_xyz_m)
+        ):
+            self._waypoint_index += 1
             return
         transitions = {
             ExpertPhase.OPEN_RAISE: ExpertPhase.APPROACH_CUBE,
@@ -223,7 +244,9 @@ class ScriptedPickPlaceExpert:
             position = (*self._initial_xy, self._safe_z)
             gripper = self._settings.open_gripper
         elif self._phase is ExpertPhase.APPROACH_CUBE:
-            position = (self._cube_xyz[0], self._cube_xyz[1], self._safe_z)
+            clearance = self._settings.approach_cube_clearance_m
+            height = self._safe_z if clearance is None else grasp_z + clearance
+            position = (self._cube_xyz[0], self._cube_xyz[1], height)
             gripper = self._settings.open_gripper
         elif self._phase in {ExpertPhase.DESCEND, ExpertPhase.CLOSE_DWELL}:
             position = (self._cube_xyz[0], self._cube_xyz[1], grasp_z)
@@ -236,7 +259,12 @@ class ScriptedPickPlaceExpert:
             position = (self._cube_xyz[0], self._cube_xyz[1], self._transit_z)
             gripper = self._settings.closed_gripper
         elif self._phase is ExpertPhase.TRANSIT:
-            position = (self._goal_xyz[0], self._goal_xyz[1], self._transit_z)
+            if self._waypoint_index < len(self._settings.transfer_waypoints_xyz_m):
+                position = self._settings.transfer_waypoints_xyz_m[self._waypoint_index]
+            else:
+                clearance = self._settings.destination_transit_clearance_m
+                z = self._transit_z if clearance is None else release_z + clearance
+                position = (self._goal_xyz[0], self._goal_xyz[1], z)
             gripper = self._settings.closed_gripper
         elif self._phase in {ExpertPhase.LOWER, ExpertPhase.OPEN_DWELL}:
             position = (self._goal_xyz[0], self._goal_xyz[1], release_z)

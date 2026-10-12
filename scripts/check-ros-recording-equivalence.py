@@ -16,7 +16,10 @@ args = parser.parse_args()
 if args.output.exists():
     raise FileExistsError(str(args.output))
 args.output.mkdir(parents=True)
-local_paths = sorted((args.capture / "local").glob("*.mcap"))
+local_directory = args.capture / "local"
+if not local_directory.exists():
+    local_directory = args.capture / "motion" / "acquisition"
+local_paths = sorted(local_directory.glob("*.mcap"))
 imported_paths = sorted((args.capture / "imported").glob("*.mcap"))
 if not local_paths or [p.name for p in local_paths] != [p.name for p in imported_paths]:
     raise RuntimeError("local/imported episode identities disagree")

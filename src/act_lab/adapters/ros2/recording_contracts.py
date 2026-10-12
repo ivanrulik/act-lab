@@ -238,3 +238,26 @@ class PacketConsumer:
             raise ValueError("interrupted episode: terminal event missing")
         if not self.closed:
             raise ValueError("recording has no completed episodes")
+
+
+class PacketReceipt:
+    """Deduplicate identical transport retries without rewriting acquisition."""
+
+    def __init__(self) -> None:
+        self.sequence = 0
+        self.episode: str | None = None
+        self.payload: bytes | None = None
+        self.duplicates = 0
+
+    def accept(self, episode: str, sequence: int, payload: bytes) -> bool:
+        validate_episode(episode)
+        integer(sequence, 1, 2**64 - 1)
+        if sequence == self.sequence:
+            if episode != self.episode or payload != self.payload:
+                raise ValueError("conflicting acquisition retry")
+            self.duplicates += 1
+            return False
+        if sequence != self.sequence + 1:
+            raise ValueError("packet gap/replay/version mismatch")
+        self.sequence, self.episode, self.payload = sequence, episode, payload
+        return True

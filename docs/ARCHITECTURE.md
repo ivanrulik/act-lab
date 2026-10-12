@@ -256,3 +256,29 @@ resampling and LeRobot conversion remain authoritative and ROS-free.
 [ADR 021](adr/021-ros-mcap-acquisition-equivalence.md) and the
 [safety contract](contracts/ros2-recording.md) describe bounded stepped capture
 and its stepped limits. Paced worker qualification is described by ADR 024.
+
+
+The opt-in CRISP complete-task candidate (ADR 025) adapts coherent owner task
+state to the existing scripted expert. Generic policy observations retain no
+privileged geometry. A recording task-provider seam labels the authoritative
+outcome and adds an explicit release requirement. Acquisition retries deduplicate
+identical decoded packets within the original deadline; neither motion freshness
+nor canonical packet ordering changes. The qualification runner separates seeded
+task evidence, sustained GPU capture and remaining loaded-fault/replay gates.
+The opt-in approach source moves inward and lowers before returning to the cube,
+using the existing expert phase and application safety path. Paced capture's
+duplicate canonical reference has one bounded writer thread, preserving ordered
+flushes and required lifecycle commit. The comparison file stages in a bounded
+1 GiB tmpfs, then copies/syncs and atomically publishes during disabled
+finalization; interrupted prefixes remain partial. Authoritative capture
+completion waits for DDS/rosbag ACK;
+reference overload/errors propagate to acquisition and terminal finalization waits
+for the mirror. The renderer owns its scratch model and ROS node; the mirror
+writer owns only its reference file and never accesses the robot.
+
+Recording-profile expert, physics, transport and progress diagnostics use the
+same bounded tmpfs and commit after disabled stop/shutdown. They never authorize
+motion or acknowledge authoritative storage. Startup requires the configured
+mount; capacity/write failures remain explicit errors. Abrupt process loss may
+truncate these diagnostic artifacts. Ordinary canonical acquisition durability
+and authoritative rosbag disk storage remain unchanged.

@@ -195,7 +195,7 @@ jobs:
         uses: ./.github/actions/compose-build
         with:
           service: ros2-recording
-      - name: Required CDR DDS storage lifecycle and equivalence tests
+      - name: Required CDR DDS complete-task loaded-fault retry and equivalence tests
         run: >-
           docker compose --profile ros2-recording run --rm --user "$(id -u):$(id -g)" ros2-recording
           python -m pytest -o 'addopts=-ra -p no:cacheprovider' tests/ros2_recording

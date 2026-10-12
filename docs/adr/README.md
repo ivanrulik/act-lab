@@ -45,3 +45,6 @@ consequences, and status.
 
 - [ADR 024](024-paced-acquisition-worker.md): bounded asynchronous paced
   acquisition, capture overload/loss holds and explicit rendering identities.
+
+- [ADR 025](025-crisp-task-qualification.md): explicit full-task source cadence,
+  coherent owner task state and bounded acquisition transport qualification.

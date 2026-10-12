@@ -294,8 +294,8 @@ expert comparison qualifies through the unchanged quality and LeRobot pipeline.
 See [ADR 021](adr/021-ros-mcap-acquisition-equivalence.md),
 [contract and safety review](contracts/ros2-recording.md),
 [usage](ros2-recording.md) and [local evidence](reports/ros2-recording.md).
-Continuous paced acquisition is being implemented on
-`feature/continuous-ros-recording`; see [the plan](plans/continuous-ros-recording.md)
+Continuous paced acquisition merged as GitHub PR #25 (`8c39c37`);
+see [the plan](plans/continuous-ros-recording.md)
 and [ADR 024](adr/024-paced-acquisition-worker.md). Hardware synchronization, crash-prefix repair
 and full CRISP task qualification remain scoped follow-ups.
 
@@ -308,6 +308,20 @@ authoritative acquisition path.
 Acceptance: equivalent local and ROS recordings pass the same quality rules
 and produce schema-compatible derived datasets; invalid and interrupted
 episodes remain traceable; training never consumes unvalidated raw logs.
+
+### Intermediate qualification — Complete CRISP task and sustained capture
+
+Locally qualified on `feature/crisp-task-qualification`, based on merged main
+`8c39c37`: 20/20 matched local and CRISP tasks, three full-quality NVIDIA runs
+over 600 active seconds, loaded faults, contention, exact import/conversion and
+manual Foxglove replay passed. Hosted checks/review are tracked on the PR. See
+[the measured stages](reports/crisp-task-qualification.md) and
+[the staged plan](plans/crisp-task-qualification.md). Reuse the scripted
+expert through the real DDS/CRISP path for complete articulated pick/place,
+qualify a frozen seed cohort and sustained full-quality GPU acquisition, preserve
+loaded fault holds and canonical conversion equivalence, and validate read-only
+Foxglove playback. PR #25's short bounded capture does not establish these gates.
+Hardware, ACT training and the flange appearance follow-up remain separate work.
 
 ### PR 15 — UR5e hardware readiness and safety review
 

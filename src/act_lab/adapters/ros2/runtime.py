@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from array import array
 from typing import Any
 
 from act_lab.adapters.ros2.contracts import TOPICS, WATCHDOG_NS
@@ -39,8 +40,24 @@ def make_message(kind: str, fields: dict[str, Any]) -> Any:
 
 
 def message_fields(message: Any) -> dict[str, Any]:
-    converter = importlib.import_module("rosidl_runtime_py.convert")
-    return dict(converter.message_to_ordereddict(message))
+    def primitive(value: Any) -> Any:
+        if hasattr(value, "get_fields_and_field_types"):
+            return {
+                name: primitive(getattr(value, name))
+                for name in value.get_fields_and_field_types()
+            }
+        if isinstance(value, array):
+            # RGB uint8 buffers retain identical bytes without constructing
+            # hundreds of thousands of Python integers per recorded camera.
+            return value.tobytes() if value.typecode == "B" else value.tolist()
+        if isinstance(value, (list, tuple)):
+            return [primitive(item) for item in value]
+        if hasattr(value, "tolist"):
+            return value.tolist()
+        return value
+
+    result: dict[str, Any] = primitive(message)
+    return result
 
 
 def qos_profiles() -> dict[str, Any]:

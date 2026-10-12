@@ -57,6 +57,10 @@ class ExpertConfig:
     open_gripper: float
     closed_gripper: float
     open_gripper_tolerance: float = 0.42
+    transfer_waypoints_xyz_m: tuple[tuple[float, float, float], ...] = ()
+    destination_transit_clearance_m: float | None = None
+    release_position_tolerance_m: float | None = None
+    approach_cube_clearance_m: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +186,22 @@ class SimulationConfig:
                 gripper_speed_s=_positive_float(keyboard, "gripper_speed_s"),
             ),
             expert=ExpertConfig(
+                approach_cube_clearance_m=_nonnegative_float(
+                    expert, "approach_cube_clearance_m"
+                )
+                if "approach_cube_clearance_m" in expert
+                else None,
+                release_position_tolerance_m=_positive_float(
+                    expert, "release_position_tolerance_m"
+                )
+                if "release_position_tolerance_m" in expert
+                else None,
+                transfer_waypoints_xyz_m=_waypoints(expert),
+                destination_transit_clearance_m=_nonnegative_float(
+                    expert, "destination_transit_clearance_m"
+                )
+                if "destination_transit_clearance_m" in expert
+                else None,
                 approach_clearance_m=_positive_float(expert, "approach_clearance_m"),
                 transit_clearance_m=_nonnegative_float(expert, "transit_clearance_m"),
                 retreat_clearance_m=_positive_float(expert, "retreat_clearance_m"),
@@ -318,6 +338,17 @@ def _float_tuple(table: dict[str, Any], name: str, length: int) -> tuple[float, 
 def _float_pair(table: dict[str, Any], name: str) -> tuple[float, float]:
     values = _float_tuple(table, name, 2)
     return values[0], values[1]
+
+
+def _waypoints(table: dict[str, Any]) -> tuple[tuple[float, float, float], ...]:
+    value = table.get("transfer_waypoints_xyz_m", [])
+    if not isinstance(value, list):
+        raise ValueError("transfer waypoints must be a list of world XYZ triples")
+    result = []
+    for item in value:
+        xyz = _float_tuple({"waypoint": item}, "waypoint", 3)
+        result.append((xyz[0], xyz[1], xyz[2]))
+    return tuple(result)
 
 
 def _six_float_tuple(

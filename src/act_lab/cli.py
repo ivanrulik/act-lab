@@ -332,7 +332,13 @@ def build_parser() -> argparse.ArgumentParser:
         acquisition.add_argument(
             "--controller", choices=("local", "crisp"), default="local"
         )
+        acquisition.add_argument("--source-hz", type=float, default=25.0)
         acquisition.add_argument("--json", action="store_true")
+        acquisition.add_argument(
+            "--full-task",
+            action="store_true",
+            help="Complete scripted pick/place through paced CRISP",
+        )
         acquisition.add_argument(
             "--capture-profile",
             choices=("full", "reduced-effects"),
@@ -344,6 +350,31 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="Continuous CRISP owner with bounded asynchronous RGB acquisition",
         )
+    qualification = ros_commands.add_parser(
+        "task-qualification",
+        help="Fixed-cohort CRISP task and sustained capture evidence",
+    )
+    qualification.add_argument(
+        "--output", type=Path, default=Path("runs/crisp-task-qualification")
+    )
+    qualification.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/sim/ur5e_2f85_d405_crisp_task.toml"),
+    )
+    qualification.add_argument("--seeds", type=int, nargs="+", default=list(range(20)))
+    qualification.add_argument(
+        "--duration",
+        type=float,
+        default=0.0,
+        help="Active seconds per sustained run; use 600 for qualification",
+    )
+    qualification.add_argument("--repeats", type=int, default=3)
+    qualification.add_argument("--source-hz", type=float, default=25.0)
+    qualification.add_argument(
+        "--capture-profile", choices=("full", "reduced-effects"), default="full"
+    )
+    qualification.add_argument("--json", action="store_true")
     importer = ros_commands.add_parser(
         "recording-import", help="Translate rosbag2 MCAP to canonical episodes"
     )
@@ -1557,7 +1588,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exit_code
     if args.command == "ros2":
         try:
-            if args.ros2_command == "recording-import":
+            if args.ros2_command == "task-qualification":
+                from act_lab.adapters.ros2.task_qualification import run_qualification
+
+                result = run_qualification(
+                    args.output,
+                    config=args.config,
+                    seeds=args.seeds,
+                    duration_s=args.duration,
+                    repeats=args.repeats,
+                    source_hz=args.source_hz,
+                    capture_profile=args.capture_profile,
+                )
+            elif args.ros2_command == "recording-import":
                 from act_lab.adapters.ros2.recording import import_bag
 
                 result = import_bag(args.bag, args.output)
@@ -1573,6 +1616,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     smoke=args.ros2_command.endswith("smoke"),
                     paced=args.paced,
                     capture_profile=args.capture_profile,
+                    full_task=args.full_task,
+                    source_hz=args.source_hz,
                 )
             elif args.ros2_command.startswith("observability-"):
                 from act_lab.adapters.ros2.observation_demo import run_observability
@@ -1599,7 +1644,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 from act_lab.adapters.ros2.smoke import run_smoke
 
                 result = run_smoke()
-        except (RuntimeError, ValueError, ImportError, OSError) as error:
+        except (RuntimeError, ValueError, ImportError, OSError, EOFError) as error:
             print(str(error), file=sys.stderr)
             return 1
         ros_label = (
@@ -1623,7 +1668,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         )
-        return 0
+        return 1 if result["status"] == "failed" else 0
     if args.command == "doctor":
         return _doctor(as_json=args.json)
     if args.command == "experiment":

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import gc
 import importlib
 import json
 import os
+import pickle
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 from uuid import uuid4
 
 from act_lab.adapters.ros2.recording_contracts import (
@@ -23,6 +25,16 @@ from act_lab.adapters.ros2.recording_contracts import (
 from act_lab.adapters.ros2.runtime import make_message, message_fields
 from act_lab.domain.ports import EpisodeSink
 from act_lab.domain.recording import EpisodeOutcome, EpisodeProvenance, EpisodeSample
+
+
+def retry_identity(message: Any) -> bytes:
+    """Compare every generated field, excluding unspecified CDR padding.
+
+    Pickle is only produced for equality, never loaded. RGB remains bytes and
+    floating-point bit patterns remain intact; no payload is normalized.
+    """
+    return pickle.dumps(message_fields(message), protocol=5)
+
 
 HINT = "Use docker compose --profile ros2-recording run --build --rm ros2-recording"
 
@@ -65,11 +77,21 @@ class RosEpisodeSink:
         self.command_sequence = command_sequence
         self.sample_count = 0
         self.node = node
+        from rclpy.executors import (  # type: ignore[import-not-found]
+            SingleThreadedExecutor,
+        )
+
+        self._owns_executor = node.executor is None
+        self.executor = node.executor or SingleThreadedExecutor(context=node.context)
+        if self._owns_executor:
+            self.executor.add_node(node)
         self.publisher = node.create_publisher(
             type(make_message("RecordingPacket", {})),
             PACKET_TOPIC,
             QoSProfile(depth=10),
         )
+        self.trace_path: Path | None = None
+        self._trace_stream: TextIO | None = None
         self.ack: tuple[str, int] | None = None
         self.subscription = node.create_subscription(
             String, ACK_TOPIC, self._ack, QoSProfile(depth=10)
@@ -91,33 +113,96 @@ class RosEpisodeSink:
         value = json.loads(message.data)
         self.ack = value["episode_id"], value["sequence"]
 
-    def _send(self, kind: str, timestamp: int, **values: Any) -> None:
-        import rclpy  # type: ignore[import-not-found]
-
+    def wait_ready(self, settle_s: float = 0.0) -> None:
+        """Drain startup discovery under hold, before any recorded source sample."""
         end = time.monotonic() + self.timeout_s
-        while (
-            self.publisher.get_subscription_count() != 1
-            or self.subscription.get_publisher_count() != 1
-        ):
-            if time.monotonic() >= end:
-                raise RuntimeError(
-                    "recording requires exactly one recorder; discovery timed out"
-                )
-            rclpy.spin_once(self.node, timeout_sec=0.01)
+        matched_at: float | None = None
+        while time.monotonic() < end:
+            if (
+                self.publisher.get_subscription_count() == 1
+                and self.subscription.get_publisher_count() == 1
+            ):
+                matched_at = matched_at or time.monotonic()
+                if time.monotonic() - matched_at >= settle_s:
+                    return
+            else:
+                matched_at = None
+            self.executor.spin_once(timeout_sec=0.01)
+        raise RuntimeError(
+            "recording requires exactly one recorder; discovery timed out"
+        )
+
+    def _send(self, kind: str, timestamp: int, **values: Any) -> None:
+        self.wait_ready()
         self.sequence += 1
-        self.publisher.publish(
-            make_message(
+
+        def trace(stage: str, **timings: int) -> None:
+            if self.trace_path is not None:
+                if self._trace_stream is None:
+                    self._trace_stream = self.trace_path.open(
+                        "a", buffering=1024 * 1024
+                    )
+                self._trace_stream.write(
+                    json.dumps(
+                        dict(
+                            sequence=self.sequence,
+                            kind=kind,
+                            stage=stage,
+                            steady_ns=time.monotonic_ns(),
+                            **timings,
+                        )
+                    )
+                    + "\n"
+                )
+
+        trace("construct")
+        construction_start = time.monotonic_ns()
+        cpu_start = time.thread_time_ns()
+        gc_started = 0
+        gc_elapsed = 0
+
+        def construction_gc(phase: str, info: dict[str, Any]) -> None:
+            nonlocal gc_started, gc_elapsed
+            if phase == "start":
+                gc_started = time.monotonic_ns()
+            else:
+                gc_elapsed += time.monotonic_ns() - gc_started
+
+        if self.trace_path is not None:
+            gc.callbacks.append(construction_gc)
+        try:
+            message = make_message(
                 "RecordingPacket",
                 packet(self.episode_id, self.sequence, timestamp, kind, **values),
             )
+        finally:
+            if self.trace_path is not None:
+                gc.callbacks.remove(construction_gc)
+        trace(
+            "constructed",
+            wall_ns=time.monotonic_ns() - construction_start,
+            cpu_ns=time.thread_time_ns() - cpu_start,
+            gc_ns=gc_elapsed,
         )
+        trace("publish")
+        self.publisher.publish(message)
+        trace("ack_wait")
         end = time.monotonic() + self.timeout_s
+        retry_at = time.monotonic() + 0.01
         while self.ack != (self.episode_id, self.sequence):
             if time.monotonic() >= end:
                 raise RuntimeError(
                     "recording acknowledgement timed out; acquisition interrupted"
                 )
-            rclpy.spin_once(self.node, timeout_sec=0.01)
+            self.executor.spin_once(timeout_sec=0.001)
+            if (
+                self.ack != (self.episode_id, self.sequence)
+                and time.monotonic() >= retry_at
+            ):
+                self.publisher.publish(message)
+                retry_at = time.monotonic() + 0.01
+                trace("identical_retry")
+        trace("ack_received")
         self.timestamp = timestamp
 
     def start(self, provenance: EpisodeProvenance, timestamp_ns: int) -> str:
@@ -210,10 +295,18 @@ class RosEpisodeSink:
         self.close()
 
     def close(self) -> None:
+        if self._trace_stream is not None:
+            self._trace_stream.close()
+            self._trace_stream = None
         if self.publisher is not None:
             self.node.destroy_publisher(self.publisher)
             self.node.destroy_subscription(self.subscription)
             self.publisher = None
+            if self._owns_executor:
+                # A later episode on the same node must not reuse a stopped
+                # executor through Node's weak reference.
+                self.node.executor = None
+                self.executor.shutdown(timeout_sec=1)
 
 
 def _sync_tree(directory: Path) -> None:
@@ -226,7 +319,9 @@ def _sync_tree(directory: Path) -> None:
     sync_directory(directory)
 
 
-def record_process(connection: Any, output: str) -> None:
+def record_process(
+    connection: Any, output: str, drop_ack_once: int | None = None
+) -> None:
     """Separate storage owner. Acknowledgement means writer acceptance, not fsync."""
     require_recording()
     rclpy = importlib.import_module("rclpy")
@@ -253,17 +348,28 @@ def record_process(connection: Any, output: str) -> None:
         )
     )
     rclpy.init()
-    Parameter = importlib.import_module("rclpy.parameter").Parameter
-    node = rclpy.create_node(
-        "act_lab_mcap_recorder",
-        parameter_overrides=[Parameter("use_sim_time", value=True)],
-    )
+    # Transport-only storage uses explicit source stamps and steady receipt time.
+    # It never reads ROS time; automatic /clock callbacks are unrelated work.
+    node = rclpy.create_node("act_lab_mcap_recorder")
+    from rclpy.executors import SingleThreadedExecutor
+
+    executor = SingleThreadedExecutor(context=node.context)
+    executor.add_node(node)
     ack = node.create_publisher(String, ACK_TOPIC, QoSProfile(depth=10))
     sequence = 0
     error: str | None = None
     origin_wall, origin_steady = time.time_ns(), time.monotonic_ns()
+    from act_lab.adapters.ros2.recording_contracts import PacketReceipt
+
+    receipts = PacketReceipt()
+    dropped_ack = False
     topics = {PACKET_TOPIC}
     calibrations: dict[str, Any] = {}
+    from act_lab.adapters.ros2.trace_staging import DiagnosticFile, staging_root
+
+    progress_file = DiagnosticFile(partial / "recorder-progress.jsonl", staging_root())
+    progress_stream = progress_file.partial.open("w", buffering=1024 * 1024)
+    progress_value: dict[str, Any] | None = None
 
     def write(topic: str, message: Any, kind: str) -> None:
         if topic not in topics:
@@ -280,12 +386,28 @@ def record_process(connection: Any, output: str) -> None:
         )
 
     def receive(message: Any) -> None:
-        nonlocal sequence, error, calibrations
+        nonlocal sequence, error, calibrations, dropped_ack, progress_value
+        received_ns = time.monotonic_ns()
         if error:
             return
         try:
-            if message.sequence != sequence + 1 or message.schema_version != 1:
+            if message.schema_version != 1:
                 raise ValueError("packet gap/replay/version mismatch")
+            fresh = receipts.accept(
+                message.episode_id, message.sequence, retry_identity(message)
+            )
+            if not fresh:
+                ack.publish(
+                    String(
+                        data=json.dumps(
+                            dict(
+                                episode_id=message.episode_id,
+                                sequence=message.sequence,
+                            )
+                        )
+                    )
+                )
+                return
             write(PACKET_TOPIC, message, PACKET_TYPE)
             if message.kind == "start":
                 provenance = json.loads(message.metadata_json)
@@ -380,7 +502,17 @@ def record_process(connection: Any, output: str) -> None:
                     ),
                 )
                 write("/clock", clock, "rosgraph_msgs/msg/Clock")
+            progress_value = dict(
+                sequence=message.sequence,
+                kind=message.kind,
+                write_ns=time.monotonic_ns() - received_ns,
+                steady_ns=time.monotonic_ns(),
+            )
+            progress_stream.write(json.dumps(progress_value) + "\n")
             sequence = message.sequence
+            if message.sequence == drop_ack_once and not dropped_ack:
+                dropped_ack = True
+                return
             ack.publish(
                 String(
                     data=json.dumps(
@@ -390,6 +522,9 @@ def record_process(connection: Any, output: str) -> None:
             )
         except Exception as exc:
             error = str(exc)
+            (partial / "recording-failure.json").write_text(
+                json.dumps(dict(reason=error, accepted_sequence=sequence)) + "\n"
+            )
 
     node.create_subscription(
         type(make_message("RecordingPacket", {})),
@@ -400,8 +535,12 @@ def record_process(connection: Any, output: str) -> None:
     connection.send(dict(ready=True, pid=os.getpid()))
     try:
         while not connection.poll():
-            rclpy.spin_once(node, timeout_sec=0.02)
+            executor.spin_once(timeout_sec=0.02)
         finalize = connection.recv()["finalize"]
+        progress_stream.close()
+        progress_file.commit(complete=True)
+        if progress_value is not None:
+            (partial / "recorder-progress.json").write_text(json.dumps(progress_value))
         writer.close()
         _sync_tree(partial)
         if error:
@@ -420,12 +559,15 @@ def record_process(connection: Any, output: str) -> None:
                 topics=sorted(topics),
                 pid=os.getpid(),
                 finalized=finalize,
+                identical_retries=receipts.duplicates,
             )
         )
     except BaseException as exc:
         connection.send(dict(error=str(exc)))
         raise
     finally:
+        progress_stream.close()
+        executor.shutdown(timeout_sec=1)
         node.destroy_node()
         rclpy.try_shutdown()
         connection.close()

@@ -37,6 +37,7 @@ class CaptureLease:
         self.timeout_ns = timeout_ns
         self.pending: deque[tuple[int, int]] = deque()
         self.sequence = 0
+        self.peak_pending = 0
         self.episode: str | None = None
         self.last_stamp = -1
         self.reason: str | None = None
@@ -64,6 +65,7 @@ class CaptureLease:
         self.last_stamp = stamp
         self.sequence += 1
         self.pending.append((self.sequence, now_ns))
+        self.peak_pending = max(self.peak_pending, len(self.pending))
         return self.sequence
 
     def complete(self, sequence: int, now_ns: int) -> None:
@@ -95,24 +97,57 @@ def capture_worker(
     """Own a scratch simulator, ROS node and acknowledged sink in one process."""
     import mujoco  # type: ignore[import-untyped]
     import rclpy  # type: ignore[import-not-found]
-    from rclpy.parameter import Parameter  # type: ignore[import-not-found]
 
-    from act_lab.adapters.mcap.recording import McapEpisodeSink
     from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
     from act_lab.adapters.ros2.camera_rendering import render_settings, verify_renderer
     from act_lab.adapters.ros2.recording import RosEpisodeSink
+    from act_lab.adapters.ros2.reference_mirror import (
+        ComparisonMcapSink,
+        ReferenceMirror,
+    )
+    from act_lab.adapters.ros2.trace_staging import DiagnosticFile, staging_root
     from act_lab.domain import CameraFrame
+    from act_lab.domain.ports import EpisodeSink
 
     env = None
     sink = None
     node = None
     completed = 0
     ages: list[int] = []
+    timings: list[dict[str, int]] = []
+    timing_log = None
+    mirror_log = None
+    progress_log = None
+    progress = None
+    diagnostic_files: dict[str, DiagnosticFile] = {}
+    reference: ReferenceMirror | None = None
     try:
         rclpy.init()
-        node = rclpy.create_node(
-            "act_lab_paced_acquisition",
-            parameter_overrides=[Parameter("use_sim_time", value=True)],
+        # Immutable snapshots supply every source timestamp. This transport-only
+        # node never reads ROS time and needs no automatic /clock subscription.
+        node = rclpy.create_node("act_lab_paced_acquisition")
+        directory.mkdir(parents=True, exist_ok=True)
+        staging_directory = staging_root()
+        if staging_directory is None:
+            raise RuntimeError("paced capture requires the recording Compose tmpfs")
+        for name in (
+            "capture-timing",
+            "mirror-sync",
+            "worker-progress",
+            "transport-timing",
+            "reference-timing",
+        ):
+            diagnostic_files[name] = DiagnosticFile(
+                directory / f"{name}.jsonl", staging_directory
+            )
+        timing_log = diagnostic_files["capture-timing"].partial.open(
+            "w", buffering=1024 * 1024
+        )
+        mirror_log = diagnostic_files["mirror-sync"].partial.open(
+            "w", buffering=1024 * 1024
+        )
+        progress_log = diagnostic_files["worker-progress"].partial.open(
+            "w", buffering=1024 * 1024
         )
         env = MujocoUR5eEnvironment.from_config_file(config_path)
         env.reset(0)
@@ -134,15 +169,52 @@ def capture_worker(
         for camera in env._config.cameras:
             render(camera)
         identity = verify_renderer(render_settings())
+
+        class TimedMirror(ComparisonMcapSink):
+            def _sync(self) -> None:
+                started = time.monotonic_ns()
+                super()._sync()
+                assert timing_log is not None
+                assert mirror_log is not None
+                mirror_log.write(
+                    json.dumps(
+                        dict(
+                            operation="commit" if self.finalizing else "flush",
+                            duration_ns=time.monotonic_ns() - started,
+                            steady_ns=time.monotonic_ns(),
+                        )
+                    )
+                    + "\n"
+                )
+
+        def mirror(selected: str) -> EpisodeSink:
+            nonlocal reference
+            reference = ReferenceMirror(
+                lambda: TimedMirror(
+                    directory, selected, staging_directory=staging_directory
+                ),
+                on_error=lambda error: replies.put(dict(error=error)),
+                trace=diagnostic_files["reference-timing"].partial,
+            )
+            return reference
+
         sink = RosEpisodeSink(
             node,
-            lambda selected: McapEpisodeSink(directory, selected),
+            mirror,
             episode=lambda: episode,
             sequence_start=sequence_start,
         )
+        sink.trace_path = diagnostic_files["transport-timing"].partial
+        # Discovery/type initialization belongs to startup hold, before reset
+        # and the first acquisition sample. This wait grants no authorization.
+        sink.wait_ready(settle_s=2.0)
         replies.put(dict(ready=True, renderer=identity))
         while True:
             kind, value = requests.get()
+            progress = dict(
+                kind=kind, steady_ns=time.monotonic_ns(), completed=completed
+            )
+            progress_log.write(json.dumps(progress) + "\n")
             if kind == "start":
                 provenance, stamp, episode = value
                 if capture_profile != "full":
@@ -193,6 +265,7 @@ def capture_worker(
                 env._physics_ticks = stamp // 2_000_000
                 mujoco.mj_forward(env._model, env._data)
 
+                render_start = time.monotonic_ns()
                 images = tuple(
                     (
                         camera,
@@ -208,11 +281,23 @@ def capture_worker(
                 age = time.monotonic_ns() - capture.receipt_ns
                 if age >= 100_000_000:
                     raise RuntimeError(f"capture_timeout: render_age_ns={age}")
+                rendered = time.monotonic_ns()
                 sink.command_sequence = lambda current=capture: current.command_sequence
                 sink.append(replace(sample, images=images))
                 age = time.monotonic_ns() - capture.receipt_ns
                 if age >= 100_000_000:
                     raise RuntimeError(f"capture_timeout: ack_age_ns={age}")
+                timings.append(
+                    dict(
+                        queue_ns=now - capture.receipt_ns,
+                        render_ns=rendered - render_start,
+                        storage_ns=time.monotonic_ns() - rendered,
+                    )
+                )
+                timing_log.write(
+                    json.dumps(dict(sequence=sequence, age_ns=age, **timings[-1]))
+                    + "\n"
+                )
                 ages.append(age)
                 completed += 1
                 replies.put(dict(completed=sequence, completed_ns=time.monotonic_ns()))
@@ -221,16 +306,23 @@ def capture_worker(
             elif kind == "diagnostics":
                 sink.diagnostics(*value)
             elif kind == "stop":
+                from act_lab.adapters.ros2.task_qualification import distribution
+
                 sink.stop(*value)
                 replies.put(
                     dict(
                         stopped=True,
                         samples=completed,
                         capture_ages_ns=ages,
+                        capture_stage_summary_ns={
+                            name: distribution([row[name] for row in timings])
+                            for name in ("queue_ns", "render_ns", "storage_ns")
+                        },
                         worker_pid=os.getpid(),
                         renderer=identity,
                         packet_sequence=sink.sequence,
                         capture_profile=capture_profile,
+                        reference_mirror=reference.stats if reference else {},
                     )
                 )
                 break
@@ -241,6 +333,17 @@ def capture_worker(
         if sink is not None:
             sink.interrupt()
     finally:
+        if timing_log is not None:
+            timing_log.close()
+        if mirror_log is not None:
+            mirror_log.close()
+        if progress_log is not None:
+            progress_log.close()
+        for file in diagnostic_files.values():
+            if file.partial.exists():
+                file.commit(complete=True)
+        if progress is not None:
+            (directory / "worker-progress.json").write_text(json.dumps(progress))
         if env is not None:
             env.close()
         if node is not None:
@@ -386,6 +489,7 @@ class PacedEpisodeSink:
     def stop(self, outcome: EpisodeOutcome, reason: str) -> None:
         self._offer("stop", (outcome, reason))
         self.result = self._wait("stopped", 15)
+        self.result["peak_pending"] = self.lease.peak_pending
         self.finished = True
         self.process.join(5)
         if self.process.is_alive():

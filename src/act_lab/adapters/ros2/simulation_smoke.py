@@ -25,6 +25,7 @@ from act_lab.adapters.ros2.simulation import (
     send,
     snapshot_state,
 )
+from act_lab.adapters.ros2.trace_staging import DiagnosticFile, staging_root
 from act_lab.domain import Action, Pose
 
 
@@ -57,12 +58,19 @@ class MotionSession:
         self.paced = paced
         self.config_path = config_path
         self.output = output
+        self._expert_trace: DiagnosticFile | None = None
         self.rclpy = rclpy
         rclpy.init()
         self.node = rclpy.create_node(
             "act_lab_motion_producer",
             parameter_overrides=[Parameter("use_sim_time", value=True)],
         )
+        from rclpy.executors import (  # type: ignore[import-not-found]
+            SingleThreadedExecutor,
+        )
+
+        self.executor = SingleThreadedExecutor(context=self.node.context)
+        self.executor.add_node(self.node)
         self.pub = self.node.create_publisher(
             type(make_message("CartesianCommand", {})),
             TOPICS["command"],
@@ -84,6 +92,7 @@ class MotionSession:
             self.process.terminate()
             self.process.join(timeout=5)
             self.connection.close()
+            self.executor.shutdown(timeout_sec=1)
             self.node.destroy_node()
             rclpy.shutdown()
             raise
@@ -101,7 +110,10 @@ class MotionSession:
                 type(make_message(message, {})),
                 TOPICS[name],
                 seen,
-                qos_profiles()[name],
+                # This producer is an optional observer of reports; the RPC
+                # result is authoritative. Best-effort telemetry cannot make
+                # a reliable report writer wait on a descheduled observer.
+                qos_profiles()["state"] if name == "report" else qos_profiles()[name],
             )
         self.sequence = 0
         self.trace: list[dict[str, Any]] = []
@@ -110,7 +122,7 @@ class MotionSession:
             if time.monotonic() >= end:
                 self.close()
                 raise RuntimeError("bounded command publisher discovery timeout")
-            rclpy.spin_once(self.node, timeout_sec=0.005)
+            self.executor.spin_once(timeout_sec=0.005)
 
     def rpc(self, request: dict[str, Any]) -> dict[str, Any]:
         send(self.connection, request)
@@ -118,7 +130,23 @@ class MotionSession:
         if "error" in value:
             raise RuntimeError(value["error"])
         self.value = value
+        if request.get("kind") == "record_stop":
+            self.commit_expert_trace()
         return value
+
+    def expert_trace_path(self) -> Path:
+        if getattr(self, "_expert_trace", None) is not None:
+            raise RuntimeError("previous expert trace requires disabled finalization")
+        self._expert_trace = DiagnosticFile(
+            self.output / "expert.jsonl", staging_root()
+        )
+        return self._expert_trace.partial
+
+    def commit_expert_trace(self) -> None:
+        trace = getattr(self, "_expert_trace", None)
+        if trace is not None:
+            trace.commit(complete=True)
+            self._expert_trace = None
 
     def command(
         self,
@@ -133,7 +161,9 @@ class MotionSession:
         # The independent owner may integrate hold while this producer is
         # descheduled, including in stepped mode. Sample current authority
         # before creating a new intent; never restamp an existing command.
+        started_ns = time.monotonic_ns()
         self.rpc(dict(kind="snapshot"))
+        snapshot_ns = time.monotonic_ns()
         state = snapshot_state(self.value)
         if not replay:
             self.sequence += 1
@@ -149,16 +179,23 @@ class MotionSession:
             dict(kind="poll", wait_delivery=True, delivery_barrier=True),
         )
         ready = receive(self.connection)
+        barrier_ns = time.monotonic_ns()
         if "error" in ready:
             raise RuntimeError(ready["error"])
         if ready.get("ready_delivery") is not True:
             raise RuntimeError("gateway did not establish DDS delivery barrier")
         self.pub.publish(make_message("CartesianCommand", encode_command(envelope)))
+        published_ns = time.monotonic_ns()
         value = receive(self.connection)
+        response_ns = time.monotonic_ns()
         if "error" in value:
             raise RuntimeError(value["error"])
         self.value = value
-        self.rclpy.spin_once(self.node, timeout_sec=0.0)
+        # Drain all telemetry readers with a finite callback budget. One spin
+        # can starve reliable reports behind high-rate clock/state callbacks,
+        # causing DDS writer backpressure in the consuming gateway.
+        for _ in range(8):
+            self.executor.spin_once(timeout_sec=0.0)
         self.trace.append(
             dict(
                 sequence=self.sequence,
@@ -173,6 +210,14 @@ class MotionSession:
                 outcome=value["report"]["outcome"],
                 mode=value["mode"],
                 reason=value["reason"],
+                producer_timing_ns=dict(
+                    snapshot=snapshot_ns - started_ns,
+                    barrier=barrier_ns - snapshot_ns,
+                    publish=published_ns - barrier_ns,
+                    response=response_ns - published_ns,
+                    telemetry=time.monotonic_ns() - response_ns,
+                ),
+                gateway_timing_ns=ready.get("gateway_timing_ns", {}),
             )
         )
         return value
@@ -237,8 +282,10 @@ class MotionSession:
                 raise RuntimeError(f"gateway exited with code {self.process.exitcode}")
         finally:
             self.connection.close()
+            self.executor.shutdown(timeout_sec=1)
             self.node.destroy_node()
             self.rclpy.try_shutdown()
+            self.commit_expert_trace()
 
 
 def producer_loss(session: MotionSession) -> dict[str, Any]:
@@ -522,7 +569,7 @@ def run_motion(
         )
         cases.append(grasp_lift_hold(session))
         for _ in range(10):
-            session.rclpy.spin_once(session.node, timeout_sec=0.005)
+            session.executor.spin_once(timeout_sec=0.005)
         if not all(session.telemetry.values()):
             raise RuntimeError(f"missing generated DDS telemetry: {session.telemetry}")
         import hashlib
