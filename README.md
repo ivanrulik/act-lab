@@ -7,13 +7,49 @@ robot imitation-learning system:
 teleoperate -> record MCAP -> validate/convert -> train ACT -> evaluate
 ```
 
-The target platform is a simulated UR5e with a parallel-jaw gripper in MuJoCo.
+The target platform is a simulated UR5e in MuJoCo, with an optional articulated
+Robotiq 2F-85 gripper and D405-inspired wrist RGB camera preset.
 Webcam hand tracking is the initial teleoperation device. LeRobotDataset is the
 training representation and LeRobot's ACT implementation is the initial policy.
 
 The simulated acquisition, conversion, training, and closed-loop evaluation
 workflow is implemented. Milestones are deliberately kept in small pull
 requests; see [the roadmap](docs/ROADMAP.md).
+
+![Foxglove MCAP replay showing the UR5e overview, wrist RGB, policy RGB and command report](docs/images/foxglove-recording-replay.jpg)
+
+*Recorded simulation replay in Foxglove: three original RGB views and the safety
+report during a qualified CRISP grasp/transfer. Playback is read-only. The frozen
+20-seed cohort, three sustained capture runs and local handoff checks passed;
+results and limits are reported in [the qualification report](docs/reports/crisp-task-qualification.md).*
+See [Foxglove views](#optional-foxglove-views) and
+[recording and replay](docs/ros2-recording.md).
+
+## Why ACT Lab?
+
+ACT Lab is an inspectable UR5e robot-learning lab where demonstrations, safety
+decisions, dataset changes, and policy failures can be traced and reproduced.
+It is intended for learners and engineers studying how the complete system
+behaves, including when input, timing, recording, or control fails.
+
+- Trace original MCAP evidence through quality checks and deterministic
+  conversion into a fingerprinted LeRobotDataset.
+- Compare the scripted expert and learned policy through shared application
+  safety, with matched seeds, confidence intervals, and individual failures.
+- Inspect original camera images, command reports, and fault behavior in replay.
+- Explore optional ROS 2 and CRISP adapters while keeping local simulation,
+  training, and evaluation independent of ROS.
+
+LeRobot, robomimic/robosuite, ManiSkill, and Isaac Lab already provide substantial
+robot-learning workflows. ACT Lab builds on existing tools and concentrates on
+one documented, tested integration. For broader policy research, large parallel
+simulation, or supported physical robots, another stack may be a better fit.
+See [project purpose and alternatives](docs/PROJECT_PURPOSE.md).
+
+Evidence is configuration-specific: the current articulated gripper/wrist-camera
+training smoke verifies integration; useful learned task success on that model
+still needs a full training/evaluation campaign. The CRISP capture showcase uses
+the scripted expert. Physical deployment requires separate qualification.
 
 ## Optional ROS 2 executable contracts
 
@@ -190,7 +226,12 @@ tooling and diagnosis only.
 - [x] High-X/low-Y IK feasibility and control timing follow-up (see
       [the regression report](docs/policy-target-feasibility.md))
 - [ ] Reproducible learning release
-- [ ] Optional ROS 2 adapters and physical robot integration
+- [x] Optional ROS 2 contracts and guarded CRISP simulation motion
+- [x] Articulated gripper, wrist RGB and Foxglove observability
+- [x] ROS MCAP acquisition, canonical import and ROS-free conversion
+- [x] Bounded continuous capture with explicit CPU/NVIDIA profiles
+- [x] Complete CRISP task and sustained-capture qualification (local evidence)
+- [ ] Physical robot readiness and integration
 
 ## Data policy
 
@@ -201,6 +242,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 
 ## Documentation map
 
+- [Project purpose, audience, and alternatives](docs/PROJECT_PURPOSE.md)
 - [Agent operating contract](AGENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Roadmap and PR boundaries](docs/ROADMAP.md)
@@ -216,11 +258,15 @@ in an artifact store. Small, reviewed test fixtures may live in
 - [ADRs](docs/adr/README.md)
 - [Contributing](CONTRIBUTING.md)
 - [CI builds and caching](docs/ci.md)
+- [ROS 2 interfaces and clocks](docs/contracts/ros2.md)
+- [CRISP simulation and safety review](docs/contracts/ros2-simulation.md)
+- [Gripper and wrist-camera preset](docs/contracts/tooling.md)
+- [ROS recording, Foxglove replay and conversion](docs/ros2-recording.md)
 
 ## Optional ROS/CRISP simulation motion
 
-PR 13 adds an isolated generated-message -> shared safety -> real CRISP ->
-MuJoCo effort path, alongside the existing local baseline:
+The optional adapter supplies an isolated generated-message -> shared safety ->
+real CRISP -> MuJoCo effort path, alongside the existing local baseline:
 
 ```bash
 docker compose --profile ros2-simulation build ros2-simulation
@@ -232,8 +278,9 @@ The independent physics owner applies a bounded dynamic hold on lost/stale
 intent or controller failure. Evidence includes matched local trajectories,
 actuator ownership/effort, fault cases and runtime provenance. See the
 [simulation contract and safety review](docs/contracts/ros2-simulation.md) and
-[ADR 016](docs/adr/016-crisp-moving-simulation.md). This is stepped simulation;
-hardware and ROS recording remain later roadmap work. Learning remains ROS-free.
+[ADR 016](docs/adr/016-crisp-moving-simulation.md). This smoke demo is stepped
+simulation; ROS recording and continuous capture are described below. Hardware
+integration remains later roadmap work. Learning remains ROS-free.
 
 ## Optional Foxglove views
 
@@ -311,3 +358,10 @@ distinct camera fingerprint; they are not silently mixed with full-quality data.
 Capture over 100 ms, queue overload or worker loss interrupts recording and
 requests the existing hold. This is simulation evidence, not hardware validation.
 See [the implementation plan](docs/plans/continuous-ros-recording.md).
+
+Complete scripted CRISP attempts and frozen-cohort/sustained recording evidence
+are opt-in with `ros2 recording-demo --controller crisp --paced --full-task` and
+`ros2 task-qualification`. See [usage](docs/ros2-recording.md) and
+[the staged acceptance plan](docs/plans/crisp-task-qualification.md). Actual
+release and existing safety/quality gates must pass before task qualification.
+See [qualification results and limits](docs/reports/crisp-task-qualification.md).

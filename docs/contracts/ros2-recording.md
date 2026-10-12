@@ -9,7 +9,12 @@ devices, display, GPU or privileged permissions are requested.
 `/act_lab/recording/v1/packet` is `act_lab_interfaces/RecordingPacket`, version 1.
 Reliable/volatile/keep-last 10; no expiration silently deletes acquisition evidence.
 `/act_lab/recording/v1/ack` is `std_msgs/String` containing episode ID and sequence,
-with the same QoS. Discovery and ACK waits are bounded at ten steady seconds.
+with the same QoS. Identical current episode/sequence transport retries are
+acknowledged without writing again; all decoded fields and original pixels must
+match. CDR padding is excluded from this comparison. Conflicting retries, older
+replay and gaps fail. The canonical importer still rejects every duplicate.
+Retries never refresh source timestamps or extend the paced 100 ms lease.
+Discovery and ACK waits are bounded at ten steady seconds.
 Exactly one recorder must match. One producer owns the session and sequence.
 ACKs indicate storage-writer acceptance; finalization establishes file durability.
 
@@ -61,6 +66,32 @@ independent source/receipt/output watchdog remains authoritative if the producer
 or gateway disappears. Startup/warmup and final drain occur under hold. Active
 reset remains rejected; a new attempt creates a new worker and episode UUID,
 while acquisition packet ordering continues across attempts.
+
+Paced capture's duplicate canonical reference has one bounded writer thread,
+with at most four pending immutable samples and sixteen total operations.
+The comparison writer flushes each operation and requires `fsync` on finalization
+or orderly interruption; its crash prefix has no durability guarantee.
+Its file stages in a dedicated 1 GiB tmpfs supplied by the recording Compose
+profile, with no disk fallback. Complete files and interrupted prefixes copy
+and sync to disk only at the disabled lifecycle boundary; completed copies
+publish atomically. Capacity exhaustion, copy errors and incomplete drain fail
+acquisition/finalization. Successful copy removes the staged attempt.
+The unchanged capture
+lease measures receipt, rendering and the authoritative DDS/rosbag ACK; reference
+durability timings are reported separately. Reference backpressure/write failure
+interrupts acquisition through the existing hold path. Terminal drain completes
+before a successful recording/equivalence result; startup waits are bounded
+at two seconds and terminal drain at ten seconds while disabled. These waits
+do not extend the 100 ms active capture lease. Ordinary local/stepped sinks retain per-operation
+`fsync` and synchronous behavior. Authoritative rosbag MCAP storage is unchanged.
+
+In the recording profile, active physics/expert/capture/recorder diagnostic
+traces also stage in the size-limited tmpfs, with bounded file buffers.
+Expert traces persist after recording stops or shutdown; physics traces persist
+after owner shutdown. Capture and recorder progress retain ordered JSONL and a
+final snapshot. These files grant no authorization or durability ACK. Abrupt
+process death may lose their staged prefix; the authoritative bag remains the
+raw acquisition record. Diagnostic logs cannot grant or renew motion authority.
 
 Full rendering remains default. `--capture-profile reduced-effects` explicitly
 disables shadows/reflections and multisampling; those settings enter each camera
@@ -120,6 +151,21 @@ that UID need not have a passwd entry. This permits dependencies using Python
   default project dependency. ROS-compatible apt numerical packages are retained.
 - Existing optional simulator/controller/viewer base: original RGB and scratch
   snapshots. Learning frameworks remain in the separate CPU training image.
+
+## Complete-task candidate
+
+`--full-task` requires paced CRISP. Owner task state is coherent with the measured
+observation; the existing scripted expert remains the only phase machine. Source
+shaping, resolved configuration and controller hash are recorded. Task success
+alone is insufficient for qualification: actual release requires measured aperture
+at least 0.95 and zero finger/cube contacts. Timeout/failure remains authoritative.
+The local and CRISP qualification paths apply this same completion rule.
+
+Per-sample render, queue and transport timings remain ignored raw evidence.
+The independent owner records cube position/contact alongside physics limits so
+loaded faults can be checked after gateway death. Qualification never changes
+motion limits, effort gating, freshness, image identity or quality selection.
+See ADR 025 for explicit source/transport choices and measured acceptance limits.
 
 ## Deferred limits
 

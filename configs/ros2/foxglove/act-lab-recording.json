@@ -3,7 +3,8 @@
   "configById": {
     "Image!wrist": {
       "title": "Original wrist RGB",
-      "synchronize": true,
+      "synchronize": false,
+      "rectify": false,
       "imageMode": {
         "imageTopic": "/act_lab/recording/v1/camera/wrist/image_raw",
         "calibrationTopic": "/act_lab/recording/v1/camera/wrist/camera_info"
@@ -26,11 +27,38 @@
           "timestampMethod": "receiveTime"
         }
       ]
+    },
+    "Image!overview": {
+      "title": "Original overview RGB",
+      "synchronize": false,
+      "rectify": false,
+      "imageMode": {
+        "imageTopic": "/act_lab/recording/v1/camera/overview/image_raw",
+        "calibrationTopic": "/act_lab/recording/v1/camera/overview/camera_info"
+      }
+    },
+    "Image!policy": {
+      "title": "Original policy RGB",
+      "synchronize": false,
+      "rectify": false,
+      "imageMode": {
+        "imageTopic": "/act_lab/recording/v1/camera/policy/image_raw",
+        "calibrationTopic": "/act_lab/recording/v1/camera/policy/camera_info"
+      }
     }
   },
   "layout": {
     "direction": "row",
-    "first": "Image!wrist",
+    "first": {
+      "direction": "column",
+      "first": "Image!wrist",
+      "second": {
+        "direction": "row",
+        "first": "Image!overview",
+        "second": "Image!policy"
+      },
+      "splitPercentage": 60
+    },
     "second": {
       "direction": "column",
       "first": "Plot!age",

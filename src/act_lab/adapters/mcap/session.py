@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 from act_lab import __version__
 from act_lab.application import SafeCartesianRobot
 from act_lab.application.recording import RecordingRobot
-from act_lab.domain.models import CameraFrame, Observation
+from act_lab.domain.models import CameraFrame, Observation, PickPlaceTaskState
 from act_lab.domain.ports import EpisodeSink
 from act_lab.domain.recording import EpisodeOutcome, EpisodeProvenance
 
@@ -70,6 +70,8 @@ def recording_robot(
     sink_factory: Callable[[Path], EpisodeSink] | None = None,
     image_provider: Callable[[Observation], tuple[tuple[str, CameraFrame], ...]]
     | None = None,
+    task_provider: Callable[[], PickPlaceTaskState] | None = None,
+    provenance_extra: dict[str, Any] | None = None,
 ) -> Iterator[SafeCartesianRobot]:
     if args.record_dir is None:
         yield SafeCartesianRobot(driver, driver.limits)
@@ -81,6 +83,8 @@ def recording_robot(
     config = driver.simulation_config
     status = _git("status", "--porcelain")
     resolved: dict[str, Any] = {"simulation": asdict(config)}
+    if provenance_extra:
+        resolved.update(provenance_extra)
     if driver.environment.binding.adaptive_gripper:
         resolved["model_identity"] = driver.environment.model_identity
         resolved["scene_cameras"] = {
@@ -145,12 +149,13 @@ def recording_robot(
             )
         return tuple(frames)
 
+    get_task = task_provider or driver.environment.task_state
     previous_task: tuple[bool, bool, str | None] | None = None
 
     def after_sample(timestamp_ns: int) -> None:
         nonlocal previous_task
         # Labels only: privileged cube/goal geometry never enters recordings.
-        task = driver.environment.task_state()
+        task = get_task()
         current = (task.success, task.terminal, task.reason)
         if current != previous_task:
             sink.event(
@@ -179,7 +184,7 @@ def recording_robot(
     )
     try:
         yield robot
-        task = driver.environment.task_state()
+        task = get_task()
         outcome = (
             (EpisodeOutcome.SUCCESS if task.success else EpisodeOutcome.FAILURE)
             if args.outcome == "auto"

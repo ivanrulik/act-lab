@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>recording_shm</transport_id>
+      <type>SHM</type>
+      <maxMessageSize>4194304</maxMessageSize>
+      <segment_size>33554432</segment_size>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>recording_loopback</transport_id>
+      <type>UDPv4</type>
+      <maxInitialPeersRange>32</maxInitialPeersRange>
+      <interfaceWhiteList><address>127.0.0.1</address></interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="recording_participant" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        <transport_id>recording_shm</transport_id>
+        <transport_id>recording_loopback</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <builtin>
+        <metatrafficUnicastLocatorList>
+          <locator><udpv4><address>127.0.0.1</address><port>0</port></udpv4></locator>
+        </metatrafficUnicastLocatorList>
+        <initialPeersList>
+          <locator><udpv4><address>127.0.0.1</address><port>0</port></udpv4></locator>
+        </initialPeersList>
+      </builtin>
+    </rtps>
+  </participant>
+  <publisher profile_name="recording_publisher" is_default_profile="true">
+    <qos>
+      <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      <reliability>
+        <max_blocking_time><sec>0</sec><nanosec>1000000</nanosec></max_blocking_time>
+      </reliability>
+    </qos>
+    <historyMemoryPolicy>DYNAMIC_REUSABLE</historyMemoryPolicy>
+    <times>
+      <heartbeatPeriod><sec>0</sec><nanosec>10000000</nanosec></heartbeatPeriod>
+      <nackResponseDelay><sec>0</sec><nanosec>1000000</nanosec></nackResponseDelay>
+    </times>
+  </publisher>
+  <subscriber profile_name="recording_subscriber" is_default_profile="true">
+    <historyMemoryPolicy>DYNAMIC_REUSABLE</historyMemoryPolicy>
+    <times>
+      <heartbeatResponseDelay><sec>0</sec><nanosec>1000000</nanosec></heartbeatResponseDelay>
+    </times>
+  </subscriber>
+</profiles>

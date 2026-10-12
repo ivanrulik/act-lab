@@ -1,6 +1,7 @@
 """Small generated records exercise durability without operator camera fixtures."""
 
 import json
+import os
 from dataclasses import replace
 
 import pytest
@@ -53,6 +54,66 @@ def sample(stamp: int = 20_000_000) -> EpisodeSample:
         CommandReport(CommandOutcome.APPLIED, action, action, state, "accepted"),
         (("policy", CameraFrame(stamp, 2, 1, bytes((1, 2, 3, 4, 5, 6)))),),
     )
+
+
+def test_comparison_commit_syncs_after_records_and_preserves_default_sync(
+    tmp_path, provenance, monkeypatch
+):
+    from act_lab.adapters.ros2.reference_mirror import ComparisonMcapSink
+
+    synced = []
+    fsync = os.fsync
+
+    def sync(fd):
+        synced.append(fd)
+        fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", sync)
+    comparison = ComparisonMcapSink(tmp_path / "comparison")
+    comparison.start(provenance, 0)
+    synced.clear()  # The initial directory entry is synced while disabled.
+    comparison.append(sample())
+    comparison.append(sample(40_000_000))
+    assert not synced
+    assert comparison.partial_path.exists()
+    assert not comparison.final_path.exists()
+    comparison.stop(EpisodeOutcome.SUCCESS, "settled")
+    assert synced
+    assert (
+        inspect_episode(comparison.final_path)["streams"]["/observation"]["count"] == 2
+    )
+    synced.clear()
+    ordinary = McapEpisodeSink(tmp_path / "ordinary")
+    ordinary.start(provenance, 0)
+    assert synced
+    synced.clear()
+    ordinary.append(sample())
+    assert synced
+    ordinary.interrupt()
+
+
+def test_comparison_orderly_interruption_syncs_and_remains_partial(
+    tmp_path, provenance, monkeypatch
+):
+    from act_lab.adapters.ros2.reference_mirror import ComparisonMcapSink
+
+    synced = []
+    fsync = os.fsync
+
+    def sync(fd):
+        synced.append(fd)
+        fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", sync)
+    comparison = ComparisonMcapSink(tmp_path)
+    comparison.start(provenance, 0)
+    synced.clear()
+    comparison.append(sample())
+    assert not synced
+    comparison.interrupt()
+    assert synced
+    assert comparison.partial_path.exists()
+    assert not comparison.final_path.exists()
 
 
 def test_round_trip_streams_rates_and_embedded_schema(tmp_path, provenance):
@@ -333,6 +394,55 @@ def test_partial_task_success_is_not_a_finalized_episode_outcome(
     recovered = inspect_episode(recover_episode(sink.partial_path))
     assert recovered["outcome"] == "interrupted"
     assert recovered["last_task_outcome"] == "success"
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_staged_comparison_publishes_only_at_lifecycle_boundary(
+    tmp_path, provenance, complete
+):
+    from act_lab.adapters.ros2.reference_mirror import ComparisonMcapSink
+
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    output = tmp_path / "output"
+    sink = ComparisonMcapSink(output, staging_directory=staging)
+    sink.start(provenance, 0)
+    sink.append(sample())
+    assert sink.partial_path.exists()
+    assert not output.exists()
+    if complete:
+        sink.stop(EpisodeOutcome.SUCCESS, "settled")
+    else:
+        sink.interrupt()
+    files = list(output.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == (".mcap" if complete else ".partial")
+    report = inspect_episode(files[0])
+    assert report["complete"] == complete
+    assert report["streams"]["/observation"]["count"] == 1
+    assert not list(staging.iterdir())
+
+
+def test_staged_comparison_disk_failure_cannot_publish_final(
+    tmp_path, provenance, monkeypatch
+):
+    from act_lab.adapters.ros2.reference_mirror import ComparisonMcapSink
+
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    output = tmp_path / "output"
+    sink = ComparisonMcapSink(output, staging_directory=staging)
+    sink.start(provenance, 0)
+    sink.append(sample())
+
+    def failed_copy(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("shutil.copyfileobj", failed_copy)
+    with pytest.raises(OSError, match="disk full"):
+        sink.stop(EpisodeOutcome.SUCCESS, "settled")
+    assert not list(output.glob("*.mcap"))
+    assert list(output.glob("*.partial"))
 
 
 def test_quality_manifest_and_replay_cli(tmp_path, provenance, capsys):

@@ -75,9 +75,42 @@ docker compose --profile ros2-recording run --rm ros2-recording \
 This records a bounded nearby movement and disabled final hold as a **failure**
 attempt, excluded from training. It demonstrates synchronized stepped capture of
 the real controller, not pick/place success. Rendering occurs in the scratch gateway.
-Paced capture is unsupported. Finish a recorded attempt before resetting; the
+For continuous capture, use the explicit `--paced` mode above. Finish a recorded attempt before resetting; the
 low-level sink supports subsequent attempts using new episode UUIDs and continuing
 packet sequences. Never run multiple producers or recorders on the same ROS domain.
+
+## CRISP complete-task qualification
+
+```bash
+docker compose --profile ros2-recording-gpu run --build --rm ros2-recording-gpu \
+  act-lab ros2 recording-demo --controller crisp --paced --full-task \
+  --config configs/sim/ur5e_2f85_d405_crisp_task.toml \
+  --output runs/crisp-complete-task --json
+```
+
+This explicit candidate reuses the scripted expert against coherent owner task
+state. Completion requires existing task success **and** actual release (measured
+aperture at least 0.95 and zero cube/finger contacts). Failed or step-limited
+attempts remain failures. No task geometry enters policy observations.
+Source intent, shaped intent, phases, release/contact, controller configuration
+and actual holds are retained. The runner preserves original timestamps.
+
+For the frozen cohort and three sustained 600-second active capture runs:
+
+```bash
+docker compose --profile ros2-recording-gpu run --rm ros2-recording-gpu \
+  act-lab ros2 task-qualification --output runs/crisp-qualification \
+  --duration 600 --repeats 3 --json
+```
+
+Defaults select seeds 0–19. A short `--seeds 0` diagnostic or a CPU reduced-effects
+fixture cannot satisfy the full GPU qualification. Reports separate cohort,
+sustained capture and remaining fault/conversion/manual-replay gates. See the
+[staged plan](plans/crisp-task-qualification.md) and
+[ADR 025](adr/025-crisp-task-qualification.md) and the
+[local qualification results](reports/crisp-task-qualification.md). The CLI
+reports its cohort/capture gates; faults, conversion and manual replay remain
+separate acceptance checks.
 
 ## Replay in Foxglove
 
@@ -131,3 +164,9 @@ This runs the public quality/manifest/conversion CLI for both canonical versions
 verifies dataset lineage and compares logical fingerprints without loading ROS.
 See the [contract and safety matrix](contracts/ros2-recording.md) for interruption,
 reset, loss, backpressure and paced/hardware requirements.
+
+The raw-only replay image panels disable Foxglove annotation timestamp sync.
+That option requires an additional annotation/overlay topic; camera calibration
+alone does not participate and leaves a raw-only panel waiting indefinitely.
+Camera/report source identity remains enforced by the packet importer. See
+[Foxglove image synchronization](https://docs.foxglove.dev/docs/visualization/panels/image#timestamp-synchronization).

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import time
 from dataclasses import asdict
 from multiprocessing.connection import Connection
@@ -30,7 +31,7 @@ from act_lab.adapters.ros2.simulation import (
     snapshot_state,
 )
 from act_lab.application.cartesian_control import JointVector, SafeCartesianRobot
-from act_lab.domain import Action, Observation, RobotState
+from act_lab.domain import Action, Observation, PickPlaceTaskState, RobotState
 
 
 class RosSimulationDriver(MujocoCartesianDriver):
@@ -53,7 +54,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
         self._data.qvel[:] = value["qvel"]
         state = snapshot_state(value)
         self.environment._physics_ticks = state.timestamp_ns // 2_000_000  # noqa: SLF001
-        self.environment._environment_steps = state.timestamp_ns // 20_000_000  # noqa: SLF001
+        self.environment._environment_steps = value["environment_steps"]  # noqa: SLF001
         mujoco.mj_forward(self._model, self._data)
 
     def reset(self, seed: int) -> Observation:
@@ -64,6 +65,11 @@ class RosSimulationDriver(MujocoCartesianDriver):
     def observe(self) -> Observation:
         state = snapshot_state(self.runtime.snapshot)
         return Observation(state.timestamp_ns, state, self.simulation_config.cameras)
+
+    def task_state(self) -> PickPlaceTaskState:
+        from act_lab.adapters.ros2.task import task_state
+
+        return task_state(self.runtime.snapshot, self.observe().timestamp_ns)
 
     def set_execution(self, intent: Action | None) -> None:
         self.intent = intent
@@ -96,7 +102,7 @@ class RosSimulationDriver(MujocoCartesianDriver):
             dict(
                 kind="execute",
                 authorization=authorization,
-                ticks=10,
+                ticks=self.simulation_config.substeps,
                 observation=self.view_intent,
                 hold_after=self.acquisition_active,
             )
@@ -118,11 +124,26 @@ def gateway(
 
     from act_lab.adapters.ros2.runtime import make_message, message_fields, qos_profiles
 
+    gc_elapsed_ns = 0
+    gc_started_ns = 0
+
+    def gc_timing(phase: str, info: dict[str, Any]) -> None:
+        nonlocal gc_elapsed_ns, gc_started_ns
+        if phase == "start":
+            gc_started_ns = time.monotonic_ns()
+        else:
+            gc_elapsed_ns += time.monotonic_ns() - gc_started_ns
+
+    gc.callbacks.append(gc_timing)
     rclpy.init()
     node = rclpy.create_node(
         "act_lab_command_gateway",
         parameter_overrides=[Parameter("use_sim_time", value=True)],
     )
+    from rclpy.executors import SingleThreadedExecutor  # type: ignore[import-not-found]
+
+    executor = SingleThreadedExecutor(context=node.context)
+    executor.add_node(node)
     runtime = SimulationProcess(
         Path(output), seed, paced, observation_channel, config_path
     )
@@ -142,6 +163,8 @@ def gateway(
     recording_manager: Any = None
     recording_sink: Any = None
     recording_sequence = 0
+    recording_task = False
+    recording_args: Any = None
 
     def callback(message: Any) -> None:
         nonlocal latest, receipt, wall_receipt, arrivals
@@ -201,12 +224,20 @@ def gateway(
                         sequence_start=recording_sequence,
                         command_sequence=lambda: driver.sequence,
                     )
+                recording_task = bool(request.get("full_task"))
                 args = argparse.Namespace(
                     record_dir=Path(output) / "acquisition",
-                    outcome="failure",
-                    reason="bounded_ros_demo",
+                    outcome="auto" if request.get("full_task") else "failure",
+                    reason="" if request.get("full_task") else "bounded_ros_demo",
                     operator="",
                 )
+                recording_args = args
+                if paced:
+                    # The new worker's DDS entities must settle while disabled,
+                    # before recording_robot resets and timestamps its first sample.
+                    ready_until = time.monotonic() + 1.0
+                    while time.monotonic() < ready_until:
+                        executor.spin_once(timeout_sec=0.01)
                 recording_manager = recording_robot(
                     driver,
                     args,
@@ -214,6 +245,13 @@ def gateway(
                     request["seed"],
                     sink_factory=recording_sink.for_directory,
                     image_provider=(lambda _: ()) if paced else None,
+                    task_provider=driver.task_state,
+                    provenance_extra=dict(
+                        ros2_source_configuration=__import__("tomllib")
+                        .loads(config_path.read_text())
+                        .get("ros2", {}),
+                        ros2_controller=runtime.snapshot["controller_configuration"],
+                    ),
                 )
                 robot = recording_manager.__enter__()
                 driver.acquisition_active = not paced
@@ -239,6 +277,17 @@ def gateway(
                         False,
                     )
                 )
+                if recording_task:
+                    completed = (
+                        driver.task_state().success
+                        and driver.observe().robot.gripper_position >= 0.95
+                        and runtime.snapshot["cube_gripper_contacts"] == 0
+                    )
+                    if not completed:
+                        recording_args.outcome = "failure"
+                        recording_args.reason = request.get(
+                            "reason", "incomplete_release"
+                        )
                 recording_manager.__exit__(None, None, None)
                 recording_sequence = (
                     recording_sink.result["packet_sequence"]
@@ -261,11 +310,17 @@ def gateway(
                 runtime.close()
                 send(connection, dict(closed=True))
                 break
-            if kind == "kill_capture_worker":
+            if kind in {"kill_capture_worker", "stall_capture_worker"}:
                 if not paced or recording_manager is None:
                     raise ValueError("no paced capture worker")
-                recording_sink.process.kill()
-                recording_sink.process.join(5)
+                if kind == "stall_capture_worker":
+                    import os
+                    import signal
+
+                    os.kill(recording_sink.process.pid, signal.SIGSTOP)
+                else:
+                    recording_sink.process.kill()
+                    recording_sink.process.join(5)
                 send(connection, runtime.snapshot)
                 continue
             if kind == "snapshot":
@@ -303,6 +358,7 @@ def gateway(
                 continue
             if kind != "poll":
                 raise ValueError("unknown gateway request")
+            poll_started_ns = time.monotonic_ns()
             if paced and recording_manager is not None:
                 try:
                     recording_sink.check()
@@ -320,9 +376,12 @@ def gateway(
                     finally:
                         recording_sink.interrupt()
                     raise
+            checked_ns = time.monotonic_ns()
             if paced:
                 runtime.rpc(dict(kind="snapshot"))
                 driver._sync()
+            snapshot_ns = time.monotonic_ns()
+            gc_before_executor_ns = gc_elapsed_ns
             # Consume authority progress before receiving a fresh command. A
             # long pause may clear old intent, never the newly offered sequence.
             inbox.update_clock(
@@ -334,18 +393,31 @@ def gateway(
                 # Prepare the executor before the producer creates a message
                 # with a 100 ms DDS lifespan, including its first publication.
                 if request.get("delivery_barrier"):
-                    rclpy.spin_once(node, timeout_sec=0.0)
+                    executor.spin_once(timeout_sec=0.0)
                 before = arrivals
                 if request.get("delivery_barrier"):
-                    send(connection, dict(ready_delivery=True))
+                    send(
+                        connection,
+                        dict(
+                            ready_delivery=True,
+                            gateway_timing_ns=dict(
+                                acquisition_check=checked_ns - poll_started_ns,
+                                snapshot=snapshot_ns - checked_ns,
+                                executor=time.monotonic_ns() - snapshot_ns,
+                                garbage_collection=(
+                                    gc_elapsed_ns - gc_before_executor_ns
+                                ),
+                            ),
+                        ),
+                    )
                 end = time.monotonic() + 0.1
                 while arrivals == before:
                     if time.monotonic() >= end:
                         inbox.reject("delivery_timeout")
                         break
-                    rclpy.spin_once(node, timeout_sec=0.005)
+                    executor.spin_once(timeout_sec=0.005)
             else:
-                rclpy.spin_once(node, timeout_sec=0.0)
+                executor.spin_once(timeout_sec=0.0)
             observation = driver.observe()
             steady = runtime.snapshot["steady_ns"]
             inbox.update_clock(
@@ -415,6 +487,8 @@ def gateway(
         if runtime.process.is_alive():
             runtime.close()
         driver.close()
+        executor.shutdown(timeout_sec=1)
         node.destroy_node()
         rclpy.try_shutdown()
         connection.close()
+        gc.callbacks.remove(gc_timing)
