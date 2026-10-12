@@ -25,6 +25,32 @@ results and limits are reported in [the qualification report](docs/reports/crisp
 See [Foxglove views](#optional-foxglove-views) and
 [recording and replay](docs/ros2-recording.md).
 
+## Why ACT Lab?
+
+ACT Lab is an inspectable UR5e robot-learning lab where demonstrations, safety
+decisions, dataset changes, and policy failures can be traced and reproduced.
+It is intended for learners and engineers studying how the complete system
+behaves, including when input, timing, recording, or control fails.
+
+- Trace original MCAP evidence through quality checks and deterministic
+  conversion into a fingerprinted LeRobotDataset.
+- Compare the scripted expert and learned policy through shared application
+  safety, with matched seeds, confidence intervals, and individual failures.
+- Inspect original camera images, command reports, and fault behavior in replay.
+- Explore optional ROS 2 and CRISP adapters while keeping local simulation,
+  training, and evaluation independent of ROS.
+
+LeRobot, robomimic/robosuite, ManiSkill, and Isaac Lab already provide substantial
+robot-learning workflows. ACT Lab builds on existing tools and concentrates on
+one documented, tested integration. For broader policy research, large parallel
+simulation, or supported physical robots, another stack may be a better fit.
+See [project purpose and alternatives](docs/PROJECT_PURPOSE.md).
+
+Evidence is configuration-specific: the current articulated gripper/wrist-camera
+training smoke verifies integration; useful learned task success on that model
+still needs a full training/evaluation campaign. The CRISP capture showcase uses
+the scripted expert. Physical deployment requires separate qualification.
+
 ## Optional ROS 2 executable contracts
 
 ```bash
@@ -216,6 +242,7 @@ in an artifact store. Small, reviewed test fixtures may live in
 
 ## Documentation map
 
+- [Project purpose, audience, and alternatives](docs/PROJECT_PURPOSE.md)
 - [Agent operating contract](AGENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Roadmap and PR boundaries](docs/ROADMAP.md)
