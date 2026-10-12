@@ -20,6 +20,15 @@ from act_lab.adapters.mujoco.environment import MujocoUR5eEnvironment
 from act_lab.domain import Observation, RobotState
 
 
+def hold_parameters(config: SimulationConfig) -> tuple[tuple[float, ...], float]:
+    """Model-specific simulated hold tuning, shared with runtime provenance."""
+    if config.model_id == "ur5e_2f85_d405_v1":
+        return (10.0, 10.0, 10.0, 2.0, 2.0, 2.0), 0.5
+    if config.model_id == "ur5e_educational_v1":
+        return (30.0, 30.0, 30.0, 6.0, 6.0, 6.0), 1.0
+    raise ValueError("unqualified effort hold model")
+
+
 @dataclass(frozen=True, slots=True)
 class EffortSample:
     state: RobotState
@@ -50,6 +59,9 @@ class MujocoEffortPlant(MujocoCartesianDriver):
         self._force_ranges = self._model.actuator_forcerange.copy()
         self._force_limited = self._model.actuator_forcelimited.copy()
         self._task_effort = np.zeros(6, dtype=np.float64)
+        self.hold_damping_nm_s_rad, self.hold_position_gain_scale = hold_parameters(
+            config
+        )
         self.mode = "STARTUP_HOLD"
         self.reason = "startup"
         self.accepted_gripper = 0.0
@@ -84,17 +96,17 @@ class MujocoEffortPlant(MujocoCartesianDriver):
         if self.mode == "ENABLED":
             self._hold_joints = self.observe().robot.joint_positions_rad
         self._restore_servos()
-        # Use position gains with explicit hold damping: 30 Nm s/rad for
-        # proximal joints, 6 for wrists. The previous 50/10 gains exceeded
-        # the measured acceleration ceiling on a moving watchdog takeover.
-        # One bounded PD actuator owns each
-        # joint; the second servo cannot add unbounded braking effort.
-        for primary, velocity in zip(
-            self._arm_ids, self._velocity_actuator_ids, strict=True
+        # ADR 026 qualifies reduced stiffness/damping for loaded takeover. One bounded
+        # PD actuator owns each joint; the second servo adds no braking effort.
+        for primary, velocity, damping in zip(
+            self._arm_ids,
+            self._velocity_actuator_ids,
+            self.hold_damping_nm_s_rad,
+            strict=True,
         ):
-            self._model.actuator_biasprm[primary, 2] = (
-                -6.0 if primary in self._arm_ids[3:] else -30.0
-            )
+            self._model.actuator_gainprm[primary, 0] *= self.hold_position_gain_scale
+            self._model.actuator_biasprm[primary, 1] *= self.hold_position_gain_scale
+            self._model.actuator_biasprm[primary, 2] = -damping
             self._model.actuator_gainprm[velocity] = 0.0
             self._model.actuator_biasprm[velocity] = 0.0
             self._model.actuator_forcelimited[primary] = True

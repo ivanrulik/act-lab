@@ -222,6 +222,9 @@ def test_loaded_fault_retains_grip_and_independent_hold(tmp_path, fault):
                 recorder.close(False)
             else:
                 recorder.connection.close()
+    physics = physics_summary(tmp_path / "motion" / "physics.json")
+    assert not physics["violations"]
+    assert physics["zero_task_effort_in_hold"]
     if interrupted:
         assert (tmp_path / "rosbag" / "bag.partial").exists()
         assert not (tmp_path / "rosbag" / "bag").exists()

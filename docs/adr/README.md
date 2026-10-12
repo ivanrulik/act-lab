@@ -48,3 +48,6 @@ consequences, and status.
 
 - [ADR 025](025-crisp-task-qualification.md): explicit full-task source cadence,
   coherent owner task state and bounded acquisition transport qualification.
+
+- [ADR 026](026-loaded-watchdog-hold-damping.md): model-specific loaded watchdog
+  hold stiffness/damping and deterministic acceleration regression.

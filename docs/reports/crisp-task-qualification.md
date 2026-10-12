@@ -1,5 +1,11 @@
 # CRISP task and continuous acquisition qualification
 
+Post-merge main CI exposed a loaded watchdog takeover above the joint
+acceleration bound. [ADR 026](../adr/026-loaded-watchdog-hold-damping.md) records
+the failing trace and correction. The frozen campaign below remains evidence
+for its recorded revision; it does not qualify every possible timeout state or
+automatically transfer to revised hold parameters.
+
 Status: local qualification complete. Delivery checks and review are tracked on
 the implementing PR. Historical trials below retain their individual failures.
 

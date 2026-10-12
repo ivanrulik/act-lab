@@ -323,6 +323,11 @@ loaded fault holds and canonical conversion equivalence, and validate read-only
 Foxglove playback. PR #25's short bounded capture does not establish these gates.
 Hardware, ACT training and the flange appearance follow-up remain separate work.
 
+Post-merge main CI exposed a loaded watchdog takeover acceleration violation.
+[ADR 026](adr/026-loaded-watchdog-hold-damping.md) records the deterministic
+regressions, model-specific hold correction and stronger loaded-fault checks; its local and hosted acceptance gates
+must pass before considering the correction qualified.
+
 ### PR 15 — UR5e hardware readiness and safety review
 
 Before commanding a physical robot, document controller ownership, torque and

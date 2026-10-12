@@ -619,6 +619,10 @@ def run_motion(
                     raise RuntimeError("total actuator ceiling exceeded")
         if max_task > 5.0 + 1e-9:
             raise RuntimeError("task effort ceiling exceeded")
+        from act_lab.adapters.mujoco.effort import hold_parameters
+
+        hold_damping, hold_scale = hold_parameters(config)
+
         report = dict(
             schema_version=1,
             scheduler="paced" if paced else "stepped",
@@ -635,7 +639,8 @@ def run_motion(
                 application_period_s=0.02,
                 task_ceiling_nm=5.0,
                 task_slew_nm_s=100.0,
-                hold_damping_nm_s_rad=[30.0, 30.0, 30.0, 6.0, 6.0, 6.0],
+                hold_damping_nm_s_rad=list(hold_damping),
+                hold_position_gain_scale=hold_scale,
                 hold_ceiling_nm=[150.0, 150.0, 150.0, 28.0, 28.0, 28.0],
                 watchdog_ns=100_000_000,
             ),
