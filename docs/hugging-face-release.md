@@ -7,6 +7,9 @@ or raw examples. It does not publish the newer articulated-tool smoke model.
 
 ## Prepare and verify
 
+[First-publication evidence](reports/hugging-face-release.md) records actual
+private Hub commits, fresh download verification and clean-source CPU smoke.
+
 Build the pinned ROS-free training runtime once:
 
 ```bash
