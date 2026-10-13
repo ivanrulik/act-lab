@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,10 @@ def publish(root: Path, *, public: bool) -> dict[str, Any]:
 
 def download(receipt_path: Path, output: Path) -> dict[str, Any]:
     receipt = json.loads(receipt_path.read_text())
+    if receipt.get("schema_version") != 1 or not re.fullmatch(
+        r"[0-9a-f]{40}", receipt.get("revision", "")
+    ):
+        raise ValueError("download requires a versioned receipt with a full commit SHA")
     if output.exists():
         raise ValueError("download output already exists; use a clean directory")
     hub = import_module("huggingface_hub")
@@ -59,5 +64,7 @@ def download(receipt_path: Path, output: Path) -> dict[str, Any]:
         revision=receipt["revision"],
         local_dir=str(output),
     )
-    verify_package(output)
+    manifest = verify_package(output)
+    if (manifest["repo_id"], manifest["kind"]) != (receipt["repo_id"], receipt["kind"]):
+        raise ValueError("downloaded release does not match the receipt repository")
     return {"status": "verified", "output": str(output), **receipt}

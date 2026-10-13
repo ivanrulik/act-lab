@@ -164,3 +164,36 @@ def test_hub_import_is_lazy() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_download_pins_commit_and_verifies(staged: Path, monkeypatch) -> None:
+    from act_lab.adapters import hugging_face
+
+    receipt = staged / "receipt.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "model",
+                "repo_id": "test/model",
+                "revision": "a" * 40,
+                "public": False,
+            }
+        )
+    )
+
+    def snapshot(repo_id, **kwargs):
+        assert repo_id == "test/model"
+        assert kwargs["revision"] == "a" * 40
+        shutil.copytree(staged / "model", kwargs["local_dir"])
+
+    monkeypatch.setattr(
+        hugging_face,
+        "import_module",
+        lambda _: SimpleNamespace(snapshot_download=snapshot),
+    )
+    output = staged.parent / "remote-copy"
+    assert hugging_face.download(receipt, output)["status"] == "verified"
+    receipt.write_text(json.dumps({"schema_version": 1, "revision": "main"}))
+    with pytest.raises(ValueError, match="full commit SHA"):
+        hugging_face.download(receipt, staged.parent / "other-copy")
