@@ -80,6 +80,11 @@ and [reproduction and safety rules](docs/contracts/crisp-feasibility.md).
 
 ## Quick start
 
+For a curated dataset and evaluated ACT checkpoint, see the
+[Hugging Face release workflow](docs/hugging-face-release.md). Publication is
+opt-in and separate from training; the first recipe uses the legacy two-camera
+educational robot and preserves its evaluation limits.
+
 Requirements: Docker Engine with Docker Compose v2.
 
 ```bash

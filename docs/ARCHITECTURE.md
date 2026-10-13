@@ -104,6 +104,12 @@ Selection and train/validation assignment operate on whole episode IDs. See ADR
 
 ## Deployment model
 
+Curated learning releases use the explicit `release` CLI and optional
+`hub-release` profile (ADR 027). Frozen dataset/checkpoint payloads retain their
+identities; publication cards and sanitized evidence sit outside the payload.
+The lazy Hub adapter uploads only checksummed files and records immutable commit
+receipts for verified downloads. Local training never publishes automatically.
+
 Docker Compose is the supported local orchestrator. CPU/headless execution is
 the baseline. Webcam, display, and GPU access are opt-in profiles with narrow
 host permissions. The host owns source and artifacts; images own dependencies.

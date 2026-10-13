@@ -174,6 +174,12 @@ without adding these inspected seeds to training.
 
 ## PR 10 — Reproducible learning release
 
+Publication increment: `feature/hugging-face-release` adds a lean educational
+dataset/model recipe, explicit staging/publication, checksummed Hub commit
+receipts and clean-download validation. See [release workflow](hugging-face-release.md)
+and ADR 027. Independent newcomer completion, a current articulated-tool
+learned-policy campaign and archive retention remain separate acceptance work.
+
 Add the guided curriculum, data-quality checklist, experiment template, failure
 taxonomy, model/dataset cards, privacy guidance, and immutable published images.
 

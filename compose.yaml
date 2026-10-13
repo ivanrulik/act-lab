@@ -11,6 +11,20 @@ x-common: &common
     - act-lab-cache:/home/actlab/.cache
 
 services:
+  hub-release:
+    image: act-lab-train-cpu
+    extends:
+      service: train-cpu
+    profiles: ["hub-release"]
+    environment:
+      CUDA_VISIBLE_DEVICES: ""
+      HF_HOME: /tmp/act-lab-release-hf
+      HF_TOKEN_PATH: /hf-auth/token
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${ACT_LAB_HF_HOME:-${HOME}/.cache/huggingface}:/hf-auth:ro
+    command: act-lab release --help
+
   ros2-recording-gpu:
     extends:
       service: ros2-recording
