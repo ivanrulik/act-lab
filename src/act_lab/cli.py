@@ -38,6 +38,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    release = subparsers.add_parser(
+        "release", help="curate and publish learning releases"
+    )
+    release_commands = release.add_subparsers(dest="release_command", required=True)
+    stage = release_commands.add_parser("stage")
+    stage.add_argument("--config", type=Path, required=True)
+    stage.add_argument("--output", type=Path, required=True)
+    verify = release_commands.add_parser("verify")
+    verify.add_argument("--package", type=Path, required=True)
+    publish = release_commands.add_parser("publish")
+    publish.add_argument("--package", type=Path, required=True)
+    publish.add_argument("--public", action="store_true")
+    download = release_commands.add_parser("download")
+    download.add_argument("--receipt", type=Path, required=True)
+    download.add_argument("--output", type=Path, required=True)
+
     doctor = subparsers.add_parser("doctor", help="check the runtime environment")
     doctor.add_argument(
         "--json", action="store_true", help="emit machine-readable JSON"
@@ -1549,6 +1565,27 @@ def _train_resume(args: argparse.Namespace) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "release":
+        try:
+            from act_lab.application.release import stage, verify_package
+
+            if args.release_command == "stage":
+                report = stage(args.config, args.output)
+            elif args.release_command == "verify":
+                report = verify_package(args.package)
+            else:
+                from act_lab.adapters.hugging_face import download, publish
+
+                report = (
+                    publish(args.package, public=args.public)
+                    if args.release_command == "publish"
+                    else download(args.receipt, args.output)
+                )
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0
+        except (OSError, ValueError, ImportError) as error:
+            print(f"Release failed: {error}", file=sys.stderr)
+            return 1
     if args.command == "recording":
         from mcap.exceptions import McapError
 

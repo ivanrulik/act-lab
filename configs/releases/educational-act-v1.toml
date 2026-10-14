@@ -1,0 +1,19 @@
+[release]
+dataset = "data/lerobot/pick-place-act-coverage"
+checkpoint = "runs/training/act-gpu-coverage/lerobot/checkpoints/100000/pretrained_model"
+evaluation = "runs/evaluation/pr92-timing-coverage-11000/evaluation.json"
+training_manifest = "runs/training/act-gpu-coverage/act_lab_run.json"
+dataset_fingerprint = "e00ef486fa0957b8aa939e009c8c5e260223109ab591b5693ce08cda3d2e4a87"
+episodes = 78
+dataset_repo = "ivanrulik/act-lab-ur5e-educational-pick-place-v1"
+model_repo = "ivanrulik/act-lab-ur5e-educational-act-v1"
+dataset_card = "docs/releases/educational-dataset-card.md"
+model_card = "docs/releases/educational-model-card.md"
+asset_notice = "src/act_lab/adapters/mujoco/assets/ur5e/LICENSE"
+license_file = "LICENSE"
+evidence = [
+  "runs/training/act-gpu-coverage/act_lab_run.json",
+  "runs/evaluation/act-coverage-11000/evaluation.json",
+  "runs/evaluation/pr92-timing-coverage-11000/evaluation.json",
+  "runs/experiments/act-coverage/comparison-11000.json",
+]
