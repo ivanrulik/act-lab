@@ -174,6 +174,14 @@ without adding these inspected seeds to training.
 
 ## PR 10 — Reproducible learning release
 
+Lean camera study: `feature/wrist-camera-study` adds wrist and paired presets,
+validated camera projection, rendered visibility gates and a bounded matched
+learning recipe. Ten diagnostic seeds pass with paired visibility; wrist-only
+fails transfer visibility on four seeds, stopping the learning campaign before
+collection/training. See [study evidence](reports/wrist-camera-study.md).
+Next learning work uses wrist+fixed as a candidate; it is not yet a qualified
+learned policy. Optics/active-observation alternatives are separate experiments.
+
 Publication increment: `feature/hugging-face-release` adds a lean educational
 dataset/model recipe, explicit staging/publication, checksummed Hub commit
 receipts and clean-download validation. See [release workflow](hugging-face-release.md)

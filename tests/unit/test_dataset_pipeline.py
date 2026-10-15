@@ -1,5 +1,6 @@
 """Small framework-neutral fixtures for validation, splits and conversion."""
 
+import argparse
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -109,6 +110,98 @@ class FakeDataset:
 
     def finalize(self) -> None:
         (self.root / "fake_dataset.json").write_text("{}")
+
+
+def test_manifest_seed_metadata_checks_preserve_legacy_episodes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from act_lab.adapters import lerobot
+    from act_lab.adapters.mcap import reading
+    from act_lab.application.dataset import file_sha256
+    from act_lab.cli import _recording_convert
+
+    raw = tmp_path / "raw.mcap"
+    raw.write_bytes(b"fixture")
+    monkeypatch.setattr(reading, "read_episode", lambda _: episode())
+    monkeypatch.setattr(lerobot, "convert_episodes", lambda *a, **k: {"passed": True})
+    entry = {
+        "selected": True,
+        "path": raw.name,
+        "sha256": file_sha256(raw),
+        "episode_id": "episode-001",
+        "seed": -1,
+        "source": "webcam",
+    }
+    manifest = tmp_path / "selection.json"
+    args = argparse.Namespace(
+        manifest=manifest,
+        output=tmp_path / "out",
+        repo_id="local/test",
+        fps=25,
+        cameras=None,
+    )
+    manifest.write_text(json.dumps({"manifest_version": 1, "episodes": [entry]}))
+    assert _recording_convert(args) == {"passed": True}
+    entry["seed"] = 22000
+    manifest.write_text(json.dumps({"manifest_version": 1, "episodes": [entry]}))
+    with pytest.raises(ValueError, match="raw seed"):
+        _recording_convert(args)
+
+
+def test_camera_projection_preserves_numeric_frames_and_split(tmp_path: Path) -> None:
+    raw = episode()
+    paired = replace(
+        raw,
+        samples=tuple(
+            replace(s, images=(s.images[0], replace(s.images[0], camera_id="wrist")))
+            for s in raw.samples
+        ),
+    )
+    selection = {
+        "selection_manifest": {
+            "episodes": [
+                {"episode_id": raw.episode_id, "selected": True, "split": "train"}
+            ]
+        }
+    }
+    before = convert_episodes(
+        [paired],
+        tmp_path / "paired",
+        "local/paired",
+        25,
+        selection.copy(),
+        dataset_class=FakeDataset,
+    )
+    paired_frames = FakeDataset.latest.episodes[0]
+    after = convert_episodes(
+        [paired],
+        tmp_path / "wrist",
+        "local/wrist",
+        25,
+        selection.copy(),
+        dataset_class=FakeDataset,
+        cameras=("wrist",),
+    )
+    wrist_frames = FakeDataset.latest.episodes[0]
+    assert before["dataset_fingerprint"] != after["dataset_fingerprint"]
+    for p, w in zip(paired_frames, wrist_frames, strict=True):
+        for key in ("observation.state", "action", "observation.images.wrist"):
+            np.testing.assert_array_equal(p[key], w[key])
+        assert "observation.images.policy" not in w
+    assert (tmp_path / "paired/act_lab_splits.json").read_bytes() == (
+        tmp_path / "wrist/act_lab_splits.json"
+    ).read_bytes()
+    for cameras in ((), ("wrist", "wrist"), ("absent",)):
+        with pytest.raises(ValueError):
+            convert_episodes(
+                [paired],
+                tmp_path / "invalid",
+                "local/invalid",
+                25,
+                selection.copy(),
+                dataset_class=FakeDataset,
+                cameras=cameras,
+            )
 
 
 def test_conversion_round_trips_values_and_has_stable_fingerprint(

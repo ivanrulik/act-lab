@@ -273,6 +273,10 @@ class MujocoUR5eEnvironment:
         )
 
     def render(self, camera: str) -> NDArray[np.uint8]:
+        renderer = self._camera_renderer(camera)
+        return np.asarray(renderer.render(), dtype=np.uint8).copy()
+
+    def _camera_renderer(self, camera: str) -> mujoco.Renderer:
         self._ensure_open()
         if camera not in self._camera_ids:
             known = ", ".join(sorted(self._camera_ids))
@@ -284,8 +288,34 @@ class MujocoUR5eEnvironment:
                 width=self._config.render_width,
             )
         self._renderer.update_scene(self._data, camera=camera)
-        frame = self._renderer.render()
-        return np.asarray(frame, dtype=np.uint8).copy()
+        return self._renderer
+
+    def visible_task_pixels(self, camera: str) -> dict[str, int]:
+        """Audit-only visible geom pixels; never part of policy observations."""
+        renderer = self._camera_renderer(camera)
+        renderer.enable_segmentation_rendering()
+        try:
+            segmentation = np.asarray(renderer.render()).copy()
+        finally:
+            renderer.disable_segmentation_rendering()
+        geoms = segmentation[:, :, 1] == int(mujoco.mjtObj.mjOBJ_GEOM)
+        cube_id = self._model.geom("cube_geom").id
+        tray_ids = [
+            self._model.geom(name).id
+            for name in (
+                "tray_floor",
+                "tray_left_wall",
+                "tray_right_wall",
+                "tray_front_wall",
+                "tray_back_wall",
+            )
+        ]
+        return {
+            "cube": int(np.count_nonzero(geoms & (segmentation[:, :, 0] == cube_id))),
+            "tray": int(
+                np.count_nonzero(geoms & np.isin(segmentation[:, :, 0], tray_ids))
+            ),
+        }
 
     @property
     def model_identity(self) -> dict[str, object]:

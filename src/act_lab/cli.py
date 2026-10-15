@@ -263,6 +263,7 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--output", type=Path, required=True)
     convert.add_argument("--repo-id", required=True)
     convert.add_argument("--fps", type=int, default=25)
+    convert.add_argument("--cameras", nargs="+", help="explicit derived camera subset")
     training = subparsers.add_parser("train", help="train or resume an ACT policy")
     training_commands = training.add_subparsers(dest="train_command", required=True)
     act = training_commands.add_parser("act", help="train ACT on a validated dataset")
@@ -285,6 +286,18 @@ def build_parser() -> argparse.ArgumentParser:
     experiment_commands = experiment.add_subparsers(
         dest="experiment_command", required=True
     )
+    audit = experiment_commands.add_parser("camera-audit")
+    audit.add_argument(
+        "--config", type=Path, default=Path("configs/sim/ur5e_2f85_d405_paired.toml")
+    )
+    audit.add_argument("--output", type=Path, required=True)
+    audit.add_argument("--seed-start", type=int, default=19000)
+    audit.add_argument("--episodes", type=int, default=10)
+    camera_compare = experiment_commands.add_parser("camera-compare")
+    for label in ("paired", "wrist"):
+        for item in ("evaluation", "dataset", "run", "checkpoint"):
+            camera_compare.add_argument(f"--{label}-{item}", type=Path, required=True)
+    camera_compare.add_argument("--output", type=Path, required=True)
     coverage = experiment_commands.add_parser(
         "coverage", help="report selected cube spawn coverage by dataset split"
     )
@@ -415,6 +428,71 @@ def _experiment(args: argparse.Namespace) -> int:
     from act_lab.application.training import atomic_json
 
     try:
+        if args.experiment_command == "camera-audit":
+            from act_lab.adapters.mujoco.camera_audit import audit_cameras
+
+            result = audit_cameras(
+                args.config,
+                args.output,
+                range(args.seed_start, args.seed_start + args.episodes),
+            )
+            print(
+                json.dumps(
+                    {
+                        "report": str(args.output / "visibility.json"),
+                        "variants": {
+                            k: v["passed"] for k, v in result["variants"].items()
+                        },
+                    },
+                    indent=2,
+                )
+            )
+            return 0
+        if args.experiment_command == "camera-compare":
+            from act_lab.application.camera_study import compare_camera_evaluations
+            from act_lab.application.release import checkpoint_hash
+            from act_lab.application.training import verify_dataset
+
+            values = []
+            for label in ("paired", "wrist"):
+                dataset = getattr(args, f"{label}_dataset")
+                identity = verify_dataset(dataset)
+                evaluation = json.loads(
+                    getattr(args, f"{label}_evaluation").read_text()
+                )
+                if (
+                    checkpoint_hash(getattr(args, f"{label}_checkpoint"))
+                    != (evaluation["policy"]["checkpoint_sha256"])
+                ):
+                    raise ValueError("evaluation checkpoint identity differs")
+                run = json.loads(
+                    (getattr(args, f"{label}_run") / "act_lab_run.json").read_text()
+                )
+                if (
+                    run["dataset"]["storage_fingerprint"]
+                    != identity.storage_fingerprint
+                ):
+                    raise ValueError("training dataset bytes differ")
+                values.append(
+                    (
+                        evaluation,
+                        run,
+                        json.loads((dataset / "act_lab_lineage.json").read_text()),
+                        sum(
+                            p.stat().st_size for p in dataset.rglob("*") if p.is_file()
+                        ),
+                    )
+                )
+            p, w = values
+            result = compare_camera_evaluations(
+                p[0], w[0], p[1], w[1], p[2], w[2], p[3], w[3]
+            )
+            if args.output.exists():
+                raise ValueError("comparison output already exists")
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            atomic_json(args.output, result)
+            print(json.dumps(result, indent=2))
+            return 0
         if args.output.exists():
             raise FileExistsError(f"report already exists: {args.output}")
         if args.experiment_command == "coverage":
@@ -869,6 +947,7 @@ def _sim_expert(args: argparse.Namespace) -> int:
 
 def _sim_evaluate(args: argparse.Namespace) -> int:
     import hashlib
+    import time
     from dataclasses import asdict
     from datetime import UTC, datetime
 
@@ -947,6 +1026,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
         )
         args.output.mkdir(parents=True, exist_ok=True)
         all_results: dict[str, Any] = {}
+        decision_seconds: list[float] = []
         for policy_name in ("expert", "act"):
             episode_results: list[dict[str, object]] = []
             for seed in range(args.seed_start, args.seed_start + args.episodes):
@@ -1002,6 +1082,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                             if policy_name == "expert":
                                 action = expert.poll(observation)
                             elif step_index % policy_stride == 0:
+                                decision_start = time.perf_counter()
                                 held_capture_ns = observation.timestamp_ns
                                 held_action = learned.act(
                                     observation,
@@ -1010,6 +1091,9 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                                         for camera in config.cameras
                                     },
                                     capture_timestamp_ns=observation.timestamp_ns,
+                                )
+                                decision_seconds.append(
+                                    time.perf_counter() - decision_start
                                 )
                                 action = held_action
                             elif held_action is not None:
@@ -1183,6 +1267,8 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 "summary": summarize_episodes(episode_results),
                 "episodes": episode_results,
             }
+        from act_lab.application.camera_study import latency_summary
+
         report = {
             "schema_version": 1,
             "created_at_utc": datetime.now(UTC).isoformat(),
@@ -1204,6 +1290,9 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
             "safety_path": "SafeCartesianRobot.command(Action)",
             "confidence_interval": "95% Wilson score",
             "results": all_results,
+            "decision_latency": latency_summary(decision_seconds)
+            if decision_seconds
+            else None,
         }
         report_path = args.output / "evaluation.json"
         partial = report_path.with_suffix(".json.partial")
@@ -1275,6 +1364,8 @@ def _recording_manifest(args: argparse.Namespace) -> dict[str, object]:
                 "episode_id": episode.episode_id,
                 "path": os.path.relpath(path.resolve(), args.output.parent.resolve()),
                 "sha256": file_sha256(path),
+                "seed": seed,
+                "source": str(episode.provenance.get("source", "")),
                 "selected": selected,
                 "selection_reason": (
                     "selected"
@@ -1407,6 +1498,14 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
             raise ValueError(f"raw episode changed since selection: {path}")
         episode = read_episode(path)
         report = validate_episode(episode)
+        raw_seed = episode.provenance.get("seed")
+        source_seed = raw_seed if type(raw_seed) is int else -1
+        if "seed" in entry and entry["seed"] != source_seed:
+            raise ValueError("raw seed differs from the frozen manifest")
+        if "source" in entry and entry["source"] != str(
+            episode.provenance.get("source", "")
+        ):
+            raise ValueError("raw source differs from the frozen manifest")
         if episode.episode_id != entry["episode_id"] or not report.training_eligible:
             raise ValueError(f"episode no longer passes selection: {path}")
         episodes.append(episode)
@@ -1416,6 +1515,7 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
         args.repo_id,
         args.fps,
         {"selection_manifest": manifest},
+        cameras=tuple(args.cameras) if getattr(args, "cameras", None) else None,
     )
 
 

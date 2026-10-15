@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import struct
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ def convert_episodes(
     lineage: dict[str, Any],
     *,
     dataset_class: Any | None = None,
+    cameras: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Create one atomically published local LeRobotDataset v3 directory."""
     if not episodes:
@@ -61,6 +63,35 @@ def convert_episodes(
         model_contract(json.loads(str(e.provenance.get("resolved_config_json", "{}"))))
         for e in episodes
     ]
+    source_contracts = contracts.copy()
+    if cameras is not None:
+        if not cameras or len(set(cameras)) != len(cameras):
+            raise ValueError("camera selection must be nonempty and unique")
+        if any(contracts) and "wrist" not in cameras:
+            raise ValueError("articulated model projection must retain wrist")
+        projected = []
+        for episode in converted:
+            samples = []
+            for sample in episode.samples:
+                images = {image.camera_id: image for image in sample.images}
+                if not set(cameras) <= images.keys():
+                    raise ValueError("selected camera is missing from a sample")
+                samples.append(
+                    replace(sample, images=tuple(images[camera] for camera in cameras))
+                )
+            projected.append(replace(episode, samples=tuple(samples)))
+        converted = projected
+        contracts = [
+            {
+                **contract,
+                "cameras": {camera: contract["cameras"][camera] for camera in cameras},
+            }
+            if contract
+            else None
+            for contract in contracts
+        ]
+        lineage["camera_selection"] = list(cameras)
+        lineage["source_model_contracts"] = source_contracts
     if any(contract != contracts[0] for contract in contracts):
         raise ValueError(
             "episodes have incompatible model/camera calibration identities"
@@ -75,14 +106,14 @@ def convert_episodes(
     }
     for episode in converted:
         for sample in episode.samples:
-            cameras = {
+            sample_cameras = {
                 image.camera_id: (image.width, image.height) for image in sample.images
             }
             if len(sample.joint_positions_rad) + 1 != state_size:
                 raise ValueError(
                     f"episode {episode.episode_id} has an incompatible state size"
                 )
-            if cameras != expected_cameras:
+            if sample_cameras != expected_cameras:
                 raise ValueError(
                     f"episode {episode.episode_id} has an incompatible camera schema"
                 )
