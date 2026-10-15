@@ -5,6 +5,9 @@ simulation, unchanged camera mounting and safety. The
 [plan](../plans/wrist-camera-study.md) defined thresholds before inspecting the
 first seed. No 5,000-update policy pilot or new training cohort was started.
 
+[Machine-readable metrics](wrist-camera-metrics.json) retain per-seed gates,
+source/calibration hashes, diagnostic byte measurements and the no-go outcome.
+
 ## Measured decision
 
 All ten expert episodes on seeds 19000–19009 completed successfully. Each
@@ -69,3 +72,20 @@ qualification. Wider wrist optics, active looking or a different visibility
 criterion must be designed and frozen separately. No hardware, real-time camera
 performance, new learned-policy success rate or automatic Hub publication is
 claimed.
+
+## Acceptance evidence
+
+- Dev build, Ruff, mypy (81 source files), doctor and diff checks passed.
+- Full dev suite: 415 passed, six expected optional learning/display skips.
+- The pinned CPU learning runtime passed actual one/two-camera conversion,
+  tiny training/resume and calibrated inference, including missing-image holds.
+  These tests establish mechanics, not useful learned task performance.
+- Final CPU learning/conversion suite: ten passed. Standalone dev-image checks
+  without a source bind mount: twelve passed, including the packaged runner.
+- The final audit ran on source commit `15a71bde5125a0aeef1b47c2fe56a41e3f3446c1`.
+  Every sampled row and gate exactly matched the earlier frozen audit. Source
+  file hashes are recorded; an unrelated untracked local log marked Git dirty.
+- The pipeline no-go path was exercised and never started collection or a GPU
+  pilot. Total local study artifacts remained approximately 42 MiB.
+
+Hosted CI and human review are tracked on the implementing draft PR.

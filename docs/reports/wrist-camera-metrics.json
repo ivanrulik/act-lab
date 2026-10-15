@@ -1,0 +1,907 @@
+{
+  "cameras": {
+    "policy": {
+      "acquisition_hz": 50,
+      "camera_id": "policy",
+      "d": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "distortion_model": "plumb_bob",
+      "encoding": "rgb8",
+      "extrinsics": {
+        "parent_frame": "world",
+        "position_xyz_m": [
+          0.95,
+          -0.7,
+          0.9
+        ],
+        "quaternion_wxyz": [
+          -0.4439404927979093,
+          0.8384013590484867,
+          0.27946711968282895,
+          -0.14798016426596974
+        ]
+      },
+      "frame_id": "act_lab_scene_policy_optical",
+      "height": 240,
+      "k": [
+        289.7056274847714,
+        0.0,
+        160.0,
+        0.0,
+        289.7056274847714,
+        120.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "physical_device_emulation": false,
+      "schema_version": 1,
+      "sha256": "69f3bedd158c517fe95719842db9c5f4fb5a752edcef0d343c65be7f1f73febb",
+      "synthetic": true,
+      "width": 320
+    },
+    "wrist": {
+      "acquisition_hz": 50,
+      "camera_id": "wrist",
+      "d": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "distortion_model": "plumb_bob",
+      "encoding": "rgb8",
+      "extrinsics": {
+        "parent_frame": "gripper_mount",
+        "position_xyz_m": [
+          0.0,
+          0.0603225286046283,
+          0.035505772762889916
+        ],
+        "quaternion_wxyz": [
+          0.9781476007338057,
+          0.20791169081775934,
+          0.0,
+          0.0
+        ]
+      },
+      "frame_id": "act_lab_scene_wrist_optical",
+      "height": 240,
+      "k": [
+        216.48573063257084,
+        0.0,
+        160.0,
+        0.0,
+        216.48573063257084,
+        120.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "physical_device_emulation": false,
+      "schema_version": 1,
+      "sha256": "851d723ddc2231bc6519f6eb962be9e5b19b09398f462ef1544e418597c300cf",
+      "synthetic": true,
+      "width": 320
+    }
+  },
+  "expert_successes": 10,
+  "model_identity": {
+    "files": {
+      "robotiq_2f85/aperture-calibration.json": "74bcdb7829addf21899f89978235e8c0523effe3323f9d8567193f53eb1a30ab",
+      "robotiq_2f85/assets/base.stl": "1c7b9f2bd92d705fc4e897c94e905973a3c05f406845e942229433deb7041453",
+      "robotiq_2f85/assets/base_mount.stl": "87971dfdd6e5311b5a723e7b73c4701ebf5c2364df671500f30dfc1c53c8e61a",
+      "robotiq_2f85/assets/coupler.stl": "d5ee95e62f8415bf5b6e503c831a958f5fc1990bf9b2865329ec38a28932727c",
+      "robotiq_2f85/assets/driver.stl": "bbd6e868b1778bead60d2516c7ede581d7ad4e431744b1828757d6ea5129c112",
+      "robotiq_2f85/assets/follower.stl": "633793332c081641ce200df27a40643cc293b29956e3cb5cb29cb811c33ef1c7",
+      "robotiq_2f85/assets/pad.stl": "4af1fa8d9bb285abecbf5dfc88e74cb30f059a7a074c2030dc35e9ee4316019d",
+      "robotiq_2f85/assets/silicone_pad.stl": "ca20c0fa61e6d3ce7b04bed25360e048e31dfd88ace04187aa6d9e8f4ca3fd0f",
+      "robotiq_2f85/assets/spring_link.stl": "4fb74a8a0d76c0e471cf19fd48bc676fd5b19123798e7a39eb6aa56869354283",
+      "ur5e/act_lab_2f85_scene.xml": "fe2626649e4bf17742b0809dc37cbbcd3b37b46022995905dd80f4d598b34e93",
+      "ur5e/assets/base_0.obj": "9a3b21f1524baef6af8a52d7af90b6e94b79f7e3c2b04a0f6581f74d22291b0b",
+      "ur5e/assets/base_1.obj": "cf7d54691a2c1eeda280955ebd6bd83c2dbecfc46fb53c10198f05d107511b50",
+      "ur5e/assets/forearm_0.obj": "64c049a55149c2ab355594d52302b53d3e34da3677ceaa1917c427cde7743146",
+      "ur5e/assets/forearm_1.obj": "a96fe203015cf532b193f414cd01268c7c36795e51a837dd33afd122334f81f2",
+      "ur5e/assets/forearm_2.obj": "05b436505fc595aeab26675590c2b56b88a65b2d52d6352096fed9f07cb4c4ca",
+      "ur5e/assets/forearm_3.obj": "fa31af19cfad7a765b62e8a2d5931cb014b88de84195a7850b4e5ee902112e9a",
+      "ur5e/assets/shoulder_0.obj": "477387a7e7312782a6040484a3c2c2fcee33f40109f419076e31b6f6e1692c68",
+      "ur5e/assets/shoulder_1.obj": "8537bba02804640ddf6e260f79fe66e895b3229ed3d44298a95e8e027eb5d435",
+      "ur5e/assets/shoulder_2.obj": "291714518416bb8f0bafbf123867db011ecbf5146a05245ca5893ee8c57d4e21",
+      "ur5e/assets/upperarm_0.obj": "14143d4f1175a7dbacc8e2f2f98f1cac5a2b2e238cd46cd03654d31f2610eb53",
+      "ur5e/assets/upperarm_1.obj": "272899e927f4a32b7c25e34560ec70654c0346cc8ed1c616c0555f3f53b32d14",
+      "ur5e/assets/upperarm_2.obj": "86c05350d60eb0e7e28a81b544267478b7db997baba41cef19088ebbeffecfa1",
+      "ur5e/assets/upperarm_3.obj": "b257dab441e6fab64ea03b4b87029d8a96554ad1a513cce944d56acba0ad948a",
+      "ur5e/assets/wrist1_0.obj": "7ef0c59b5c5d56a9902435c9a058b27d2a38c85fe2bae02d00a9284dd1f4d519",
+      "ur5e/assets/wrist1_1.obj": "ee6d5c562e6becef94109b0543329080d285d1aef521a01ed98e18a5bf1e8684",
+      "ur5e/assets/wrist1_2.obj": "88c66dc64f15391287147d50add37729a3f41dadd80b1f859cf2cb6d45daf32a",
+      "ur5e/assets/wrist2_0.obj": "2ac2e2e39d8f7005bc3b3ab26cd61634be2e14930074615da5318b9ee7c569a8",
+      "ur5e/assets/wrist2_1.obj": "a721d06dc61d3b3a8ec58c035c9e3358ed30d6991a72e077d8abf3c3c203b633",
+      "ur5e/assets/wrist2_2.obj": "6df4335c8bd5e881fda2c224f770115ffe9ddd0cd321ebe3c0a4a310796f0987",
+      "ur5e/assets/wrist3.obj": "0e51748f9c93bd66604360a5cf7e2e8a6e754550be64076333ff4fc19ec90c61",
+      "ur5e/ur5e_2f85.xml": "19f25aa2ef32b50cfe89ed1812fd6b635d6b9598083fe691c3b289299e7701a9"
+    },
+    "model_id": "ur5e_2f85_d405_v1",
+    "sha256": "6e414b220b78ca8f7ecb84ec6ac16ab97b9922ae7d43468db1c91408157af125"
+  },
+  "projection_diagnostic": {
+    "all_numeric_timestamps_and_wrist_bytes_equal": true,
+    "bytes": {
+      "paired": 31377421,
+      "wrist": 11456285
+    },
+    "frames": 551,
+    "saving_fraction": 0.6348876155245519,
+    "splits_equal": true
+  },
+  "repeated_audit_rows_identical": true,
+  "schema_version": 1,
+  "seeds": [
+    19000,
+    19001,
+    19002,
+    19003,
+    19004,
+    19005,
+    19006,
+    19007,
+    19008,
+    19009
+  ],
+  "source": {
+    "files_sha256": {
+      "camera_audit.py": "c9d643efed98208103e8b9b64d22c43b23267bcc6cdadfd04776e615026daa54",
+      "camera_study.py": "4eb2f86c4d9ab05ee74c170d9c095714df7a18b3934049b769ee5ef19b30df12",
+      "environment.py": "8ec88223063b4a902f39f69706e16e1bcfcda7e578864a48c592e46c95ea046d",
+      "ur5e_2f85_d405_paired.toml": "472a19a64322c47180723ec6069b7a34334f7083b5c256d0dd108d1f2b6b1c4c"
+    },
+    "git": {
+      "dirty": true,
+      "revision": "15a71bde5125a0aeef1b47c2fe56a41e3f3446c1"
+    }
+  },
+  "thresholds": {
+    "minimum_fraction": 0.95,
+    "minimum_pixels": 16
+  },
+  "training_started": false,
+  "variants": {
+    "paired": {
+      "checks": [
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19000,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19000,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 27,
+          "seed": 19000,
+          "target": "tray",
+          "visible_samples": 27
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19000,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 3,
+          "seed": 19001,
+          "target": "cube",
+          "visible_samples": 3
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 11,
+          "seed": 19001,
+          "target": "cube",
+          "visible_samples": 11
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 25,
+          "seed": 19001,
+          "target": "tray",
+          "visible_samples": 25
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19001,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 5,
+          "seed": 19002,
+          "target": "cube",
+          "visible_samples": 5
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 11,
+          "seed": 19002,
+          "target": "cube",
+          "visible_samples": 11
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 26,
+          "seed": 19002,
+          "target": "tray",
+          "visible_samples": 26
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19002,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 5,
+          "seed": 19003,
+          "target": "cube",
+          "visible_samples": 5
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19003,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 26,
+          "seed": 19003,
+          "target": "tray",
+          "visible_samples": 26
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19003,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 3,
+          "seed": 19004,
+          "target": "cube",
+          "visible_samples": 3
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19004,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 22,
+          "seed": 19004,
+          "target": "tray",
+          "visible_samples": 22
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19004,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19005,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19005,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 23,
+          "seed": 19005,
+          "target": "tray",
+          "visible_samples": 23
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19005,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 1,
+          "seed": 19006,
+          "target": "cube",
+          "visible_samples": 1
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19006,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 24,
+          "seed": 19006,
+          "target": "tray",
+          "visible_samples": 24
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19006,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19007,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19007,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 23,
+          "seed": 19007,
+          "target": "tray",
+          "visible_samples": 23
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19007,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 4,
+          "seed": 19008,
+          "target": "cube",
+          "visible_samples": 4
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19008,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 21,
+          "seed": 19008,
+          "target": "tray",
+          "visible_samples": 21
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19008,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 4,
+          "seed": 19009,
+          "target": "cube",
+          "visible_samples": 4
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19009,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 27,
+          "seed": 19009,
+          "target": "tray",
+          "visible_samples": 27
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19009,
+          "target": "tray",
+          "visible_samples": 6
+        }
+      ],
+      "control_baseline_passed": true,
+      "passed": true
+    },
+    "wrist": {
+      "checks": [
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19000,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19000,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 0.8888888888888888,
+          "passed": false,
+          "phase": "transit",
+          "samples": 27,
+          "seed": 19000,
+          "target": "tray",
+          "visible_samples": 24
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19000,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 3,
+          "seed": 19001,
+          "target": "cube",
+          "visible_samples": 3
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 11,
+          "seed": 19001,
+          "target": "cube",
+          "visible_samples": 11
+        },
+        {
+          "fraction": 0.88,
+          "passed": false,
+          "phase": "transit",
+          "samples": 25,
+          "seed": 19001,
+          "target": "tray",
+          "visible_samples": 22
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19001,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 5,
+          "seed": 19002,
+          "target": "cube",
+          "visible_samples": 5
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 11,
+          "seed": 19002,
+          "target": "cube",
+          "visible_samples": 11
+        },
+        {
+          "fraction": 0.7692307692307693,
+          "passed": false,
+          "phase": "transit",
+          "samples": 26,
+          "seed": 19002,
+          "target": "tray",
+          "visible_samples": 20
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19002,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 5,
+          "seed": 19003,
+          "target": "cube",
+          "visible_samples": 5
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19003,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 26,
+          "seed": 19003,
+          "target": "tray",
+          "visible_samples": 26
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19003,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 3,
+          "seed": 19004,
+          "target": "cube",
+          "visible_samples": 3
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19004,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 22,
+          "seed": 19004,
+          "target": "tray",
+          "visible_samples": 22
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19004,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19005,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19005,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 23,
+          "seed": 19005,
+          "target": "tray",
+          "visible_samples": 23
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19005,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 1,
+          "seed": 19006,
+          "target": "cube",
+          "visible_samples": 1
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19006,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 24,
+          "seed": 19006,
+          "target": "tray",
+          "visible_samples": 24
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19006,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 2,
+          "seed": 19007,
+          "target": "cube",
+          "visible_samples": 2
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19007,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 23,
+          "seed": 19007,
+          "target": "tray",
+          "visible_samples": 23
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19007,
+          "target": "tray",
+          "visible_samples": 6
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 4,
+          "seed": 19008,
+          "target": "cube",
+          "visible_samples": 4
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 10,
+          "seed": 19008,
+          "target": "cube",
+          "visible_samples": 10
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "transit",
+          "samples": 21,
+          "seed": 19008,
+          "target": "tray",
+          "visible_samples": 21
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 7,
+          "seed": 19008,
+          "target": "tray",
+          "visible_samples": 7
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "approach_cube",
+          "samples": 4,
+          "seed": 19009,
+          "target": "cube",
+          "visible_samples": 4
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "descend",
+          "samples": 9,
+          "seed": 19009,
+          "target": "cube",
+          "visible_samples": 9
+        },
+        {
+          "fraction": 0.9259259259259259,
+          "passed": false,
+          "phase": "transit",
+          "samples": 27,
+          "seed": 19009,
+          "target": "tray",
+          "visible_samples": 25
+        },
+        {
+          "fraction": 1.0,
+          "passed": true,
+          "phase": "lower",
+          "samples": 6,
+          "seed": 19009,
+          "target": "tray",
+          "visible_samples": 6
+        }
+      ],
+      "control_baseline_passed": true,
+      "passed": false
+    }
+  }
+}
