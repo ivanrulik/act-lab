@@ -83,8 +83,8 @@ and [reproduction and safety rules](docs/contracts/crisp-feasibility.md).
 The [lean camera study](docs/camera-study.md) provides gated wrist-only versus
 wrist+fixed presets and a matched learning recipe. Wrist-only failed the Mesa
 software-rendered visibility audit but passed its NVIDIA counterpart; that
-pixel threshold is renderer-dependent. Paired input passes both audits and is
-undergoing the [bounded learning pilot](docs/plans/paired-camera-pilot.md).
+pixel threshold is renderer-dependent. Paired input passes both audits. The [bounded learning pilot](docs/reports/paired-camera-pilot.md)
+completed 33/100 final tasks and did not meet the 90/100 qualification gate.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is

@@ -398,3 +398,9 @@ one frozen 5,000-update CUDA run and 100 held-out seeds. Require >=90 successes;
 retain failures, confidence intervals, timing and storage evidence. See the
 [frozen plan](plans/paired-camera-pilot.md). No automatic longer campaign or
 publication, and no comparative claim from a single candidate.
+
+The paired pilot completed: **33/100 final ACT successes**, below the 90/100
+gate; expert 100/100. See [evidence](reports/paired-camera-pilot.md). A follow-up
+must inspect diagnostic failures, freeze one changed factor and use a fresh
+final cohort. Camera superiority and renderer-independent wrist feasibility
+remain unresolved. Audit provenance should automatically retain GL identity.

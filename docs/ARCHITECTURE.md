@@ -293,3 +293,12 @@ motion or acknowledge authoritative storage. Startup requires the configured
 mount; capacity/write failures remain explicit errors. Abrupt process loss may
 truncate these diagnostic artifacts. Ordinary canonical acquisition durability
 and authoritative rosbag disk storage remain unchanged.
+
+## Paired-camera pilot evidence
+
+The explicit single-candidate runner retains the original visibility, validated
+MCAP, derived-dataset and shared safety boundaries. The frozen paired pilot
+completed 33/100 final tasks at 5,000 updates and did not qualify for release.
+Its [report](reports/paired-camera-pilot.md) records per-seed failures, measured
+costs and renderer-dependent audit limits. Requalification needs a new protocol
+and untouched final seeds.

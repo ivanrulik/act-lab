@@ -89,3 +89,7 @@ The [paired-camera pilot](plans/paired-camera-pilot.md) runs the viable candidat
 alone with `scripts/run-camera-study.py --variant paired`. The original default
 comparison still stops when either visibility gate fails. A paired-only result
 qualifies one candidate and makes no camera superiority claim.
+
+The [completed paired pilot](reports/paired-camera-pilot.md) achieved 33/100 final
+successes and did not qualify at its frozen 5,000-update budget. Every final
+outcome and measured cost is retained; the final cohort is now consumed.
