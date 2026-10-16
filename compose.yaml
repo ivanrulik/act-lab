@@ -232,6 +232,7 @@ services:
 
   train-gpu:
     <<: *common
+    shm_size: "1g"
     build:
       context: .
       target: train-gpu

@@ -35,3 +35,7 @@ The default runner remains the original two-candidate comparison. Tests must
 verify that paired mode passes its own gate, never converts/trains wrist, and
 keeps the frozen data and evaluation seeds. Run dev build, Ruff, mypy, pytest
 and doctor before execution. Generated data/models remain ignored.
+
+GPU training reserves 1 GiB `/dev/shm` for the existing four-worker,
+four-prefetch DataLoader; Docker's 64 MiB default is insufficient for this
+paired RGB batch pipeline. This changes runtime capacity, not model settings.
