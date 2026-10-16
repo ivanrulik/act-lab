@@ -69,7 +69,9 @@ def _mini_episode(tooling: bool = False) -> RecordedEpisode:
 
 
 @pytest.mark.parametrize("tooling", [False, True, "wrist", "paired"])
-def test_reduced_act_checkpoint_and_resume(tmp_path: Path, tooling: bool | str) -> None:
+def test_reduced_act_checkpoint_and_resume(
+    tmp_path: Path, tooling: bool | str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     pytest.importorskip("lerobot")
     dataset_path = tmp_path / "dataset"
     convert_episodes(
@@ -194,10 +196,28 @@ cudnn_deterministic = true
                 policy = LeRobotACTPolicy(
                     resumed, "cpu", simulation.cameras, model_contract=current
                 )
+                assert policy.n_action_steps == 1
+                assert policy._policy._action_queue.maxlen == 1
+                predictions = []
+                predict = policy._policy.predict_action_chunk
+
+                def counted_prediction(batch):
+                    predictions.append(True)
+                    return predict(batch)
+
+                monkeypatch.setattr(
+                    policy._policy, "predict_action_chunk", counted_prediction
+                )
                 action = policy.act(
                     observation,
                     {c: env.render(c) for c in simulation.cameras},
                     capture_timestamp_ns=observation.timestamp_ns,
                 )
                 assert action.enabled
+                assert policy.act(
+                    observation,
+                    {c: env.render(c) for c in simulation.cameras},
+                    capture_timestamp_ns=observation.timestamp_ns,
+                ).enabled
+                assert len(predictions) == 2
                 assert not policy.act(observation, {}).enabled

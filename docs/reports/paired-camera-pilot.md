@@ -6,6 +6,14 @@ RGB, shared application safety. [Frozen plan](../plans/paired-camera-pilot.md).
 per-seed outcome, confidence interval, completion time, event, configuration,
 source/calibration hash, dataset identity, split and checkpoint digest.
 
+## Interpretation correction
+
+Subsequent [diagnosis](paired-camera-diagnosis.md) found the loader silently
+retained a 100-action queue despite reporting one. The historical results below
+measure that unintended execution mode. Corrected one-step feedback scored
+0/20 diagnostic successes and stalled before grasping. Treat the 33/100 and its
+latency as historical measurements, not qualification of the declared protocol.
+
 ## Decision
 
 **Do not release this checkpoint as a qualified policy.** ACT completed 33/100

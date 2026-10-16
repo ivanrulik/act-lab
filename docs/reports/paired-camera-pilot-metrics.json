@@ -7408,6 +7408,11 @@
       }
     }
   },
+  "interpretation_correction": {
+    "effective_action_horizon_resolved_in_diagnosis": 100,
+    "meaning": "Historical counts measure unintended queued execution, not declared one-action fresh feedback. See paired-camera-diagnosis.md.",
+    "requested_action_horizon_reported": 1
+  },
   "protocol": {
     "cameras": [
       "wrist",

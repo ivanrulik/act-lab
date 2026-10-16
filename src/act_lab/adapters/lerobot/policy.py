@@ -59,9 +59,20 @@ class LeRobotACTPolicy:
             if (checkpoint / "pretrained_model").is_dir()
             else checkpoint
         )
-        self._policy = act_module.ACTPolicy.from_pretrained(
-            str(model_path), device=device, n_action_steps=n_action_steps
+        # LeRobot 0.6.1 consumes config overrides through cli_overrides;
+        # arbitrary from_pretrained kwargs do not replace serialized fields.
+        configuration = act_module.ACTConfig.from_pretrained(
+            str(model_path),
+            cli_overrides=[
+                f"--device={device}",
+                f"--n_action_steps={n_action_steps}",
+            ],
         )
+        self._policy = act_module.ACTPolicy.from_pretrained(
+            str(model_path), config=configuration
+        )
+        if self._policy.config.n_action_steps != n_action_steps:
+            raise RuntimeError("ACT checkpoint did not honor requested action horizon")
         if self._policy.config.device != device:
             raise RuntimeError(
                 f"ACT checkpoint resolved device {self._policy.config.device!r}; "
@@ -80,6 +91,11 @@ class LeRobotACTPolicy:
         self._torch = torch
         self._device = device
         self._cameras = cameras
+
+    @property
+    def n_action_steps(self) -> int:
+        """Effective action horizon loaded by the framework."""
+        return int(self._policy.config.n_action_steps)
 
     def reset(self) -> None:
         """Clear ACT's queued chunk actions between independent episodes."""

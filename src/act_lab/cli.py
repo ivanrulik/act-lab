@@ -1283,7 +1283,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 "policy_hz": policy_hz,
                 "environment_hz": config.environment_hz,
                 "policy_inference_stride": policy_stride,
-                "act_n_action_steps": 1,
+                "act_n_action_steps": learned.n_action_steps,
                 "training_dataset_fps": dataset_fps,
                 "training_configuration": training_config,
             },

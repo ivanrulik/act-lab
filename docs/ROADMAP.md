@@ -404,3 +404,10 @@ gate; expert 100/100. See [evidence](reports/paired-camera-pilot.md). A follow-u
 must inspect diagnostic failures, freeze one changed factor and use a fresh
 final cohort. Camera superiority and renderer-independent wrist feasibility
 remain unresolved. Audit provenance should automatically retain GL identity.
+
+Paired-pilot diagnosis found and corrected an ignored LeRobot horizon override.
+Corrected one-step feedback scored 0/20 diagnostic successes and stalled before
+grasp; the initial 33/100 measured unintended long-chunk execution. Inspect
+first-action/phase-transition learning before extending training, and audit
+effective horizons in historical legacy evaluations. See
+[the diagnosis](reports/paired-camera-diagnosis.md).

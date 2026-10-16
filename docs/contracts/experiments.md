@@ -37,3 +37,9 @@ For failure analysis, `--trace-actions` writes one JSONL row per simulation
 step with requested and executed actions, the safety outcome and detail, robot
 end-effector pose, and cube pose. Aggregate command outcome counts are included
 in each episode report.
+
+The adapter must verify the resolved framework action horizon after loading,
+and evaluation reports that effective value. Pinned LeRobot 0.6.1 requires
+explicit config CLI overrides; arbitrary loading kwargs can be ignored. A real
+checkpoint test must prove each policy call predicts a fresh chunk when horizon
+one is requested. See the [loader diagnosis](../reports/paired-camera-diagnosis.md).
