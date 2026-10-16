@@ -203,3 +203,83 @@ def test_workflow_stops_before_collection_or_gpu_when_visibility_fails(
     assert module.main() == 0
     assert len(calls) == 1
     assert json.loads((output / "study.json").read_text())["training_started"] is False
+
+
+@pytest.mark.parametrize("paired_passes", [False, True])
+def test_paired_workflow_preserves_gates_and_never_trains_wrist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, paired_passes: bool
+) -> None:
+    from act_lab.application import training
+
+    path = Path(__file__).resolve().parents[2] / "scripts/run-camera-study.py"
+    spec = importlib.util.spec_from_file_location("paired_runner", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = tmp_path / "pilot"
+    calls: list[list[str]] = []
+    devices: list[str] = []
+    monkeypatch.setattr(training, "preflight_device", devices.append)
+
+    def command(argv, **kwargs):
+        parts = argv[3:]
+        calls.append(parts)
+        if parts[:2] == ["experiment", "camera-audit"]:
+            audit = output / "audit"
+            audit.mkdir()
+            (audit / "visibility.json").write_text(
+                json.dumps(
+                    {
+                        "variants": {
+                            "wrist": {"passed": False},
+                            "paired": {"passed": paired_passes},
+                        }
+                    }
+                )
+            )
+        elif parts[:2] == ["recording", "manifest"]:
+            (output / "selection.json").write_text(
+                json.dumps(
+                    {
+                        "episodes": [
+                            {
+                                "selected": True,
+                                "split": "validation" if i < 6 else "train",
+                            }
+                            for i in range(30)
+                        ]
+                    }
+                )
+            )
+        elif parts[:2] == ["sim", "evaluate"]:
+            destination = Path(parts[parts.index("--output") + 1])
+            destination.mkdir(parents=True)
+            (destination / "evaluation.json").write_text(
+                json.dumps({"results": {"act": {"summary": {"successes": 90}}}})
+            )
+
+    monkeypatch.setattr(module.subprocess, "run", command)
+    monkeypatch.setattr(
+        sys, "argv", [str(path), "--variant", "paired", "--output", str(output)]
+    )
+    assert module.main() == 0
+    result = json.loads((output / "study.json").read_text())
+    if not paired_passes:
+        assert len(calls) == 1
+        assert not devices
+        assert not result["training_started"]
+        return
+    assert devices == ["cuda"]
+    experts = [p for p in calls if p[:2] == ["sim", "expert"]]
+    assert [int(p[p.index("--seed-start") + 1]) for p in experts] == list(
+        range(20000, 20040)
+    )
+    conversions = [p for p in calls if p[:2] == ["recording", "convert"]]
+    assert len(conversions) == 1
+    assert conversions[0][-3:] == ["--cameras", "wrist", "policy"]
+    assert sum(p[:2] == ["train", "act"] for p in calls) == 1
+    evaluations = [p for p in calls if p[:2] == ["sim", "evaluate"]]
+    assert [p[p.index("--seed-start") + 1] for p in evaluations] == ["21000", "22000"]
+    assert [p[p.index("--episodes") + 1] for p in evaluations] == ["20", "100"]
+    assert result["qualified"]
+    assert result["comparison_claim"] is False

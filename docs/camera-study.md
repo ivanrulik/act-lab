@@ -81,3 +81,10 @@ conservative transfer-visibility gate; wrist+fixed does. This makes the paired
 preset the current next learning baseline. Visibility success does not establish
 learned-policy success. Wider optics, active observation or a policy designed
 to remember unseen goals require a separately specified experiment.
+
+## Paired candidate continuation
+
+The [paired-camera pilot](plans/paired-camera-pilot.md) runs the viable candidate
+alone with `scripts/run-camera-study.py --variant paired`. The original default
+comparison still stops when either visibility gate fails. A paired-only result
+qualifies one candidate and makes no camera superiority claim.

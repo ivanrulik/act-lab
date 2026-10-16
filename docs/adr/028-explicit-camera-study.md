@@ -50,3 +50,11 @@ targets, so an audit failure is not proof of general wrist-only impossibility.
 No camera movement, wider lens, new dependency, ROS path, hardware motion or
 weaker safety limit is introduced. Different optics, active search or a changed
 observation gate require an explicit subsequent experiment.
+
+## Authorized single-candidate continuation (2026-10-16)
+
+The paired variant passed the frozen audit while wrist failed. An explicit
+`--variant paired` continuation may qualify that candidate using the unchanged
+collection, training, holdout and resource budgets. It still requires paired
+visibility and retains the failed wrist findings. It cannot issue a comparative
+camera claim. See [the frozen pilot plan](../plans/paired-camera-pilot.md).

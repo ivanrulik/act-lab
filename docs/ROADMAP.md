@@ -390,3 +390,11 @@ cancels superseded PR runs. All nine acceptance jobs remain required. Hosted
 cold/warm qualification is pending. Dependency-layer restructuring, duplicate
 evidence reduction and change routing are deferred stages in
 [the CI optimization plan](plans/ci-optimization.md).
+
+### Paired-camera learning pilot
+
+After the wrist-only visibility no-go, qualify wrist + fixed policy input with
+one frozen 5,000-update CUDA run and 100 held-out seeds. Require >=90 successes;
+retain failures, confidence intervals, timing and storage evidence. See the
+[frozen plan](plans/paired-camera-pilot.md). No automatic longer campaign or
+publication, and no comparative claim from a single candidate.
