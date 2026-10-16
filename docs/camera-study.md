@@ -76,9 +76,10 @@ every simulation setting. See `--help` and the runner for the full invocation.
 
 ## Current result
 
-[Measured evidence](reports/wrist-camera-study.md): wrist-only does not pass the
-conservative transfer-visibility gate; wrist+fixed does. This makes the paired
-preset the current next learning baseline. Visibility success does not establish
+[Measured evidence](reports/wrist-camera-study.md): wrist-only failed the Mesa
+software-rendered transfer audit but passed the NVIDIA run of the same gate.
+Paired input passes both. The paired preset is the authorized next learning
+candidate; these audits do not establish camera superiority. Visibility success does not establish
 learned-policy success. Wider optics, active observation or a policy designed
 to remember unseen goals require a separately specified experiment.
 

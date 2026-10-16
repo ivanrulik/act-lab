@@ -89,3 +89,22 @@ claimed.
   pilot. Total local study artifacts remained approximately 42 MiB.
 
 Hosted CI and human review are tracked on the implementing draft PR.
+
+## Renderer qualification discovered in the paired pilot (2026-10-16)
+
+The historical table above was produced with Mesa llvmpipe (LLVM 15.0.6,
+Mesa 22.3.6). The subsequent CUDA learning image selected NVIDIA hardware
+rendering (driver 610.57.04) and passed **both** variants on the same ten seeds.
+MuJoCo 3.12.0, NumPy 2.2.6, audited source hashes, model identity and camera
+calibrations match. For example, seed 19002 transfer samples that had zero
+wrist tray pixels under Mesa had 20–23 under NVIDIA, crossing the frozen
+16-pixel threshold. The exact rasterization cause has not been established.
+
+Therefore the wrist no-go is specific to the recorded software renderer; it
+must not be described as a renderer-independent mounting limitation. Paired
+passes both recorded runtimes. The authorized single-candidate continuation
+keeps every threshold and uses NVIDIA consistently for acquisition and
+evaluation. It cannot establish that paired is better than wrist or that wrist
+learning cannot work. No second candidate is silently added to the budget.
+Runtime GL identity and the new audit are retained with the ignored pilot
+validation artifacts. Future audits should record GL identity automatically.

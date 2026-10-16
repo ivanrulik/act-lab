@@ -81,9 +81,10 @@ and [reproduction and safety rules](docs/contracts/crisp-feasibility.md).
 ## Quick start
 
 The [lean camera study](docs/camera-study.md) provides gated wrist-only versus
-wrist+fixed presets and a matched learning recipe. The current mounting fails
-the conservative wrist-only transfer-visibility gate; paired input passes the
-audit and still needs learned-policy qualification.
+wrist+fixed presets and a matched learning recipe. Wrist-only failed the Mesa
+software-rendered visibility audit but passed its NVIDIA counterpart; that
+pixel threshold is renderer-dependent. Paired input passes both audits and is
+undergoing the [bounded learning pilot](docs/plans/paired-camera-pilot.md).
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is
