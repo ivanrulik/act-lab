@@ -76,8 +76,20 @@ every simulation setting. See `--help` and the runner for the full invocation.
 
 ## Current result
 
-[Measured evidence](reports/wrist-camera-study.md): wrist-only does not pass the
-conservative transfer-visibility gate; wrist+fixed does. This makes the paired
-preset the current next learning baseline. Visibility success does not establish
+[Measured evidence](reports/wrist-camera-study.md): wrist-only failed the Mesa
+software-rendered transfer audit but passed the NVIDIA run of the same gate.
+Paired input passes both. The paired preset is the authorized next learning
+candidate; these audits do not establish camera superiority. Visibility success does not establish
 learned-policy success. Wider optics, active observation or a policy designed
 to remember unseen goals require a separately specified experiment.
+
+## Paired candidate continuation
+
+The [paired-camera pilot](plans/paired-camera-pilot.md) runs the viable candidate
+alone with `scripts/run-camera-study.py --variant paired`. The original default
+comparison still stops when either visibility gate fails. A paired-only result
+qualifies one candidate and makes no camera superiority claim.
+
+The [completed paired pilot](reports/paired-camera-pilot.md) achieved 33/100 final
+successes and did not qualify at its frozen 5,000-update budget. Every final
+outcome and measured cost is retained; the final cohort is now consumed.

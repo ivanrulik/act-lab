@@ -178,6 +178,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--seed-start", type=int, default=10000)
     evaluate.add_argument("--episodes", type=int, default=20)
     evaluate.add_argument(
+        "--temporal-ensemble-coeff",
+        type=float,
+        help="explicit ACT inference temporal ensemble coefficient (default: disabled)",
+    )
+    evaluate.add_argument(
         "--policy-hz",
         type=int,
         help=(
@@ -264,6 +269,18 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--repo-id", required=True)
     convert.add_argument("--fps", type=int, default=25)
     convert.add_argument("--cameras", nargs="+", help="explicit derived camera subset")
+    convert.add_argument(
+        "--action-source",
+        choices=("applied", "requested"),
+        default="applied",
+        help="requested uses accepted intent and executed fault holds (converter v4)",
+    )
+    convert.add_argument(
+        "--action-alignment",
+        choices=("same-sample", "next-command"),
+        default="same-sample",
+        help="next-command pairs current input with the next raw command",
+    )
     training = subparsers.add_parser("train", help="train or resume an ACT policy")
     training_commands = training.add_subparsers(dest="train_command", required=True)
     act = training_commands.add_parser("act", help="train ACT on a validated dataset")
@@ -280,6 +297,12 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("--run", type=Path, required=True)
     resume.add_argument("--device", choices=("cpu", "cuda"), required=True)
     resume.add_argument("--steps", type=int)
+    resume.add_argument(
+        "--project-action-columns",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="explicit opt-in numeric future-action loading (preserves data values)",
+    )
     experiment = subparsers.add_parser(
         "experiment", help="inspect demonstration coverage and compare evaluations"
     )
@@ -1023,6 +1046,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
             config.cameras,
             n_action_steps=1,
             model_contract=identity,
+            temporal_ensemble_coeff=getattr(args, "temporal_ensemble_coeff", None),
         )
         args.output.mkdir(parents=True, exist_ok=True)
         all_results: dict[str, Any] = {}
@@ -1283,7 +1307,8 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 "policy_hz": policy_hz,
                 "environment_hz": config.environment_hz,
                 "policy_inference_stride": policy_stride,
-                "act_n_action_steps": 1,
+                "act_n_action_steps": learned.n_action_steps,
+                "act_temporal_ensemble_coeff": learned.temporal_ensemble_coeff,
                 "training_dataset_fps": dataset_fps,
                 "training_configuration": training_config,
             },
@@ -1491,6 +1516,10 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
     if manifest.get("manifest_version") != 1:
         raise ValueError("unsupported selection manifest version")
     episodes = []
+    action_source = getattr(args, "action_source", "applied")
+    alignment = getattr(args, "action_alignment", "same-sample")
+    if action_source == "requested" and alignment != "next-command":
+        raise ValueError("requested action source requires next-command alignment")
     selected_entries = [entry for entry in manifest["episodes"] if entry["selected"]]
     for entry in selected_entries:
         path = (args.manifest.parent / entry["path"]).resolve()
@@ -1508,6 +1537,10 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
             raise ValueError("raw source differs from the frozen manifest")
         if episode.episode_id != entry["episode_id"] or not report.training_eligible:
             raise ValueError(f"episode no longer passes selection: {path}")
+        if action_source == "requested":
+            episode = read_episode(path, action_source="requested")
+            if not validate_episode(episode).training_eligible:
+                raise ValueError("requested intent labels fail quality validation")
         episodes.append(episode)
     return convert_episodes(
         episodes,
@@ -1516,6 +1549,8 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
         args.fps,
         {"selection_manifest": manifest},
         cameras=tuple(args.cameras) if getattr(args, "cameras", None) else None,
+        action_alignment=alignment,
+        action_source=action_source,
     )
 
 
@@ -1592,6 +1627,8 @@ def _train_act(args: argparse.Namespace) -> int:
 
 
 def _train_resume(args: argparse.Namespace) -> int:
+    from dataclasses import replace
+
     from act_lab.adapters.lerobot import checkpoint_step, latest_checkpoint, train_act
     from act_lab.application.training import (
         RUN_MANIFEST,
@@ -1616,6 +1653,9 @@ def _train_resume(args: argparse.Namespace) -> int:
             raise ValueError("resume device type must match the original run")
         original = ActTrainingConfig(**manifest["configuration"])
         config = resume_config(original, args.steps)
+        projection = getattr(args, "project_action_columns", None)
+        if projection is not None:
+            config = replace(config, project_action_columns=projection)
         dataset = verify_dataset(Path(manifest["dataset"]["path"]))
         if dataset.to_dict() != manifest["dataset"]:
             raise ValueError("dataset identity changed since the original run")

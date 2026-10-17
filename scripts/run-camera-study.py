@@ -6,22 +6,28 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--variant", choices=("comparison", "paired"), default="comparison"
+    )
     args = parser.parse_args()
     root = args.output.resolve()
     if root.exists():
         parser.error("output already exists")
     root.mkdir(parents=True)
     commands: list[list[str]] = []
+    measurements: list[dict[str, object]] = []
 
     def run(label: str, *parts: str) -> None:
         commands.append(list(parts))
         (root / "commands.json").write_text(json.dumps(commands, indent=2))
+        started = time.perf_counter()
         with (root / f"{label}.log").open("w") as log:
             subprocess.run(
                 [sys.executable, "-m", "act_lab.cli", *parts],
@@ -30,6 +36,16 @@ def main() -> int:
                 check=True,
             )
         used = sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+        measurements.append(
+            {
+                "stage": label,
+                "wall_time_s": time.perf_counter() - started,
+                "artifact_bytes": used,
+            }
+        )
+        (root / "measurements.json").write_text(
+            json.dumps(measurements, indent=2) + "\n"
+        )
         if used > 5 * 1024**3:
             raise RuntimeError("5 GiB pilot artifact budget exceeded; no next stage")
 
@@ -45,7 +61,8 @@ def main() -> int:
             str(root / "audit"),
         )
         visibility = json.loads((root / "audit/visibility.json").read_text())
-        if not all(v["passed"] for v in visibility["variants"].values()):
+        names = ("paired", "wrist") if args.variant == "comparison" else ("paired",)
+        if not all(visibility["variants"][name]["passed"] for name in names):
             result = {
                 "status": "completed_observation_no_go",
                 "training_started": False,
@@ -95,10 +112,8 @@ def main() -> int:
                 or sum(e["split"] == "validation" for e in selected) < 6
             ):
                 raise RuntimeError("pilot requires 30 selected episodes and 6 reserved")
-            for name, cameras in (
-                ("paired", ["wrist", "policy"]),
-                ("wrist", ["wrist"]),
-            ):
+            for name in names:
+                cameras = ["wrist", "policy"] if name == "paired" else ["wrist"]
                 run(
                     f"convert-{name}",
                     "recording",
@@ -127,7 +142,7 @@ def main() -> int:
                     str(root / name / "training"),
                 )
             # Freeze both trained checkpoints before observing any final outcomes.
-            for name in ("paired", "wrist"):
+            for name in names:
                 checkpoint = root / name / "training/lerobot/checkpoints/005000"
                 for label, start, count in (
                     ("diagnostic", 21000, 20),
@@ -153,24 +168,39 @@ def main() -> int:
                         "--output",
                         str(root / name / label),
                     )
-            parts = ["experiment", "camera-compare"]
-            for name in ("paired", "wrist"):
-                for item, path in (
-                    ("evaluation", "final/evaluation.json"),
-                    ("dataset", "dataset"),
-                    ("run", "training"),
-                    (
-                        "checkpoint",
-                        "training/lerobot/checkpoints/005000/pretrained_model",
-                    ),
-                ):
-                    parts.extend([f"--{name}-{item}", str(root / name / path)])
-            run("comparison", *parts, "--output", str(root / "comparison.json"))
-            result = {
-                "status": "completed",
-                "training_started": True,
-                "comparison": json.loads((root / "comparison.json").read_text()),
-            }
+            if args.variant == "paired":
+                evaluation = json.loads(
+                    (root / "paired/final/evaluation.json").read_text()
+                )
+                result = {
+                    "schema_version": 1,
+                    "status": "completed_single_candidate",
+                    "training_started": True,
+                    "variant": "paired",
+                    "qualified": evaluation["results"]["act"]["summary"]["successes"]
+                    >= 90,
+                    "qualification": evaluation,
+                    "comparison_claim": False,
+                }
+            else:
+                parts = ["experiment", "camera-compare"]
+                for name in names:
+                    for item, path in (
+                        ("evaluation", "final/evaluation.json"),
+                        ("dataset", "dataset"),
+                        ("run", "training"),
+                        (
+                            "checkpoint",
+                            "training/lerobot/checkpoints/005000/pretrained_model",
+                        ),
+                    ):
+                        parts.extend([f"--{name}-{item}", str(root / name / path)])
+                run("comparison", *parts, "--output", str(root / "comparison.json"))
+                result = {
+                    "status": "completed",
+                    "training_started": True,
+                    "comparison": json.loads((root / "comparison.json").read_text()),
+                }
         (root / "study.json").write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
         return 0

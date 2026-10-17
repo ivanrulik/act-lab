@@ -390,3 +390,76 @@ cancels superseded PR runs. All nine acceptance jobs remain required. Hosted
 cold/warm qualification is pending. Dependency-layer restructuring, duplicate
 evidence reduction and change routing are deferred stages in
 [the CI optimization plan](plans/ci-optimization.md).
+
+### Paired-camera learning pilot
+
+After the wrist-only visibility no-go, qualify wrist + fixed policy input with
+one frozen 5,000-update CUDA run and 100 held-out seeds. Require >=90 successes;
+retain failures, confidence intervals, timing and storage evidence. See the
+[frozen plan](plans/paired-camera-pilot.md). No automatic longer campaign or
+publication, and no comparative claim from a single candidate.
+
+The paired pilot completed: **33/100 final ACT successes**, below the 90/100
+gate; expert 100/100. See [evidence](reports/paired-camera-pilot.md). A follow-up
+must inspect diagnostic failures, freeze one changed factor and use a fresh
+final cohort. Camera superiority and renderer-independent wrist feasibility
+remain unresolved. Audit provenance should automatically retain GL identity.
+
+Paired-pilot diagnosis found and corrected an ignored LeRobot horizon override.
+Corrected one-step feedback scored 0/20 diagnostic successes and stalled before
+grasp; the initial 33/100 measured unintended long-chunk execution. Inspect
+first-action/phase-transition learning before extending training, and audit
+effective horizons in historical legacy evaluations. See
+[the diagnosis](reports/paired-camera-diagnosis.md).
+
+Continued diagnosis confirmed post-action supervision: same-sample labels nearly
+match the already-observed pose. ADR 029 adds an explicit causal v3 converter;
+572 real frames passed action/state/RGB equivalence checks. All 16 conditional
+phase handoffs still failed with the frozen checkpoint. Next is the proposed
+[label-only training experiment](plans/causal-action-alignment-study.md), with
+one-step feedback and a fresh final cohort after its diagnostic gate. No causal
+model has been trained or qualified yet.
+
+### Paired feedback diagnosis: action meaning
+
+The alignment-only experiment was preempted at update 789, with no completed
+checkpoint. A 20-seed oracle hold diagnostic completed 0/20 when its first applied
+setpoint was reused, versus 16/20 for requested intent (four IK failures).
+Applied setpoints are filtered outputs, while the application accepts intent.
+[ADR 030](adr/030-requested-intent-training-labels.md) defines opt-in causal
+requested labels with executed fault holds. The [controlled study](reports/requested-intent-study.md) completed 5,000 CUDA
+updates but failed its diagnostic gate (0/20), with no final seeds consumed.
+[ADR 031](adr/031-explicit-inference-temporal-ensemble.md) defines the next
+frozen-checkpoint inference experiment. Learned success and the leanest
+sufficient camera configuration remain pending.
+
+The frozen-checkpoint [temporal ensemble diagnostic](reports/act-temporal-ensemble.md)
+completed 3/20 tasks with 827 collision stops, below its gate. The next
+[bounded continuation](plans/act-budget-10000-study.md) tests 10,000 updates,
+with no data/model/safety/rate changes. Automatic source journaling for every
+resume attempt remains deferred; this study records an explicit resume sidecar
+and preserves the initial completed manifest.
+
+A read-only [loading profile](reports/action-loading-profile.md) found 202 image
+decodes per sample for a 100-action paired chunk; numeric projection reduced
+this to two with identical returned fields. ADR 032 adds a default-false option
+with exact CPU training/optimizer/RNG and spawned-worker checks. The three-pair [GPU A/B](reports/action-loading-gpu.md) passed exact model/optimizer/
+RNG equality, measuring 4.55x median steady throughput and 3.30x whole-trial
+wall improvement. The original 10,000-step trial stayed unchanged.
+
+The [10,000-step model](reports/act-budget-10000-study.md) completed 8/20
+diagnostic tasks with 1,469 collision-stop commands, below its 18/20 gate. No
+final seeds were consumed. A [bounded 20,000-step continuation](plans/act-budget-20000-study.md)
+keeps learning/data/safety settings fixed and explicitly opts into the validated
+column-projection optimization.
+
+
+### Paired ACT qualification completed
+
+The [20,000-step study](reports/act-budget-20000-study.md) passed 18/20 diagnostic
+and 90/100 audited fresh final tasks with the frozen paired camera configuration,
+coefficient 0.01 and shared safety. All ten final timeouts and 1,073 collision-stop
+commands remain visible; no drops occurred. The final cohort 23000–23099 is now
+consumed. The selected recipe is simulation-qualified only. Wrist-only ablation,
+broader generalization, live timing/learned ROS motion and a new curated release
+remain separate roadmap work. No additional training loop or merge is automatic.

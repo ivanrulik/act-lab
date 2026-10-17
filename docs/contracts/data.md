@@ -71,3 +71,27 @@ PR 5 uses webcam frames only for live diagnostics and does not persist them.
 The small regression asset is a cropped, downsampled derivative of an
 Apache-2.0 MediaPipe test image; it contains hands only and has provenance next
 to the fixture. Raw operator-camera material remains prohibited in Git.
+
+## Causal action targets (converter v3)
+
+For new feedback-learning experiments, request `--action-alignment next-command`.
+MCAP observations are post-command; v3 pairs each with the next raw applied
+command before resampling. Only action fields shift; input state/RGB/timestamps
+stay current. The final unlabeled observation is dropped. Adjacent command
+intervals must be positive and below 100 ms. No pairing crosses episodes.
+The new fingerprint namespace and lineage distinguish v3 from default v2
+`same-sample` reproduction. Frozen v2 data/models are preserved; changing labels
+requires new training, not a resume with drifted data. See ADR 029.
+
+## Requested-intent targets (converter v4)
+
+Explicit `--action-source requested --action-alignment next-command` pairs each
+current observation with the next command's accepted requested intent. The
+application filters that intent at inference; its already-filtered output is
+not interchangeable with its input. Rejected/disabled commands retain explicit disabled executed holds, or reconstruct
+a disabled measured-pose hold with the last accepted aperture when the existing
+report has no executed action. Missing aperture history, invalid selected
+frames/timestamps and failed numeric quality checks reject conversion. Original
+applied-data hash/quality checks run first. Source and alignment enter lineage;
+v4 has a distinct fingerprint namespace. Legacy applied defaults remain v2/v3.
+See ADR 030 and the requested-intent experiment plan. No safety limits change.

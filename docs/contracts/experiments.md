@@ -37,3 +37,39 @@ For failure analysis, `--trace-actions` writes one JSONL row per simulation
 step with requested and executed actions, the safety outcome and detail, robot
 end-effector pose, and cube pose. Aggregate command outcome counts are included
 in each episode report.
+
+The adapter must verify the resolved framework action horizon after loading,
+and evaluation reports that effective value. Pinned LeRobot 0.6.1 requires
+explicit config CLI overrides; arbitrary loading kwargs can be ignored. A real
+checkpoint test must prove each policy call predicts a fresh chunk when horizon
+one is requested. See the [loader diagnosis](../reports/paired-camera-diagnosis.md).
+
+### Metric counter precision
+
+Pinned LeRobot formats counters with rounded K/M/B suffixes. The single-process
+Compose training adapter records exact update/sample counts from the configured
+logging schedule and checkpoint start, including resume. Loss and timing scalars
+retain upstream display precision. Historic text logs remain immutable; use
+`scripts/recover-training-metrics.py` to write separate corrected JSONL and
+provenance bound to the original log hash, dataset and source revision. A running
+run cannot be recovered, and existing outputs are never overwritten.
+
+### Optional inference ensemble
+
+`sim evaluate --temporal-ensemble-coeff` explicitly enables pinned ACT temporal
+ensembling. Reports must record the effective coefficient and action horizon.
+Every call predicts a fresh chunk; episode reset and rejected camera input clear
+all prediction history. Default None preserves baseline inference and the frozen
+training recipe. An inference change needs a predeclared diagnostic protocol and
+a passing candidate still needs untouched final seeds. See ADR 031.
+
+
+### Optional numeric target loading
+
+`project_action_columns` defaults false for old configs/manifests. Explicit true
+projects future numeric actions before dataset formatting, leaving current
+observations, masks, padding, dtype, sampler and normalization unchanged. It
+requires pinned-reader integration and spawned-worker equivalence checks.
+An explicit resume toggle is the ADR 032 exception to recipe immutability;
+it does not permit any other data/model/optimizer drift. Record the choice and
+resume source identity. GPU throughput claims require an isolated measured A/B.

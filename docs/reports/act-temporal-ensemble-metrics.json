@@ -1,0 +1,1859 @@
+{
+  "schema_version": 1,
+  "source_git": "35bca86",
+  "policy": {
+    "act_n_action_steps": 1,
+    "act_temporal_ensemble_coeff": 0.01,
+    "checkpoint_sha256": "36cca5c575c983de9b5485d5224039d8426abd397fa38978a49b8ee89e0061d9",
+    "device": "cuda",
+    "environment_hz": 50,
+    "policy_hz": 25,
+    "policy_inference_stride": 2,
+    "training_dataset_fps": 25
+  },
+  "seeds": [
+    21000,
+    21001,
+    21002,
+    21003,
+    21004,
+    21005,
+    21006,
+    21007,
+    21008,
+    21009,
+    21010,
+    21011,
+    21012,
+    21013,
+    21014,
+    21015,
+    21016,
+    21017,
+    21018,
+    21019
+  ],
+  "results": {
+    "act": {
+      "episodes": [
+        {
+          "action_trace": "traces/act/seed-21000.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 505,
+            "stale": 0
+          },
+          "completion_time_s": 10.1,
+          "elapsed_time_s": 10.1,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 505
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5833979933860158,
+            0.2608908579052793,
+            0.44422157244021565
+          ],
+          "final_phase": null,
+          "seed": 21000,
+          "steps": 505,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21001.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4364932490351567,
+            -0.15082915972935407,
+            0.4248922445797839
+          ],
+          "final_phase": null,
+          "seed": 21001,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21002.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.3827369725544441,
+            -0.16589527804080856,
+            0.42489224457978386
+          ],
+          "final_phase": null,
+          "seed": 21002,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21003.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 69,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 681,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 69,
+            "workspace_or_rate_limit": 681
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4431197006148508,
+            -0.19442598593397306,
+            0.42489224457978386
+          ],
+          "final_phase": null,
+          "seed": 21003,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21004.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.39038109631927675,
+            -0.08910111532152101,
+            0.42489224457978403
+          ],
+          "final_phase": null,
+          "seed": 21004,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21005.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 489,
+            "stale": 0
+          },
+          "completion_time_s": 9.78,
+          "elapsed_time_s": 9.78,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 489
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5821141945290117,
+            0.26389415988705495,
+            0.4428051328156739
+          ],
+          "final_phase": null,
+          "seed": 21005,
+          "steps": 489,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21006.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.5110730762106043,
+            -0.1460467451329408,
+            0.4248922445797839
+          ],
+          "final_phase": null,
+          "seed": 21006,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21007.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 509,
+            "stale": 0
+          },
+          "completion_time_s": 10.18,
+          "elapsed_time_s": 10.18,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 509
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5834559130961698,
+            0.2674447576462705,
+            0.4442932031270642
+          ],
+          "final_phase": null,
+          "seed": 21007,
+          "steps": 509,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21008.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.5153517106904232,
+            -0.11952230305301748,
+            0.42489224458167973
+          ],
+          "final_phase": null,
+          "seed": 21008,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21009.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 279,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 471,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 279,
+            "workspace_or_rate_limit": 471
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.497872932032965,
+            -0.1799018355883777,
+            0.42489224457978386
+          ],
+          "final_phase": null,
+          "seed": 21009,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21010.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.5109590372888645,
+            -0.0925027812263849,
+            0.4248922445797841
+          ],
+          "final_phase": null,
+          "seed": 21010,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21011.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4819105640133831,
+            -0.12655850363973323,
+            0.4248922445797841
+          ],
+          "final_phase": null,
+          "seed": 21011,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21012.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.47667459729648676,
+            -0.15151064475576997,
+            0.4248922445797841
+          ],
+          "final_phase": null,
+          "seed": 21012,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21013.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4527746839508073,
+            -0.16642149762026065,
+            0.4248922445797841
+          ],
+          "final_phase": null,
+          "seed": 21013,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21014.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.508353602792615,
+            -0.15144662876444573,
+            0.424892244579784
+          ],
+          "final_phase": null,
+          "seed": 21014,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21015.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.35197386988389573,
+            -0.0916395632361211,
+            0.4248922445797839
+          ],
+          "final_phase": null,
+          "seed": 21015,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21016.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 235,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 515,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 235,
+            "workspace_or_rate_limit": 515
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4338864840634146,
+            -0.17901663395748385,
+            0.4248922445797839
+          ],
+          "final_phase": null,
+          "seed": 21016,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21017.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.4011027177858575,
+            -0.14182910132211995,
+            0.4248922445797839
+          ],
+          "final_phase": null,
+          "seed": 21017,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21018.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 750,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 750
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.38395480269010535,
+            -0.21671248272793733,
+            0.42489224457978386
+          ],
+          "final_phase": null,
+          "seed": 21018,
+          "steps": 750,
+          "success": false,
+          "video": null
+        },
+        {
+          "action_trace": "traces/act/seed-21019.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 244,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 506,
+            "stale": 0
+          },
+          "completion_time_s": null,
+          "elapsed_time_s": 15.0,
+          "events": {
+            "drop": 0,
+            "grasp": 0,
+            "safety_rejection": 244,
+            "workspace_or_rate_limit": 506
+          },
+          "failure_reason": "timeout",
+          "final_cube_position_xyz_m": [
+            0.3889574746609314,
+            -0.15507320273598238,
+            0.42489224457978386
+          ],
+          "final_phase": null,
+          "seed": 21019,
+          "steps": 750,
+          "success": false,
+          "video": null
+        }
+      ],
+      "summary": {
+        "episodes": 20,
+        "events": {
+          "drop": 0,
+          "grasp": 3,
+          "safety_rejection": 827,
+          "workspace_or_rate_limit": 13426
+        },
+        "failures": [
+          {
+            "action_trace": "traces/act/seed-21001.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4364932490351567,
+              -0.15082915972935407,
+              0.4248922445797839
+            ],
+            "final_phase": null,
+            "seed": 21001,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21002.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.3827369725544441,
+              -0.16589527804080856,
+              0.42489224457978386
+            ],
+            "final_phase": null,
+            "seed": 21002,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21003.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 69,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 681,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 69,
+              "workspace_or_rate_limit": 681
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4431197006148508,
+              -0.19442598593397306,
+              0.42489224457978386
+            ],
+            "final_phase": null,
+            "seed": 21003,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21004.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.39038109631927675,
+              -0.08910111532152101,
+              0.42489224457978403
+            ],
+            "final_phase": null,
+            "seed": 21004,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21006.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.5110730762106043,
+              -0.1460467451329408,
+              0.4248922445797839
+            ],
+            "final_phase": null,
+            "seed": 21006,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21008.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.5153517106904232,
+              -0.11952230305301748,
+              0.42489224458167973
+            ],
+            "final_phase": null,
+            "seed": 21008,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21009.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 279,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 471,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 279,
+              "workspace_or_rate_limit": 471
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.497872932032965,
+              -0.1799018355883777,
+              0.42489224457978386
+            ],
+            "final_phase": null,
+            "seed": 21009,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21010.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.5109590372888645,
+              -0.0925027812263849,
+              0.4248922445797841
+            ],
+            "final_phase": null,
+            "seed": 21010,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21011.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4819105640133831,
+              -0.12655850363973323,
+              0.4248922445797841
+            ],
+            "final_phase": null,
+            "seed": 21011,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21012.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.47667459729648676,
+              -0.15151064475576997,
+              0.4248922445797841
+            ],
+            "final_phase": null,
+            "seed": 21012,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21013.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4527746839508073,
+              -0.16642149762026065,
+              0.4248922445797841
+            ],
+            "final_phase": null,
+            "seed": 21013,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21014.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.508353602792615,
+              -0.15144662876444573,
+              0.424892244579784
+            ],
+            "final_phase": null,
+            "seed": 21014,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21015.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.35197386988389573,
+              -0.0916395632361211,
+              0.4248922445797839
+            ],
+            "final_phase": null,
+            "seed": 21015,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21016.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 235,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 515,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 235,
+              "workspace_or_rate_limit": 515
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4338864840634146,
+              -0.17901663395748385,
+              0.4248922445797839
+            ],
+            "final_phase": null,
+            "seed": 21016,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21017.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.4011027177858575,
+              -0.14182910132211995,
+              0.4248922445797839
+            ],
+            "final_phase": null,
+            "seed": 21017,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21018.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 0,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 750,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 0,
+              "workspace_or_rate_limit": 750
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.38395480269010535,
+              -0.21671248272793733,
+              0.42489224457978386
+            ],
+            "final_phase": null,
+            "seed": 21018,
+            "steps": 750,
+            "success": false,
+            "video": null
+          },
+          {
+            "action_trace": "traces/act/seed-21019.jsonl",
+            "command_outcomes": {
+              "applied": 0,
+              "collision_stop": 244,
+              "disabled": 0,
+              "ik_failure": 0,
+              "invalid": 0,
+              "limited": 506,
+              "stale": 0
+            },
+            "completion_time_s": null,
+            "elapsed_time_s": 15.0,
+            "events": {
+              "drop": 0,
+              "grasp": 0,
+              "safety_rejection": 244,
+              "workspace_or_rate_limit": 506
+            },
+            "failure_reason": "timeout",
+            "final_cube_position_xyz_m": [
+              0.3889574746609314,
+              -0.15507320273598238,
+              0.42489224457978386
+            ],
+            "final_phase": null,
+            "seed": 21019,
+            "steps": 750,
+            "success": false,
+            "video": null
+          }
+        ],
+        "mean_completion_time_s": 10.02,
+        "median_completion_time_s": 10.1,
+        "success_rate": 0.15,
+        "success_rate_ci_95": [
+          0.052368745896216595,
+          0.36041886474075696
+        ],
+        "successes": 3
+      }
+    },
+    "expert": {
+      "episodes": [
+        {
+          "action_trace": "traces/expert/seed-21000.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 533,
+            "stale": 0
+          },
+          "completion_time_s": 10.66,
+          "elapsed_time_s": 10.66,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 533
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792679725870162,
+            0.22663916834852763,
+            0.4464758867663978
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21000,
+          "steps": 533,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21001.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 539,
+            "stale": 0
+          },
+          "completion_time_s": 10.78,
+          "elapsed_time_s": 10.78,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 539
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792294918224383,
+            0.22691325899746453,
+            0.44624468993471583
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21001,
+          "steps": 539,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21002.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 595,
+            "stale": 0
+          },
+          "completion_time_s": 11.9,
+          "elapsed_time_s": 11.9,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 595
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5793218247995231,
+            0.22740391936425808,
+            0.446107824503339
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21002,
+          "steps": 595,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21003.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 582,
+            "stale": 0
+          },
+          "completion_time_s": 11.64,
+          "elapsed_time_s": 11.64,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 582
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794172999898081,
+            0.227583568785447,
+            0.4456519119125861
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21003,
+          "steps": 582,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21004.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 599,
+            "stale": 0
+          },
+          "completion_time_s": 11.98,
+          "elapsed_time_s": 11.98,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 599
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5793279133715515,
+            0.23414512351629121,
+            0.44489194391323517
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21004,
+          "steps": 599,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21005.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 530,
+            "stale": 0
+          },
+          "completion_time_s": 10.6,
+          "elapsed_time_s": 10.6,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 530
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5793165103162872,
+            0.2267153188754045,
+            0.4464188745721758
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21005,
+          "steps": 530,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21006.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 562,
+            "stale": 0
+          },
+          "completion_time_s": 11.24,
+          "elapsed_time_s": 11.24,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 562
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794622772545039,
+            0.22806859530903648,
+            0.4453112797118509
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21006,
+          "steps": 562,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21007.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 589,
+            "stale": 0
+          },
+          "completion_time_s": 11.78,
+          "elapsed_time_s": 11.78,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 589
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.579327638271581,
+            0.23580066701543398,
+            0.44489187641111283
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21007,
+          "steps": 589,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21008.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 550,
+            "stale": 0
+          },
+          "completion_time_s": 11.0,
+          "elapsed_time_s": 11.0,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 550
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794956670045581,
+            0.22812003565434136,
+            0.445696211407519
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21008,
+          "steps": 550,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21009.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 577,
+            "stale": 0
+          },
+          "completion_time_s": 11.54,
+          "elapsed_time_s": 11.54,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 577
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794970890465407,
+            0.22840264536203314,
+            0.4449864486511683
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21009,
+          "steps": 577,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21010.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 541,
+            "stale": 0
+          },
+          "completion_time_s": 10.82,
+          "elapsed_time_s": 10.82,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 541
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.57949579660845,
+            0.2278444028350616,
+            0.4457899654178445
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21010,
+          "steps": 541,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21011.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 534,
+            "stale": 0
+          },
+          "completion_time_s": 10.68,
+          "elapsed_time_s": 10.68,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 534
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792900569306813,
+            0.22687081222183753,
+            0.4459831540637189
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21011,
+          "steps": 534,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21012.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 545,
+            "stale": 0
+          },
+          "completion_time_s": 10.9,
+          "elapsed_time_s": 10.9,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 545
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792775972449712,
+            0.22698854855829723,
+            0.4457641943297825
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21012,
+          "steps": 545,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21013.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 548,
+            "stale": 0
+          },
+          "completion_time_s": 10.96,
+          "elapsed_time_s": 10.96,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 548
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794048853260927,
+            0.22750156284113862,
+            0.44575469528698264
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21013,
+          "steps": 548,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21014.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 564,
+            "stale": 0
+          },
+          "completion_time_s": 11.28,
+          "elapsed_time_s": 11.28,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 564
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5794649771832725,
+            0.22778159108939555,
+            0.4455895408028261
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21014,
+          "steps": 564,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21015.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 634,
+            "stale": 0
+          },
+          "completion_time_s": 12.68,
+          "elapsed_time_s": 12.68,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 634
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5793422170604456,
+            0.23538034248665365,
+            0.4448913507287051
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21015,
+          "steps": 634,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21016.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 567,
+            "stale": 0
+          },
+          "completion_time_s": 11.34,
+          "elapsed_time_s": 11.34,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 567
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792373332748157,
+            0.22703647842287286,
+            0.44608986490127966
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21016,
+          "steps": 567,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21017.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 563,
+            "stale": 0
+          },
+          "completion_time_s": 11.26,
+          "elapsed_time_s": 11.26,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 563
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792384576174816,
+            0.2267501849059905,
+            0.44640235418236046
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21017,
+          "steps": 563,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21018.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 635,
+            "stale": 0
+          },
+          "completion_time_s": 12.7,
+          "elapsed_time_s": 12.7,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 635
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5792415454392428,
+            0.22688959909950412,
+            0.4459334931597249
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21018,
+          "steps": 635,
+          "success": true,
+          "video": null
+        },
+        {
+          "action_trace": "traces/expert/seed-21019.jsonl",
+          "command_outcomes": {
+            "applied": 0,
+            "collision_stop": 0,
+            "disabled": 0,
+            "ik_failure": 0,
+            "invalid": 0,
+            "limited": 579,
+            "stale": 0
+          },
+          "completion_time_s": 11.58,
+          "elapsed_time_s": 11.58,
+          "events": {
+            "drop": 0,
+            "grasp": 1,
+            "safety_rejection": 0,
+            "workspace_or_rate_limit": 579
+          },
+          "failure_reason": null,
+          "final_cube_position_xyz_m": [
+            0.5791528427142162,
+            0.22616261315341954,
+            0.44663142242373977
+          ],
+          "final_phase": "open_dwell",
+          "seed": 21019,
+          "steps": 579,
+          "success": true,
+          "video": null
+        }
+      ],
+      "summary": {
+        "episodes": 20,
+        "events": {
+          "drop": 0,
+          "grasp": 20,
+          "safety_rejection": 0,
+          "workspace_or_rate_limit": 11366
+        },
+        "failures": [],
+        "mean_completion_time_s": 11.366,
+        "median_completion_time_s": 11.28,
+        "success_rate": 1.0,
+        "success_rate_ci_95": [
+          0.8388748419471806,
+          1.0
+        ],
+        "successes": 20
+      }
+    }
+  },
+  "decision_latency": {
+    "maximum_s": 0.40317421790678054,
+    "p50_s": 0.008230446022935212,
+    "p95_s": 0.008750836015678942,
+    "p99_s": 0.015379732940346003,
+    "samples": 7128,
+    "scope": "RGB rendering plus policy.act; offline wall time"
+  },
+  "safety_path": "SafeCartesianRobot.command(Action)"
+}

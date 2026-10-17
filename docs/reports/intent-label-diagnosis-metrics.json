@@ -1,0 +1,1580 @@
+{
+  "schema_version": 1,
+  "oracle": {
+    "schema_version": 1,
+    "control_hz": 50,
+    "decision_hz": 25,
+    "description": "Oracle expert requests vs first applied target held across two safety ticks; no learned policy or rendering",
+    "episodes": [
+      {
+        "seed": 21000,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 545,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794912687667849,
+          0.2295477643975156,
+          0.47597883198600494
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.6
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.32
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.08
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.12
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.4
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.52
+          }
+        ]
+      },
+      {
+        "seed": 21000,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.42704292000542327,
+          -0.10905068231996662,
+          0.535026757875523
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 5.52
+          }
+        ]
+      },
+      {
+        "seed": 21001,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 545,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5795310734172734,
+          0.22957567674921797,
+          0.4758496837198609
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.12
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 2.8
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.56
+          },
+          {
+            "phase": "transit",
+            "time_s": 4.6
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.4
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.52
+          }
+        ]
+      },
+      {
+        "seed": 21001,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4329267142917225,
+          -0.15061648733581623,
+          0.5075422796256229
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 2.0
+          }
+        ]
+      },
+      {
+        "seed": 21002,
+        "representation": "requested",
+        "success": false,
+        "reason": null,
+        "failure_reason": "ik_failure",
+        "steps": 542,
+        "phase": "hold",
+        "tcp_xyz": [
+          0.579324996554355,
+          0.2254792327318138,
+          0.5581322391308697
+        ],
+        "safety_rejections": 1,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.8
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.52
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.28
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.32
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.6
+          }
+        ]
+      },
+      {
+        "seed": 21002,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.3837587968502398,
+          -0.1645710110819597,
+          0.5465397832895191
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 7.04
+          }
+        ]
+      },
+      {
+        "seed": 21003,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 588,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5795034128688358,
+          0.229533468913584,
+          0.47590714310403737
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.48
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.2
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.96
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.0
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.28
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.4
+          }
+        ]
+      },
+      {
+        "seed": 21003,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.43705394259072294,
+          -0.1885549035635592,
+          0.5303862609810313
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 4.84
+          }
+        ]
+      },
+      {
+        "seed": 21004,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 625,
+        "phase": "retreat",
+        "tcp_xyz": [
+          0.5800201915689581,
+          0.23010040222777262,
+          0.4775428980862874
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 2.0
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.72
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.48
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.52
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.96
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.08
+          },
+          {
+            "phase": "retreat",
+            "time_s": 12.44
+          }
+        ]
+      },
+      {
+        "seed": 21004,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.39084865632892873,
+          -0.09669416703006568,
+          0.5598553817853836
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 8.84
+          }
+        ]
+      },
+      {
+        "seed": 21005,
+        "representation": "requested",
+        "success": false,
+        "reason": null,
+        "failure_reason": "ik_failure",
+        "steps": 484,
+        "phase": "hold",
+        "tcp_xyz": [
+          0.5805766173720872,
+          0.22554233076817695,
+          0.5565201548468153
+        ],
+        "safety_rejections": 1,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.68
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.44
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.2
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.24
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.32
+          }
+        ]
+      },
+      {
+        "seed": 21005,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4747406096867387,
+          -0.10838922482573422,
+          0.5437762289102963
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 6.2
+          }
+        ]
+      },
+      {
+        "seed": 21006,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 571,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794636032223628,
+          0.2294877892448613,
+          0.4760091571936103
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.72
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.64
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.4
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.44
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.92
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.04
+          }
+        ]
+      },
+      {
+        "seed": 21006,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.5038506250561843,
+          -0.1446104103955173,
+          0.5516157572354472
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 6.92
+          }
+        ]
+      },
+      {
+        "seed": 21007,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 563,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794694196009668,
+          0.22954115860450772,
+          0.4760052034527145
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.84
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.56
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.32
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.36
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.68
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.88
+          }
+        ]
+      },
+      {
+        "seed": 21007,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.40436337635349573,
+          -0.09961499621378442,
+          0.5509316015206243
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 7.64
+          }
+        ]
+      },
+      {
+        "seed": 21008,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 559,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794321533289444,
+          0.22946802267215813,
+          0.47609057969772495
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.8
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.68
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.44
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.48
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.68
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.8
+          }
+        ]
+      },
+      {
+        "seed": 21008,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.5039124073645121,
+          -0.12364410073452849,
+          0.5577311474090564
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 7.44
+          }
+        ]
+      },
+      {
+        "seed": 21009,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 593,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5795464138267552,
+          0.22958534736111216,
+          0.4757658444204897
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.6
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.48
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.24
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.28
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.24
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.48
+          }
+        ]
+      },
+      {
+        "seed": 21009,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.48630915205152003,
+          -0.17591264580771054,
+          0.5420032672809831
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 5.92
+          }
+        ]
+      },
+      {
+        "seed": 21010,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 549,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794150090363198,
+          0.22945155912966492,
+          0.4761403652816984
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.96
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.8
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.56
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.6
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.48
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.6
+          }
+        ]
+      },
+      {
+        "seed": 21010,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.5002359134644134,
+          -0.09964362353098237,
+          0.5659082645624975
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 8.52
+          }
+        ]
+      },
+      {
+        "seed": 21011,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 544,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.57949151510544,
+          0.22953785753932135,
+          0.4759813848279708
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.44
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.2
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.96
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.0
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.36
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.48
+          }
+        ]
+      },
+      {
+        "seed": 21011,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.47160199159236543,
+          -0.13041571633933677,
+          0.5249902474685272
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 4.32
+          }
+        ]
+      },
+      {
+        "seed": 21012,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 556,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794294929212767,
+          0.2294673204214277,
+          0.47611639547168527
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.28
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.12
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.88
+          },
+          {
+            "phase": "transit",
+            "time_s": 4.92
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.6
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.76
+          }
+        ]
+      },
+      {
+        "seed": 21012,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4661087309386822,
+          -0.15178541751525057,
+          0.5096152644542757
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 3.12
+          }
+        ]
+      },
+      {
+        "seed": 21013,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 556,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5795220387221632,
+          0.2295482977765437,
+          0.4758989996682729
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.16
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 2.92
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.68
+          },
+          {
+            "phase": "transit",
+            "time_s": 4.72
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.64
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 10.76
+          }
+        ]
+      },
+      {
+        "seed": 21013,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4456639495763137,
+          -0.16367415626217588,
+          0.500231360925398
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 2.16
+          }
+        ]
+      },
+      {
+        "seed": 21014,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 572,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794980053190383,
+          0.22952922975971626,
+          0.4759618061861448
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.64
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.52
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.28
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.32
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.92
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.04
+          }
+        ]
+      },
+      {
+        "seed": 21014,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4972738311445234,
+          -0.15202340958238514,
+          0.5449628351921275
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 6.24
+          }
+        ]
+      },
+      {
+        "seed": 21015,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 643,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5796451780490551,
+          0.22994511326216743,
+          0.47589120746030455
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 2.36
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 4.08
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.84
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.88
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.6
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.72
+          }
+        ]
+      },
+      {
+        "seed": 21015,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.3578834122156024,
+          -0.09869200192372043,
+          0.5803880693837398
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 11.6
+          }
+        ]
+      },
+      {
+        "seed": 21016,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 580,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5794728421782205,
+          0.22952251520411973,
+          0.47600644719324103
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.36
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.08
+          },
+          {
+            "phase": "lift",
+            "time_s": 3.84
+          },
+          {
+            "phase": "transit",
+            "time_s": 4.88
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.04
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.24
+          }
+        ]
+      },
+      {
+        "seed": 21016,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.4289251428369259,
+          -0.17456875394944504,
+          0.519419845490213
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 3.68
+          }
+        ]
+      },
+      {
+        "seed": 21017,
+        "representation": "requested",
+        "success": true,
+        "reason": "success",
+        "failure_reason": null,
+        "steps": 573,
+        "phase": "open_dwell",
+        "tcp_xyz": [
+          0.5795061115196608,
+          0.22956522455027242,
+          0.47589338364280764
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.56
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.28
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.04
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.08
+          },
+          {
+            "phase": "lower",
+            "time_s": 9.96
+          },
+          {
+            "phase": "open_dwell",
+            "time_s": 11.08
+          }
+        ]
+      },
+      {
+        "seed": 21017,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.3996070513435166,
+          -0.1427818921654526,
+          0.5331779268105271
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 5.32
+          }
+        ]
+      },
+      {
+        "seed": 21018,
+        "representation": "requested",
+        "success": false,
+        "reason": null,
+        "failure_reason": "ik_failure",
+        "steps": 588,
+        "phase": "hold",
+        "tcp_xyz": [
+          0.5797865250532795,
+          0.22559201266846343,
+          0.5569795971602185
+        ],
+        "safety_rejections": 1,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 2.08
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.8
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.56
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.6
+          },
+          {
+            "phase": "lower",
+            "time_s": 11.44
+          }
+        ]
+      },
+      {
+        "seed": 21018,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.385577358417766,
+          -0.2095650883785343,
+          0.5669415066390759
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 9.48
+          }
+        ]
+      },
+      {
+        "seed": 21019,
+        "representation": "requested",
+        "success": false,
+        "reason": null,
+        "failure_reason": "ik_failure",
+        "steps": 535,
+        "phase": "hold",
+        "tcp_xyz": [
+          0.5798996443025392,
+          0.22632197688185718,
+          0.5581145028449837
+        ],
+        "safety_rejections": 1,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.08
+          },
+          {
+            "phase": "descend",
+            "time_s": 1.68
+          },
+          {
+            "phase": "close_dwell",
+            "time_s": 3.4
+          },
+          {
+            "phase": "lift",
+            "time_s": 4.16
+          },
+          {
+            "phase": "transit",
+            "time_s": 5.2
+          },
+          {
+            "phase": "lower",
+            "time_s": 10.32
+          }
+        ]
+      },
+      {
+        "seed": 21019,
+        "representation": "first-applied",
+        "success": false,
+        "reason": "timeout",
+        "failure_reason": null,
+        "steps": 750,
+        "phase": "descend",
+        "tcp_xyz": [
+          0.3891662354291178,
+          -0.15488636490537303,
+          0.5408541051969115
+        ],
+        "safety_rejections": 0,
+        "phases": [
+          {
+            "phase": "open_raise",
+            "time_s": 0.0
+          },
+          {
+            "phase": "approach_cube",
+            "time_s": 1.96
+          },
+          {
+            "phase": "descend",
+            "time_s": 6.32
+          }
+        ]
+      }
+    ]
+  },
+  "preempted_training": {
+    "status": "preempted",
+    "reason": "Oracle 25 Hz hold probe: first-applied targets 0/20 vs requested 16/20; double application of the 100 ms response filter invalidates label-only intervention. No completed model or model success result.",
+    "last_progress_update": 789,
+    "training_manifest_status": "failed",
+    "training_failure_reason": "KeyboardInterrupt: ",
+    "oracle": "control-period-20.json"
+  },
+  "requested_dataset_verification": {
+    "schema_version": 1,
+    "dataset_fingerprint": "49e3f6f6fa7f016bef373cf4050b88f8b6c81905106332cdde70813291a2be04",
+    "storage_fingerprint": "baace059af172bc39a3df8c4a06d7066493dc61c82681a5b845da07860ce6d52",
+    "reference_fingerprint": "0a9a44a9ab5e3d4cba261d1cac2bf630786dd4a0c7496182604b18458f40758a",
+    "frames": 11624,
+    "unchanged_encoded_images": 23248,
+    "reconstructed_raw_holds": 40,
+    "max_action_float32_error": 2.909345941937147e-08,
+    "max_state_float32_error": 2.383948416451176e-07,
+    "raw_hashes_unchanged": true,
+    "episode_splits_unchanged": true
+  }
+}

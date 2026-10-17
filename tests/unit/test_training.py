@@ -131,3 +131,70 @@ def test_metric_parser_translates_pinned_lerobot_line() -> None:
         "gpu_memory_gb": 1.5,
         "action_loss": 0.4,
     }
+
+
+def test_metric_parser_handles_scaled_counters_and_ignores_progress_percentage() -> (
+    None
+):
+    metric = parse_metric_line(
+        "Training: 24%|##| 1200/5000 step:1K smpl:10K loss:0.2 lr:1e-5 count:2M"
+    )
+    assert metric == {
+        "step": 1000,
+        "smpl": 10000.0,
+        "loss": 0.2,
+        "learning_rate": 1e-5,
+        "count": 2_000_000.0,
+    }
+
+
+def test_metric_stream_retains_exact_steps_when_upstream_rounds_on_resume(tmp_path):
+    import io
+
+    from act_lab.adapters.lerobot.training import _ArtifactStream
+
+    stream = _ArtifactStream(
+        tmp_path, io.StringIO(), log_freq=200, start_step=800, batch_size=8
+    )
+    # 1K also represents updates 1200 and 1400 in the pinned formatter.
+    for counter in ["1K", "1K", "1K", "2K", "2K", "2K"]:
+        stream.write(f"step:{counter} smpl:10K loss:0.2\n")
+    stream.close()
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "metrics.jsonl").read_text().splitlines()
+    ]
+    assert [r["step"] for r in rows] == [1000, 1200, 1400, 1600, 1800, 2000]
+    assert [r["smpl"] for r in rows] == [8000, 9600, 11200, 12800, 14400, 16000]
+    assert (tmp_path / "train.log").read_text().count("step:1K") == 3
+
+
+@pytest.mark.parametrize("coefficient", [float("nan"), float("inf"), -float("inf")])
+def test_temporal_ensemble_rejects_nonfinite_options_without_framework_imports(
+    coefficient,
+):
+    from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
+
+    with pytest.raises(ValueError, match="finite"):
+        LeRobotACTPolicy(
+            Path("missing"), "cpu", (), temporal_ensemble_coeff=coefficient
+        )
+    with pytest.raises(ValueError, match="horizon one"):
+        LeRobotACTPolicy(
+            Path("missing"), "cpu", (), n_action_steps=2, temporal_ensemble_coeff=0.01
+        )
+
+
+def test_action_projection_config_is_explicit_and_defaults_to_legacy(tmp_path):
+    path = tmp_path / "train.toml"
+    write_config(path)
+    assert not load_act_config(path).project_action_columns
+    path.write_text(path.read_text() + "project_action_columns = true\n")
+    assert load_act_config(path).project_action_columns
+    path.write_text(
+        path.read_text().replace(
+            "project_action_columns = true", "project_action_columns = 1"
+        )
+    )
+    with pytest.raises(ValueError, match="boolean"):
+        load_act_config(path)

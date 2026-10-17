@@ -53,3 +53,12 @@ physical hardware, other tasks or generalization outside the recorded bounds.
 Independent newcomer completion, public visibility, optional demonstration
 examples, current-tool policy training/evaluation and archive bucket retention
 remain follow-ups. Training continues to work locally without ROS or Hub auth.
+
+## Action-horizon interpretation audit
+
+The later [paired-pilot diagnosis](paired-camera-diagnosis.md) found LeRobot
+0.6.1 ignored the adapter's one-step loading kwarg. The saved legacy release
+config also has horizon 100. Historical success counts remain recorded
+observations, but a claimed one-step fresh-feedback interpretation requires
+audit of the original runtime. This diagnosis did not replay or requalify the
+legacy model, and does not alter immutable published artifacts.

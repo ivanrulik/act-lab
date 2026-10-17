@@ -293,3 +293,46 @@ motion or acknowledge authoritative storage. Startup requires the configured
 mount; capacity/write failures remain explicit errors. Abrupt process loss may
 truncate these diagnostic artifacts. Ordinary canonical acquisition durability
 and authoritative rosbag disk storage remain unchanged.
+
+## Paired-camera pilot evidence
+
+The explicit single-candidate runner retains the original visibility, validated
+MCAP, derived-dataset and shared safety boundaries. The frozen paired pilot
+completed 33/100 final tasks at 5,000 updates and did not qualify for release.
+Its [report](reports/paired-camera-pilot.md) records per-seed failures, measured
+costs and renderer-dependent audit limits. Requalification needs a new protocol
+and untouched final seeds.
+
+Derived learning data can explicitly use causal next-command labels (ADR 029):
+shift actions within raw episodes before resampling, preserving current input
+state and images. Converter v3 uses a separate fingerprint; v2 artifacts retain
+their historical same-sample semantics. The recording schema/domain remain
+unchanged. See the [continued diagnosis](reports/paired-camera-diagnosis.md).
+
+### Learning intent versus controller output
+
+[ADR 030](adr/030-requested-intent-training-labels.md) adds explicit causal
+requested-intent training labels (converter v4). Safety-filtered executed
+setpoints are intermediate outputs; feeding them back as intent applies the
+response filter again. Requested labels preserve executed disabled holds for
+faults and keep all inference safety checks. Legacy conversion is unchanged.
+The [requested-intent study](plans/requested-intent-study.md) must establish
+closed-loop performance before qualification.
+
+Optional inference temporal ensembling is explicit in runtime configuration and
+evidence ([ADR 031](adr/031-explicit-inference-temporal-ensemble.md)). It predicts
+a fresh chunk each tick and clears history on episode/input faults; it preserves
+the default disabled training/inference recipe and shared safety path.
+
+
+The optional training adapter can project future numeric action columns before
+framework formatting ([ADR 032](adr/032-opt-in-numeric-action-projection.md)).
+This default-false path avoids unused future image decoding without changing
+current inputs or learning tensors. The process-local factory hook is restored
+on success/failure, and its reader subclass supports spawned workers.
+
+
+The frozen paired ACT recipe met its 18/20 diagnostic and 90/100 final simulation
+gates after 20,000 updates. Its [qualification report](reports/act-budget-20000-study.md)
+records every failure, hash, gate and scope limit. It does not establish wrist-only
+sufficiency, wall-clock real-time control or hardware safety.

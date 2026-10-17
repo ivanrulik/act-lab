@@ -290,6 +290,33 @@ def _lerp(
     return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
 
 
+def align_next_commands(episode: RecordedEpisode) -> RecordedEpisode:
+    """Pair a post-step observation with the next applied raw command.
+
+    Align before resampling so labels refer to the next acquisition command,
+    rather than the next derived frame. The terminal observation has no label.
+    """
+    if len(episode.samples) < 2:
+        raise ValueError("causal alignment requires at least two raw samples")
+    samples = []
+    for current, following in zip(episode.samples, episode.samples[1:], strict=False):
+        if not 0 < following.timestamp_ns - current.timestamp_ns < 100_000_000:
+            raise ValueError(
+                "causal command interval must be positive and below 100 ms"
+            )
+        samples.append(
+            replace(
+                current,
+                action_position_xyz_m=following.action_position_xyz_m,
+                action_quaternion_wxyz=following.action_quaternion_wxyz,
+                action_gripper_position=following.action_gripper_position,
+                action_enabled=following.action_enabled,
+                command_outcome=following.command_outcome,
+            )
+        )
+    return replace(episode, samples=tuple(samples))
+
+
 def resample_episode(episode: RecordedEpisode, fps: int) -> RecordedEpisode:
     if fps <= 0 or 1_000_000_000 % fps:
         raise ValueError("fps must be a positive integer divisor of 1,000,000,000")

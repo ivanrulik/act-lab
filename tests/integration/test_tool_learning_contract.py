@@ -3,6 +3,7 @@
 import json
 from dataclasses import asdict, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -36,12 +37,14 @@ def test_real_calibration_identity_rejects_changes_and_legacy_checkpoint(tmp_pat
             model_contract(altered)
         policy = LeRobotACTPolicy.__new__(LeRobotACTPolicy)
         policy._model_contract = contract
+        resets = []
+        policy._policy = SimpleNamespace(reset=lambda: resets.append(True))
         obs = env.observe()
         images = {
             c: np.zeros(p["shape"], dtype=np.uint8)
             for c, p in contract["cameras"].items()
         }
-        # These failures return disabled intent before touching any ACT framework.
+        # Reject inputs and clear prediction history without importing/inferencing ACT.
         cases = (
             (images, None, "missing_camera_timestamp"),
             ({}, obs.timestamp_ns, "missing_or_mismatched_camera"),
@@ -57,3 +60,4 @@ def test_real_calibration_identity_rejects_changes_and_legacy_checkpoint(tmp_pat
         assert not policy.act(
             later, images, capture_timestamp_ns=obs.timestamp_ns
         ).enabled
+        assert len(resets) == 4

@@ -1,7 +1,9 @@
 # ACT training
 
-PR 8 trains only from a converter-version-2 dataset whose logical and finalized
-storage fingerprints match and whose episode split is valid. Regenerate older
+Training requires a converter-version-2 (historical), version-3 (causal applied),
+or version-4 (causal requested-intent) dataset
+whose logical and finalized storage fingerprints match and whose episode split
+is valid. Regenerate older
 derived datasets from the immutable selection manifest; raw MCAP files do not
 change.
 
@@ -81,3 +83,41 @@ configuration APIs, optionally invokes the production CLI, and plots local
 metrics. Training loss is an offline optimization diagnostic, not evidence of
 safe closed-loop performance. Seeded held-out rollouts and confidence intervals
 belong to PR 9.
+
+## Causal action labels for new feedback experiments
+
+Raw observations are post-command. For the new causal learning protocol, create
+a separate dataset with both `recording convert --action-alignment next-command`
+and `--action-source requested` (v4). Current observations pair with the next
+accepted intent; faults retain explicit/reconstructed disabled holds. This matches
+the application input, rather than re-filtering its applied output. Default
+`same-sample`/`applied` retains v2 historical reproduction; v3 remains available
+for the alignment-only diagnosis. Check all source/alignment/version lineage.
+Changed fingerprints require fresh training. See [ADR 030](adr/030-requested-intent-training-labels.md)
+and [the measured requested-intent study](reports/requested-intent-study.md).
+
+
+## Optional numeric-action projection
+
+The historical loader remains the default. The explicit
+`configs/training/act-camera-pilot-projected.toml` differs from the pilot recipe
+only by `project_action_columns = true`. It projects future action columns before
+formatting, preventing the pinned reader from decoding future camera images that
+never enter the model. Current RGB/state, target/mask order, sampler, dtype and
+normalization remain unchanged. No new dependency is needed: this uses the
+existing pinned dataset selection API inside the optional LeRobot adapter.
+
+Fresh runs opt in through the full configuration. An existing run can explicitly
+opt in with `train resume --project-action-columns` (or disable with
+`--no-project-action-columns`); the choice is persisted. All other dataset,
+device and learning configuration restrictions remain. Record changed resume
+source identity separately until automatic per-attempt journaling is implemented.
+See [ADR 032](adr/032-opt-in-numeric-action-projection.md).
+
+Four read-only probes reduced image decoding from 202 to two per paired sample
+while all returned fields were equal. The real spawned-worker tiny-training test
+produced exactly equal model, optimizer and RNG tensors against the stock reader.
+The separate three-pair [GPU comparison](reports/action-loading-gpu.md) passed
+exact model/optimizer/RNG equality: median steady throughput improved 4.55x and
+whole 100-update trial wall time 3.30x. These are short local trials, not a general
+performance guarantee or evidence of task success.

@@ -57,3 +57,15 @@ consequences, and status.
 
 - [ADR 028](028-explicit-camera-study.md): calibrated camera projection and
   bounded visibility/learning comparison with explicit no-go gates.
+
+- [ADR 029](029-causal-derived-action-alignment.md): opt-in v3 causal command
+  labels before resampling, preserving v2 reproduction and raw acquisition.
+
+- [ADR 030](030-requested-intent-training-labels.md): opt-in v4 requested-intent
+  labels with executed fault holds and unchanged application safety.
+
+- [ADR 031](031-explicit-inference-temporal-ensemble.md): explicit optional ACT
+  inference ensemble with fresh prediction and reset/fault history clearing.
+
+- [ADR 032](032-opt-in-numeric-action-projection.md): opt-in future numeric-action
+  projection with unchanged tensors and spawned-worker/checkpoint equivalence.
