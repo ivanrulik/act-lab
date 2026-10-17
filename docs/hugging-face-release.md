@@ -1,9 +1,66 @@
 # Curated Hugging Face releases
 
 Release publication is an explicit adapter step, separate from local training.
-The first recipe selects the legacy educational two-camera dataset and its
-evaluated ACT checkpoint. It is approximately 1.41 GB without optional videos
-or raw examples. It does not publish the newer articulated-tool smoke model.
+The current paired recipe packages the simulation-qualified articulated-tool
+dataset/model, explicit inference settings and two Foxglove demonstration
+reruns. Combined inventory: approximately **1.015 GB**, with 40 episodes (30 train,
+10 reserved), one inference checkpoint and no optimizer/raw acquisition archive.
+See [paired reproduction](releases/paired-reproduction.md),
+[dataset card](releases/paired-dataset-card.md),
+[model card](releases/paired-model-card.md) and ADR 033.
+
+The historical educational recipe remains distinct and immutable: approximately
+1.41 GB, legacy robot/two-camera configuration and no replay examples. Its
+later action-horizon audit remains attached; do not treat it as the paired
+qualification or use its execution settings for the new model.
+
+## Qualified paired recipe
+
+```bash
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release stage --config configs/releases/paired-act-v1.toml \
+  --output runs/releases/paired-v1
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release verify --package runs/releases/paired-v1/dataset
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release verify --package runs/releases/paired-v1/model
+```
+
+Publish/download using the commands below with the paired package paths. New
+repositories are `ivanrulik/act-lab-ur5e-paired-pick-place-v1` (dataset) and
+`ivanrulik/act-lab-ur5e-paired-act-v1` (model), private by default. Immutable
+commits and actual clean-download evidence are recorded in the
+[paired release report](reports/paired-act-release.md).
+
+Verified immutable receipts are committed alongside the recipe. To retrieve the
+published artifacts without regenerating local training data:
+
+```bash
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release download \
+  --receipt configs/releases/paired-act-v1-dataset-receipt.json \
+  --output runs/releases/downloaded-paired-dataset
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release download \
+  --receipt configs/releases/paired-act-v1-model-receipt.json \
+  --output runs/releases/downloaded-paired-model
+```
+
+Private repository access requires your authorized Hub credentials. No token is
+included in the receipts or artifacts.
+
+`inference.json` is checked against the primary evaluation and checkpoint;
+dataset packages also check 25 Hz FPS. Staging checks completed training,
+model/camera contracts and the exact frozen split. Run
+`scripts/check-paired-release.py` on downloaded packages: it checks tensor
+shapes, exact simulation settings and two consumed-seed reruns, then rechecks
+hashes. It does not expand the 100-task qualification cohort.
+
+The packaged success/timeout replays contain the policy's actual wrist/fixed
+inputs, state and safety reports. They are new demonstration reruns rather than
+original evaluation videos. Do not include them in expert training selection.
+Training and inference remain ROS-free. The Hub SDK is the existing pinned
+optional dependency; this increment adds none.
 
 ## Prepare and verify
 
@@ -81,5 +138,6 @@ Historical training recorded dirty Git state; bit-identical retraining is not
 claimed. A separate newcomer trial remains PR 10 acceptance work.
 
 Keep local copies until remote verification and loading succeed. Bucket archive
-retention, automatic upload during training, raw webcam publication, current
-tool-model policy qualification and paid cloud jobs are outside this feature.
+retention, automatic upload during training, raw webcam publication and paid
+cloud jobs are outside this feature. Current tool-model paired simulation
+qualification is documented separately from hardware and broader generalization.

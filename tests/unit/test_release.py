@@ -197,3 +197,109 @@ def test_download_pins_commit_and_verifies(staged: Path, monkeypatch) -> None:
     receipt.write_text(json.dumps({"schema_version": 1, "revision": "main"}))
     with pytest.raises(ValueError, match="full commit SHA"):
         hugging_face.download(receipt, staged.parent / "other-copy")
+
+
+@pytest.fixture
+def paired_recipe(staged: Path) -> Path:
+    root = staged.parent
+    data = root / "data"
+    (data / "meta/info.json").write_text('{"total_episodes": 1, "fps": 25}')
+    lineage_path = data / "act_lab_lineage.json"
+    lineage = json.loads(lineage_path.read_text())
+    lineage.update(storage_fingerprint=storage_fingerprint(data), model_contract={})
+    lineage_path.write_text(json.dumps(lineage))
+    (root / "model/act_lab_model.json").write_text("{}")
+    (root / "training.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "dataset": {
+                    "logical_fingerprint": "logical",
+                    "storage_fingerprint": lineage["storage_fingerprint"],
+                    "train_episode_indices": [0],
+                    "reserved_episode_indices": [],
+                },
+            }
+        )
+    )
+    (root / "evaluation.json").write_text(
+        json.dumps(
+            {
+                "policy": {
+                    "checkpoint_sha256": checkpoint_hash(root / "model"),
+                    "policy_hz": 25,
+                    "act_n_action_steps": 1,
+                    "act_temporal_ensemble_coeff": 0.01,
+                }
+            }
+        )
+    )
+    (root / "simulation.toml").write_text("# Frozen simulation configuration\n")
+    (root / "reproduce.md").write_text("# Reproduction\n")
+    (root / "example.mcap").write_bytes(b"fixture replay")
+    config = root / "release.toml"
+    with config.open("a") as stream:
+        stream.write("""
+asset_notices = ["license.txt"]
+reproduction_files = ["reproduce.md"]
+model_examples = ["example.mcap"]
+[release.inference]
+simulation_config = "simulation.toml"
+policy_hz = 25
+n_action_steps = 1
+temporal_ensemble_coeff = 0.01
+""")
+    return config
+
+
+def test_paired_release_preserves_recipe_and_model_only_examples(
+    paired_recipe: Path,
+) -> None:
+    output = paired_recipe.parent / "paired"
+    stage(paired_recipe, output)
+    for kind in ("dataset", "model"):
+        manifest = verify_package(output / kind)
+        assert manifest["inference"]["temporal_ensemble_coeff"] == 0.01
+        assert (output / kind / "reproduction/simulation.toml").is_file()
+        assert (output / kind / "evidence/qualification.json").is_file()
+        assert list((output / kind / "notices").iterdir())
+    assert (output / "model/examples/example.mcap").read_bytes() == b"fixture replay"
+    assert not (output / "dataset/examples").exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("policy_hz", 50),
+        ("act_n_action_steps", 100),
+        ("act_temporal_ensemble_coeff", None),
+    ],
+)
+def test_paired_inference_must_match_evaluation(
+    paired_recipe: Path, field, value
+) -> None:
+    path = paired_recipe.parent / "evaluation.json"
+    evaluation = json.loads(path.read_text())
+    evaluation["policy"][field] = value
+    path.write_text(json.dumps(evaluation))
+    with pytest.raises(ValueError, match="differs from evaluation"):
+        stage(paired_recipe, paired_recipe.parent / "bad-inference")
+
+
+@pytest.mark.parametrize("change", ["model_contract", "split", "incomplete"])
+def test_paired_lineage_must_match(paired_recipe: Path, change: str) -> None:
+    root = paired_recipe.parent
+    if change == "model_contract":
+        path = root / "data/act_lab_lineage.json"
+        value = json.loads(path.read_text())
+        value["model_contract"] = {"wrong": True}
+    else:
+        path = root / "training.json"
+        value = json.loads(path.read_text())
+        if change == "split":
+            value["dataset"]["train_episode_indices"] = [1]
+        else:
+            value["status"] = "running"
+    path.write_text(json.dumps(value))
+    with pytest.raises(ValueError):
+        stage(paired_recipe, root / "bad-lineage")

@@ -73,3 +73,14 @@ requires pinned-reader integration and spawned-worker equivalence checks.
 An explicit resume toggle is the ADR 032 exception to recipe immutability;
 it does not permit any other data/model/optimizer drift. Record the choice and
 resume source identity. GPU throughput claims require an isolated measured A/B.
+
+### Qualified inference releases
+
+New paired releases include checksummed `inference.json`: simulation config/hash,
+effective horizon, policy rate, ensemble coefficient and primary evaluation path.
+Verify those settings against the original evaluation and unchanged checkpoint;
+dataset packages also verify FPS. Stage checks model contracts, completed
+training and exact episode indices. Historical schema-1 packages without
+inference metadata remain readable and explicitly historical. Replay examples
+on consumed seeds are demonstrations, never new holdout evidence. See ADR 033.
+No additional dependency is required.
