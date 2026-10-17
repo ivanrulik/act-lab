@@ -33,3 +33,19 @@ CPU learning/conversion/parser checks passed. Fourteen optional dev skips were
 reported; learning checks ran in the separate image. Exact model, optimizer
 and RNG tensor equality passed with spawned workers. Active budget trial kept
 its original loader.
+
+## Isolated GPU benchmark protocol
+
+After the active continuation and its evaluation/probes exit, run three paired
+repeats from the preserved 5,000-step checkpoint. Each mode resumes exactly 100
+updates; first 20 updates are warmup, with metrics every 20. Alternate stock /
+projected execution order by repeat. Preserve the complete model/optimizer/RNG
+source state, seed, batch, images, sampler, configuration and device. Compare
+exact model, optimizer and RNG tensors after each pair; a mismatch fails the
+assessment and preserves those replicas. Verify source hashes remain unchanged.
+
+Report all trial wall times (including setup/save) and logged steady update
+periods separately. Retain the three measured values per mode and display
+precision limits. The helper's CPU smoke (two updates per mode) passed exact
+comparison and source-hash assertions; its timing is not a GPU claim. Remove only
+successful generated throughput replicas, retaining logs/metrics/provenance.
