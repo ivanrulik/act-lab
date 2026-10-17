@@ -18,11 +18,16 @@ from act_lab.domain.training import ActTrainingConfig, DatasetIdentity
 class _ArtifactStream:
     """Tee LeRobot's pinned log stream into text and structured local metrics."""
 
-    def __init__(self, run: Path, target: Any) -> None:
+    def __init__(
+        self, run: Path, target: Any, *, log_freq: int, start_step: int, batch_size: int
+    ) -> None:
         self._target = target
         self._log = (run / TRAIN_LOG).open("a", encoding="utf-8")
         self._metrics = (run / METRICS_FILE).open("a", encoding="utf-8")
         self._buffer = ""
+        self._log_freq = log_freq
+        self._next_step = (start_step // log_freq + 1) * log_freq
+        self._batch_size = batch_size
 
     def write(self, value: str) -> int:
         self._target.write(value)
@@ -37,6 +42,12 @@ class _ArtifactStream:
         plain = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line)
         metric = parse_metric_line(plain)
         if metric is not None:
+            # Pinned LeRobot rounds counters to whole K/M suffixes. Its log
+            # schedule is exact; retain exact update/sample counts, including resume.
+            metric["step"] = self._next_step
+            if "smpl" in metric:
+                metric["smpl"] = self._next_step * self._batch_size
+            self._next_step += self._log_freq
             self._metrics.write(json.dumps(metric, sort_keys=True) + "\n")
 
     def flush(self) -> None:
@@ -146,7 +157,13 @@ def train_act(
     if checkpoint is not None:
         cfg.checkpoint_path = checkpoint
     os.environ["WANDB_MODE"] = wandb_mode
-    stream = _ArtifactStream(run, sys.stderr)
+    stream = _ArtifactStream(
+        run,
+        sys.stderr,
+        log_freq=config.log_freq,
+        start_step=checkpoint_step(checkpoint) if checkpoint is not None else 0,
+        batch_size=config.batch_size,
+    )
     try:
         with redirect_stderr(stream):
             train(cfg)

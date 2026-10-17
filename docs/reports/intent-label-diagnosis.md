@@ -77,3 +77,19 @@ docker compose --profile gpu run --rm train-gpu \
   --reference runs/causal-label-study/paired/dataset \
   --output runs/new-intent-verification.json
 ```
+
+## Metric counter correction
+
+During the requested trial, the original parser read `1K` as step `1`. The
+pinned formatter also rounds 1200/1400 to `1K`; suffix expansion alone cannot
+recover exact updates. This affects structured reporting, not optimizer steps.
+The adapter now derives exact step/sample counts from pinned logging cadence and
+resume offset, with regression coverage across that rounding boundary. A recovery
+script preserves original logs/metrics and writes separate JSONL/provenance.
+The interrupted run recovered exactly three records (200, 400, 600). The active
+run still uses its original loaded code; recover it only after completion.
+
+The reporting fix passed the dev build, Ruff, mypy, doctor, **435 dev tests** and
+**12 CPU training/parser tests**, including all six tiny real train/resume cases.
+Earlier full conversion checks remain valid. No model/config/safety change was
+made during the requested trial.

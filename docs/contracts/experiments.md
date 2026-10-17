@@ -43,3 +43,13 @@ and evaluation reports that effective value. Pinned LeRobot 0.6.1 requires
 explicit config CLI overrides; arbitrary loading kwargs can be ignored. A real
 checkpoint test must prove each policy call predicts a fresh chunk when horizon
 one is requested. See the [loader diagnosis](../reports/paired-camera-diagnosis.md).
+
+### Metric counter precision
+
+Pinned LeRobot formats counters with rounded K/M/B suffixes. The single-process
+Compose training adapter records exact update/sample counts from the configured
+logging schedule and checkpoint start, including resume. Loss and timing scalars
+retain upstream display precision. Historic text logs remain immutable; use
+`scripts/recover-training-metrics.py` to write separate corrected JSONL and
+provenance bound to the original log hash, dataset and source revision. A running
+run cannot be recovered, and existing outputs are never overwritten.

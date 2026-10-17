@@ -263,7 +263,9 @@ def preflight_device(device: str) -> None:
 
 
 _METRIC = re.compile(
-    r"(?:^|\s)([A-Za-z_][\w/]*)\s*:\s*([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?)", re.I
+    r"(?:^|\s)([A-Za-z_][\w/]*)\s*:\s*"
+    r"([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?)([KMBTQ]?)(?=\s|$)",
+    re.I,
 )
 _ALIASES = {
     "grdn": "gradient_norm",
@@ -278,9 +280,9 @@ _ALIASES = {
 
 def parse_metric_line(message: str) -> dict[str, int | float] | None:
     values: dict[str, int | float] = {}
-    for key, raw in _METRIC.findall(message):
+    for key, raw, suffix in _METRIC.findall(message):
         key = _ALIASES.get(key, key)
-        value = float(raw)
+        value = float(raw) * 1000 ** (" KMBTQ".index(suffix.upper()) if suffix else 0)
         values[key] = int(value) if key == "step" and value.is_integer() else value
     return values if "step" in values and "loss" in values else None
 
