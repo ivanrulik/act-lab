@@ -89,6 +89,11 @@ scripted expert.
 
 ## Storage model
 
+Explicit derived camera subsets retain raw MCAP provenance and validated source
+contracts, with a new selected-camera fingerprint and strict policy calibration
+binding. ADR 028's visibility audit uses rendered geom labels only as diagnostic
+evidence; those labels do not enter generic observations or policy datasets.
+
 The application RecordingRobot records the existing safe-control path through
 EpisodeSink. The MCAP adapter owns Protobuf encoding, durable finalization and
 prefix recovery. Scene images share measured-state timestamps; diagnostic and

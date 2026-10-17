@@ -68,12 +68,12 @@ def _mini_episode(tooling: bool = False) -> RecordedEpisode:
     )
 
 
-@pytest.mark.parametrize("tooling", [False, True])
-def test_reduced_act_checkpoint_and_resume(tmp_path: Path, tooling: bool) -> None:
+@pytest.mark.parametrize("tooling", [False, True, "wrist", "paired"])
+def test_reduced_act_checkpoint_and_resume(tmp_path: Path, tooling: bool | str) -> None:
     pytest.importorskip("lerobot")
     dataset_path = tmp_path / "dataset"
     convert_episodes(
-        [_mini_episode(tooling)],
+        [_mini_episode(bool(tooling))],
         dataset_path,
         "test/mini-act",
         25,
@@ -84,6 +84,11 @@ def test_reduced_act_checkpoint_and_resume(tmp_path: Path, tooling: bool) -> Non
                 ]
             }
         },
+        cameras=("wrist",)
+        if tooling == "wrist"
+        else ("wrist", "policy")
+        if tooling == "paired"
+        else None,
     )
     config_path = tmp_path / "tiny.toml"
     config_path.write_text(
@@ -147,8 +152,52 @@ cudnn_deterministic = true
             (resumed / "pretrained_model/act_lab_model.json").read_text()
         )
         assert contract["model_id"] == "ur5e_2f85_d405_v1"
-        assert set(contract["cameras"]) == {"overview", "policy", "wrist"}
+        expected = (
+            {"wrist"}
+            if tooling == "wrist"
+            else (
+                {"wrist", "policy"}
+                if tooling == "paired"
+                else {"overview", "policy", "wrist"}
+            )
+        )
+        assert set(contract["cameras"]) == expected
         from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
 
         with pytest.raises(ValueError, match="incompatible"):
             LeRobotACTPolicy(resumed, "cpu", ("policy",))
+        if tooling in ("wrist", "paired"):
+            from act_lab.adapters.mujoco import (
+                MujocoUR5eEnvironment,
+                SimulationConfig,
+            )
+            from act_lab.application.model_compatibility import model_contract
+
+            simulation = replace(
+                SimulationConfig.load(Path("configs/sim/ur5e_2f85_d405.toml")),
+                render_width=32,
+                render_height=32,
+                cameras=tuple(expected),
+            )
+            with MujocoUR5eEnvironment(simulation) as env:
+                observation = env.reset(0)
+                current = model_contract(
+                    {
+                        "simulation": asdict(simulation),
+                        "model_identity": env.model_identity,
+                        "scene_cameras": {
+                            c: env.camera_calibration(c) for c in simulation.cameras
+                        },
+                    }
+                )
+                assert current == contract
+                policy = LeRobotACTPolicy(
+                    resumed, "cpu", simulation.cameras, model_contract=current
+                )
+                action = policy.act(
+                    observation,
+                    {c: env.render(c) for c in simulation.cameras},
+                    capture_timestamp_ns=observation.timestamp_ns,
+                )
+                assert action.enabled
+                assert not policy.act(observation, {}).enabled

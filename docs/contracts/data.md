@@ -54,6 +54,14 @@ quaternions, and nearest RGB/discrete samples with earlier tie breaking.
 
 ## Retention
 
+Explicit camera projection (`recording convert --cameras`) operates only after
+original raw hash and quality checks. It preserves numeric samples, time grid,
+episode order and split assignment. Selected image identities enter the derived
+fingerprint and calibrated model contract; full source contracts remain in
+lineage. Missing/duplicate selections and selected calibration mismatches fail.
+New selection entries include source/seed metadata checked against acquisition;
+older manifests retain their original compatibility. See ADR 028.
+
 Raw webcam images may contain faces, rooms, screens, or identifying material.
 Default examples should prefer scene/wrist images for policy observations and
 document whether webcam frames are retained. Never publish recordings without

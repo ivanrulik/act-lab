@@ -54,3 +54,6 @@ consequences, and status.
 
 - [ADR 027](027-explicit-curated-hub-releases.md): opt-in curated publication,
   preserved artifact identity and verified Hub commit downloads.
+
+- [ADR 028](028-explicit-camera-study.md): calibrated camera projection and
+  bounded visibility/learning comparison with explicit no-go gates.
