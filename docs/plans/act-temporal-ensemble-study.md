@@ -1,6 +1,7 @@
 # Frozen-checkpoint temporal ensemble diagnostic
 
-Status: predeclared before implementation and evaluation.
+Status: completed; diagnostic gate failed (3/20).
+Predeclared before implementation and evaluation.
 
 The v4 requested-intent checkpoint completed 5,000 CUDA updates. Horizon-one
 inference completed 0/20 diagnostic episodes: no grasps/rejections, all timeouts,
@@ -24,3 +25,7 @@ use of trained future predictions; it is a hypothesis, not established benefit.
   outcomes, events, errors and latency. Require >=18/20 before final qualification.
 - Keep the original None result and all traces. Do not use consumed 22000–22099;
   only a passing frozen candidate may use an audited fresh 100-seed final cohort.
+
+Outcome: three grasps/successes, 827 collision stops, no drops. Coefficient 0.01
+and checkpoint digest were verified; no final seeds were consumed. See the
+[bounded budget continuation](act-budget-10000-study.md).

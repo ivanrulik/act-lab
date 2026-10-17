@@ -432,3 +432,10 @@ updates but failed its diagnostic gate (0/20), with no final seeds consumed.
 [ADR 031](adr/031-explicit-inference-temporal-ensemble.md) defines the next
 frozen-checkpoint inference experiment. Learned success and the leanest
 sufficient camera configuration remain pending.
+
+The frozen-checkpoint [temporal ensemble diagnostic](reports/act-temporal-ensemble.md)
+completed 3/20 tasks with 827 collision stops, below its gate. The next
+[bounded continuation](plans/act-budget-10000-study.md) tests 10,000 updates,
+with no data/model/safety/rate changes. Automatic source journaling for every
+resume attempt remains deferred; this study records an explicit resume sidecar
+and preserves the initial completed manifest.

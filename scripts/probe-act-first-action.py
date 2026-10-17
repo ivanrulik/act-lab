@@ -14,11 +14,19 @@ from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--pilot", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--checkpoint-step", type=int, default=5000)
 args = parser.parse_args()
 if args.output.exists():
     parser.error("output already exists")
 root = args.pilot
-checkpoint = root / "paired/training/lerobot/checkpoints/005000/pretrained_model"
+if args.checkpoint_step <= 0:
+    parser.error("checkpoint step must be positive")
+checkpoint = (
+    root
+    / "paired/training/lerobot/checkpoints"
+    / f"{args.checkpoint_step:06d}"
+    / "pretrained_model"
+)
 contract = json.loads((checkpoint / "act_lab_model.json").read_text())
 policy = LeRobotACTPolicy(
     checkpoint, "cuda", ("wrist", "policy"), model_contract=contract
@@ -66,6 +74,7 @@ for ep, indices in sorted(groups.items()):
         )
 result = {
     "schema_version": 1,
+    "checkpoint_step": args.checkpoint_step,
     "sampling": (
         "five uniform-index frames per frozen episode; "
         "first chunk prediction against same-row dataset label"
