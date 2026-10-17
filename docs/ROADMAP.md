@@ -11,9 +11,9 @@ learning pipeline, optional ROS/CRISP capture and Foxglove replay are implemente
 Earlier experiment sections below are historical; the final qualification
 supersedes their candidate-status statements, while retaining all failures.
 
-Current increment: package the qualified dataset/model and two demonstration
-replays, verify private immutable Hub publication and clean-download use, and
-reconcile release documentation (ADR 033). Afterward, prioritize independent
+The current branch delivers the qualified dataset/model and two demonstration
+replays, verified private Hub publication and clean-download use (ADR 033;
+[release evidence](reports/paired-act-release.md)). Next, prioritize independent
 newcomer reproduction. Broader generalization, wrist-only learning, learned ROS
 motion/live timing and hardware remain separately scoped work.
 
@@ -479,5 +479,6 @@ coefficient 0.01 and shared safety. All ten final timeouts and 1,073 collision-s
 commands remain visible; no drops occurred. The final cohort 23000–23099 is now
 consumed. The selected recipe is simulation-qualified only. Wrist-only ablation,
 broader generalization and live timing/learned ROS motion remain separate roadmap
-work. The current curated release packages this qualified recipe; it does not
-launch another training loop or authorize physical deployment.
+work. The [curated release](reports/paired-act-release.md) packages this qualified
+recipe with verified private commits and a clean-download integration check; it
+does not launch another training loop or authorize physical deployment.

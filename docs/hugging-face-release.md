@@ -32,6 +32,23 @@ repositories are `ivanrulik/act-lab-ur5e-paired-pick-place-v1` (dataset) and
 commits and actual clean-download evidence are recorded in the
 [paired release report](reports/paired-act-release.md).
 
+Verified immutable receipts are committed alongside the recipe. To retrieve the
+published artifacts without regenerating local training data:
+
+```bash
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release download \
+  --receipt configs/releases/paired-act-v1-dataset-receipt.json \
+  --output runs/releases/downloaded-paired-dataset
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release download \
+  --receipt configs/releases/paired-act-v1-model-receipt.json \
+  --output runs/releases/downloaded-paired-model
+```
+
+Private repository access requires your authorized Hub credentials. No token is
+included in the receipts or artifacts.
+
 `inference.json` is checked against the primary evaluation and checkpoint;
 dataset packages also check 25 Hz FPS. Staging checks completed training,
 model/camera contracts and the exact frozen split. Run

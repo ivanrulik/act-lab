@@ -45,11 +45,48 @@ are not accepted by the raw-training validator as canonical episodes.
 
 ## Validation and publication
 
-Publication/download receipts and clean-source results are recorded below after
-completion. The staged CUDA integration check passed two consumed seeds using
-the packaged model/config, loaded all 30 training episode indices and checked
-state/action/image shapes. Dataset and checkpoint hashes were unchanged after
-execution, and ROS was not imported.
+Both repositories were published **privately**, then downloaded into new
+directories at the following immutable commits. Every inventory file and both
+payload identities verified.
+
+| Artifact | Immutable Hub commit |
+| --- | --- |
+| `ivanrulik/act-lab-ur5e-paired-pick-place-v1` (dataset) | `9a134913a648c049dabe2c77f0ba363ea43ec0d6` |
+| `ivanrulik/act-lab-ur5e-paired-act-v1` (model) | `d6311b27c4b2789baae6651aed058b75ad590660` |
+
+Receipts are committed under `configs/releases/paired-act-v1-*-receipt.json`.
+The checksummed content inventory is **1,015,034,379 bytes**, excluding the two
+small inventory manifests. No existing remote release or local source artifact
+was overwritten or deleted.
+
+Checks performed:
+
+- Required `docker compose build dev`, Ruff, mypy (82 source files), doctor and
+  full dev pytest: **446 passed, 14 optional-runtime/display skips**. One existing
+  multiprocessing-fork deprecation warning remained.
+- Dedicated real CPU training integration tests: **10 passed**. The dev image's
+  optional LeRobot skips were therefore covered in its intended runtime.
+- Release unit suite: **16 passed**, including legacy compatibility, inventory
+  drift, lazy Hub/ROS imports, private publication, pinned download and rejection
+  of changed effective inference, model/camera contracts or episode indices.
+- Both initial staged and actual downloaded packages completed two ACT smoke
+  tasks on consumed seeds 23000/23001. The clean source export was commit
+  `71cad10`; original training/dataset directories were absent. Only the two
+  downloaded payload packages were mounted separately, read-only. The existing
+  pinned training image was reused; this was not a cold image build.
+- Clean execution set `HF_HUB_OFFLINE=1`. All **30 training episodes / 8,789
+  training frames** loaded through the frozen split; reserved episodes remained
+  excluded. State/action/image tensor shapes passed. The packaged simulation
+  resolved exactly to the qualification configuration before execution.
+- Effective CUDA device, horizon one, ensemble 0.01 and checkpoint digest were
+  asserted, ROS was not imported, and every package hash was rechecked afterward.
+  Existing PyAV decoding was used; optional TorchCodec could not load its shared
+  library in the pinned runtime. CUDA policy execution did not fall back to CPU.
+
+Ignored logs, both original receipts, downloaded packages and clean-source smoke
+reports are retained under `runs/releases/`. This is an artifact-transfer and
+integration check on consumed seeds, not another 100-task evaluation. CI for the
+implementing PR is recorded separately from these completed local checks.
 
 The existing optional pinned Hub SDK is reused. No dependency, domain contract,
 default training behavior or ROS requirement was added. UR5e and Robotiq source
