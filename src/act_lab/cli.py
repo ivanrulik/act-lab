@@ -297,6 +297,12 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("--run", type=Path, required=True)
     resume.add_argument("--device", choices=("cpu", "cuda"), required=True)
     resume.add_argument("--steps", type=int)
+    resume.add_argument(
+        "--project-action-columns",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="explicit opt-in numeric future-action loading (preserves data values)",
+    )
     experiment = subparsers.add_parser(
         "experiment", help="inspect demonstration coverage and compare evaluations"
     )
@@ -1621,6 +1627,8 @@ def _train_act(args: argparse.Namespace) -> int:
 
 
 def _train_resume(args: argparse.Namespace) -> int:
+    from dataclasses import replace
+
     from act_lab.adapters.lerobot import checkpoint_step, latest_checkpoint, train_act
     from act_lab.application.training import (
         RUN_MANIFEST,
@@ -1645,6 +1653,9 @@ def _train_resume(args: argparse.Namespace) -> int:
             raise ValueError("resume device type must match the original run")
         original = ActTrainingConfig(**manifest["configuration"])
         config = resume_config(original, args.steps)
+        projection = getattr(args, "project_action_columns", None)
+        if projection is not None:
+            config = replace(config, project_action_columns=projection)
         dataset = verify_dataset(Path(manifest["dataset"]["path"]))
         if dataset.to_dict() != manifest["dataset"]:
             raise ValueError("dataset identity changed since the original run")

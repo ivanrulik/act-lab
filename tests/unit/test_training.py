@@ -183,3 +183,18 @@ def test_temporal_ensemble_rejects_nonfinite_options_without_framework_imports(
         LeRobotACTPolicy(
             Path("missing"), "cpu", (), n_action_steps=2, temporal_ensemble_coeff=0.01
         )
+
+
+def test_action_projection_config_is_explicit_and_defaults_to_legacy(tmp_path):
+    path = tmp_path / "train.toml"
+    write_config(path)
+    assert not load_act_config(path).project_action_columns
+    path.write_text(path.read_text() + "project_action_columns = true\n")
+    assert load_act_config(path).project_action_columns
+    path.write_text(
+        path.read_text().replace(
+            "project_action_columns = true", "project_action_columns = 1"
+        )
+    )
+    with pytest.raises(ValueError, match="boolean"):
+        load_act_config(path)

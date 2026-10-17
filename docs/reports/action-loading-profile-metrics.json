@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scope": "single-thread CPU reads during ongoing training; not end-to-end throughput",
+  "dataset_fingerprint": "49e3f6f6fa7f016bef373cf4050b88f8b6c81905106332cdde70813291a2be04",
+  "datasets_version": "4.8.5",
+  "lerobot_version": "0.6.1",
+  "records": [
+    {
+      "index": 0,
+      "stock_s": 0.36872959905304015,
+      "projected_s": 0.007103436044417322,
+      "stock_image_decodes": 202,
+      "projected_image_decodes": 2,
+      "all_fields_equal": true
+    },
+    {
+      "index": 100,
+      "stock_s": 0.30070618097670376,
+      "projected_s": 0.007164162932895124,
+      "stock_image_decodes": 202,
+      "projected_image_decodes": 2,
+      "all_fields_equal": true
+    },
+    {
+      "index": 292,
+      "stock_s": 0.29114849399775267,
+      "projected_s": 0.007586093968711793,
+      "stock_image_decodes": 202,
+      "projected_image_decodes": 2,
+      "all_fields_equal": true
+    },
+    {
+      "index": 8788,
+      "stock_s": 0.24832819600123912,
+      "projected_s": 0.006920873071067035,
+      "stock_image_decodes": 202,
+      "projected_image_decodes": 2,
+      "all_fields_equal": true
+    }
+  ]
+}

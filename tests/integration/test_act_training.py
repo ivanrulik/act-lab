@@ -69,7 +69,7 @@ def _mini_episode(tooling: bool = False) -> RecordedEpisode:
 
 
 @pytest.mark.parametrize(
-    "tooling", [False, True, "wrist", "paired", "causal", "requested"]
+    "tooling", [False, True, "wrist", "paired", "causal", "requested", "projected"]
 )
 def test_reduced_act_checkpoint_and_resume(
     tmp_path: Path, tooling: bool | str, monkeypatch: pytest.MonkeyPatch
@@ -91,12 +91,14 @@ def test_reduced_act_checkpoint_and_resume(
         cameras=("wrist",)
         if tooling == "wrist"
         else ("wrist", "policy")
-        if tooling in ("paired", "causal", "requested")
+        if tooling in ("paired", "causal", "requested", "projected")
         else None,
         action_alignment="next-command"
-        if tooling in ("causal", "requested")
+        if tooling in ("causal", "requested", "projected")
         else "same-sample",
-        action_source="requested" if tooling == "requested" else "applied",
+        action_source="requested"
+        if tooling in ("requested", "projected")
+        else "applied",
     )
     config_path = tmp_path / "tiny.toml"
     config_path.write_text(
@@ -128,19 +130,45 @@ cudnn_deterministic = true
 """
     )
     config = load_act_config(config_path)
+    if tooling == "projected":
+        config = replace(config, project_action_columns=True, num_workers=2)
     identity = verify_dataset(dataset_path)
     run = tmp_path / "run"
     run.mkdir()
     train_act(run, identity, config, "cpu", "disabled")
     checkpoint = latest_checkpoint(run)
     assert checkpoint_step(checkpoint) == 2
+    if tooling == "projected":
+        from lerobot.scripts import lerobot_train
+        from safetensors.torch import load_file
+
+        factory = lerobot_train.make_train_eval_datasets
+        stock_run = tmp_path / "stock-training"
+        stock_run.mkdir()
+        train_act(
+            stock_run,
+            identity,
+            replace(config, project_action_columns=False),
+            "cpu",
+            "disabled",
+        )
+        assert lerobot_train.make_train_eval_datasets is factory
+        for relative in (
+            "pretrained_model/model.safetensors",
+            "training_state/optimizer_state.safetensors",
+            "training_state/rng_state.safetensors",
+        ):
+            stock = load_file(latest_checkpoint(stock_run) / relative)
+            projected = load_file(checkpoint / relative)
+            assert stock.keys() == projected.keys()
+            assert all(stock[key].equal(projected[key]) for key in stock), relative
     metrics = [
         json.loads(line) for line in (run / "metrics.jsonl").read_text().splitlines()
     ]
     assert [item["step"] for item in metrics] == [1, 2]
     # The causal fixture has one fewer sample; two minibatches establish
     # optimization mechanics, not a transferable percentage improvement.
-    required_ratio = 1.0 if tooling in ("causal", "requested") else 0.95
+    required_ratio = 1.0 if tooling in ("causal", "requested", "projected") else 0.95
     assert metrics[-1]["loss"] < metrics[0]["loss"] * required_ratio
     train_act(
         run,
@@ -168,7 +196,7 @@ cudnn_deterministic = true
             if tooling == "wrist"
             else (
                 {"wrist", "policy"}
-                if tooling in ("paired", "causal", "requested")
+                if tooling in ("paired", "causal", "requested", "projected")
                 else {"overview", "policy", "wrist"}
             )
         )
@@ -177,7 +205,7 @@ cudnn_deterministic = true
 
         with pytest.raises(ValueError, match="incompatible"):
             LeRobotACTPolicy(resumed, "cpu", ("policy",))
-        if tooling in ("wrist", "paired", "causal", "requested"):
+        if tooling in ("wrist", "paired", "causal", "requested", "projected"):
             from act_lab.adapters.mujoco import (
                 MujocoUR5eEnvironment,
                 SimulationConfig,
@@ -272,3 +300,56 @@ cudnn_deterministic = true
                     assert history.ensembled_actions is not None
                     assert not ensemble.act(observation, {}).enabled
                     assert history.ensembled_actions is None
+
+
+def test_projected_factory_restores_after_failure_and_rejects_unknown_reader():
+    pytest.importorskip("lerobot")
+    from types import SimpleNamespace
+
+    from lerobot.scripts import lerobot_train
+
+    from act_lab.adapters.lerobot.action_loading import (
+        project_action_reader,
+        projected_action_factory,
+    )
+
+    original = lerobot_train.make_train_eval_datasets
+    with pytest.raises(RuntimeError, match="injected"):
+        with projected_action_factory():
+            assert lerobot_train.make_train_eval_datasets is not original
+            raise RuntimeError("injected")
+    assert lerobot_train.make_train_eval_datasets is original
+    with pytest.raises(RuntimeError, match="pinned DatasetReader"):
+        project_action_reader(SimpleNamespace(reader=object()))
+
+
+@pytest.mark.parametrize("subset", [False, True])
+def test_projected_action_queries_preserve_order_duplicates_and_other_keys(subset):
+    pytest.importorskip("lerobot")
+    from types import SimpleNamespace
+
+    import torch
+    from datasets import Dataset
+    from lerobot.datasets.io_utils import hf_transform_to_torch
+
+    from act_lab.adapters.lerobot.action_loading import ProjectedActionReader
+
+    table = Dataset.from_dict(
+        {
+            "action": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+            "observation.state": [[7.0], [8.0], [9.0]],
+        }
+    )
+    table.set_transform(hf_transform_to_torch)
+    reader = ProjectedActionReader.__new__(ProjectedActionReader)
+    reader.hf_dataset = table
+    reader._meta = SimpleNamespace(video_keys=[])
+    reader._absolute_to_relative_idx = {10: 0, 20: 1, 30: 2} if subset else None
+    indices = [30, 10, 30, 20] if subset else [2, 0, 2, 1]
+    result = reader._query_hf_dataset({"action": indices, "observation.state": indices})
+    assert torch.equal(
+        result["action"], torch.tensor([[5.0, 6.0], [1.0, 2.0], [5.0, 6.0], [3.0, 4.0]])
+    )
+    assert torch.equal(
+        result["observation.state"], torch.tensor([[9.0], [7.0], [9.0], [8.0]])
+    )

@@ -66,3 +66,6 @@ consequences, and status.
 
 - [ADR 031](031-explicit-inference-temporal-ensemble.md): explicit optional ACT
   inference ensemble with fresh prediction and reset/fault history clearing.
+
+- [ADR 032](032-opt-in-numeric-action-projection.md): opt-in future numeric-action
+  projection with unchanged tensors and spawned-worker/checkpoint equivalence.

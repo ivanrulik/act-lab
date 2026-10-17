@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sys
-from contextlib import redirect_stderr
+from contextlib import AbstractContextManager, nullcontext, redirect_stderr
 from pathlib import Path
 from types import MethodType
 from typing import Any
@@ -165,7 +165,12 @@ def train_act(
         batch_size=config.batch_size,
     )
     try:
-        with redirect_stderr(stream):
+        loading_context: AbstractContextManager[None] = nullcontext()
+        if config.project_action_columns:
+            from .action_loading import projected_action_factory
+
+            loading_context = projected_action_factory()
+        with redirect_stderr(stream), loading_context:
             train(cfg)
         # Export the immutable acquisition contract with every saved checkpoint.
         from act_lab.application.model_compatibility import CONTRACT_FILE

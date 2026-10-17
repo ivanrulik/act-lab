@@ -43,7 +43,7 @@ def load_act_config(path: Path) -> ActTrainingConfig:
     if not isinstance(values, dict):
         raise ValueError("training configuration requires an [act] table")
     unknown = set(values) - allowed
-    missing = allowed - set(values)
+    missing = allowed - set(values) - {"project_action_columns"}
     if unknown:
         raise ValueError(
             "unknown ACT configuration keys: " + ", ".join(sorted(unknown))
@@ -94,6 +94,8 @@ def load_act_config(path: Path) -> ActTrainingConfig:
         raise ValueError("temporal ensembling is disabled for the PR 8 recipe")
     if config.use_amp:
         raise ValueError("AMP must remain disabled for the reproducible PR 8 recipe")
+    if type(config.project_action_columns) is not bool:
+        raise ValueError("project_action_columns must be boolean")
     return config
 
 

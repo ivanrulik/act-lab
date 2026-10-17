@@ -1,6 +1,7 @@
 # ACT training
 
-Training requires a converter-version-2 (historical) or version-3 (causal) dataset
+Training requires a converter-version-2 (historical), version-3 (causal applied),
+or version-4 (causal requested-intent) dataset
 whose logical and finalized storage fingerprints match and whose episode split
 is valid. Regenerate older
 derived datasets from the immutable selection manifest; raw MCAP files do not
@@ -93,3 +94,27 @@ resampling. Default `same-sample` retains v2 historical reproduction. Check
 be resumed against a changed v3 dataset fingerprint. See
 [ADR 029](adr/029-causal-derived-action-alignment.md) and the
 [proposed controlled experiment](plans/causal-action-alignment-study.md).
+
+
+## Optional numeric-action projection
+
+The historical loader remains the default. The explicit
+`configs/training/act-camera-pilot-projected.toml` differs from the pilot recipe
+only by `project_action_columns = true`. It projects future action columns before
+formatting, preventing the pinned reader from decoding future camera images that
+never enter the model. Current RGB/state, target/mask order, sampler, dtype and
+normalization remain unchanged. No new dependency is needed: this uses the
+existing pinned dataset selection API inside the optional LeRobot adapter.
+
+Fresh runs opt in through the full configuration. An existing run can explicitly
+opt in with `train resume --project-action-columns` (or disable with
+`--no-project-action-columns`); the choice is persisted. All other dataset,
+device and learning configuration restrictions remain. Record changed resume
+source identity separately until automatic per-attempt journaling is implemented.
+See [ADR 032](adr/032-opt-in-numeric-action-projection.md).
+
+Four read-only probes reduced image decoding from 202 to two per paired sample
+while all returned fields were equal. The real spawned-worker tiny-training test
+produced exactly equal model, optimizer and RNG tensors against the stock reader.
+The sample-read microbenchmark is not an end-to-end training speed claim; an
+isolated GPU comparison is still required before a later pilot opts in.

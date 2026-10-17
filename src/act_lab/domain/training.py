@@ -45,6 +45,7 @@ class ActTrainingConfig:
     temporal_ensembling: bool
     use_amp: bool
     cudnn_deterministic: bool
+    project_action_columns: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

@@ -323,3 +323,10 @@ Optional inference temporal ensembling is explicit in runtime configuration and
 evidence ([ADR 031](adr/031-explicit-inference-temporal-ensemble.md)). It predicts
 a fresh chunk each tick and clears history on episode/input faults; it preserves
 the default disabled training/inference recipe and shared safety path.
+
+
+The optional training adapter can project future numeric action columns before
+framework formatting ([ADR 032](adr/032-opt-in-numeric-action-projection.md)).
+This default-false path avoids unused future image decoding without changing
+current inputs or learning tensors. The process-local factory hook is restored
+on success/failure, and its reader subclass supports spawned workers.

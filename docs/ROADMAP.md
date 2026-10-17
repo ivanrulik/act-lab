@@ -439,3 +439,9 @@ completed 3/20 tasks with 827 collision stops, below its gate. The next
 with no data/model/safety/rate changes. Automatic source journaling for every
 resume attempt remains deferred; this study records an explicit resume sidecar
 and preserves the initial completed manifest.
+
+A read-only [loading profile](reports/action-loading-profile.md) found 202 image
+decodes per sample for a 100-action paired chunk; numeric projection reduced
+this to two with identical returned fields. ADR 032 adds a default-false option
+with exact CPU training/optimizer/RNG and spawned-worker checks. Isolated GPU
+throughput measurement remains pending; active learning trials stay unchanged.

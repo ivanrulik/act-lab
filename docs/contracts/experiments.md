@@ -62,3 +62,14 @@ Every call predicts a fresh chunk; episode reset and rejected camera input clear
 all prediction history. Default None preserves baseline inference and the frozen
 training recipe. An inference change needs a predeclared diagnostic protocol and
 a passing candidate still needs untouched final seeds. See ADR 031.
+
+
+### Optional numeric target loading
+
+`project_action_columns` defaults false for old configs/manifests. Explicit true
+projects future numeric actions before dataset formatting, leaving current
+observations, masks, padding, dtype, sampler and normalization unchanged. It
+requires pinned-reader integration and spawned-worker equivalence checks.
+An explicit resume toggle is the ADR 032 exception to recipe immutability;
+it does not permit any other data/model/optimizer drift. Record the choice and
+resume source identity. GPU throughput claims require an isolated measured A/B.
