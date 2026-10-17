@@ -3,6 +3,20 @@
 The PR number is an ordering aid, not a promise that unrelated work must wait.
 Do not combine adjacent PRs merely because they are listed together.
 
+## Current position
+
+Merged through GitHub PR #30: the articulated paired-camera ACT recipe passed
+18/20 diagnostics and **90/100 fresh final simulation tasks**. The full local
+learning pipeline, optional ROS/CRISP capture and Foxglove replay are implemented.
+Earlier experiment sections below are historical; the final qualification
+supersedes their candidate-status statements, while retaining all failures.
+
+Current increment: package the qualified dataset/model and two demonstration
+replays, verify private immutable Hub publication and clean-download use, and
+reconcile release documentation (ADR 033). Afterward, prioritize independent
+newcomer reproduction. Broader generalization, wrist-only learning, learned ROS
+motion/live timing and hardware remain separately scoped work.
+
 ## PR 1 — Repository and container foundation
 
 Status: scaffolded in the initial repository.
@@ -179,14 +193,17 @@ validated camera projection, rendered visibility gates and a bounded matched
 learning recipe. Ten diagnostic seeds pass with paired visibility; wrist-only
 fails transfer visibility on four seeds, stopping the learning campaign before
 collection/training. See [study evidence](reports/wrist-camera-study.md).
-Next learning work uses wrist+fixed as a candidate; it is not yet a qualified
-learned policy. Optics/active-observation alternatives are separate experiments.
+The later requested-intent/ensemble recipe qualified wrist+fixed at 90/100 fresh
+tasks. Wrist-only sufficiency remains unresolved; optics and active-observation
+alternatives are separate experiments.
 
 Publication increment: `feature/hugging-face-release` adds a lean educational
 dataset/model recipe, explicit staging/publication, checksummed Hub commit
 receipts and clean-download validation. See [release workflow](hugging-face-release.md)
-and ADR 027. Independent newcomer completion, a current articulated-tool
-learned-policy campaign and archive retention remain separate acceptance work.
+and ADR 027. The articulated-tool campaign is now simulation-qualified. Its
+distinct dataset/model release adds explicit inference metadata and replay
+examples (ADR 033). Independent newcomer completion and archive retention remain
+separate acceptance work.
 
 Add the guided curriculum, data-quality checklist, experiment template, failure
 taxonomy, model/dataset cards, privacy guidance, and immutable published images.
@@ -415,10 +432,10 @@ effective horizons in historical legacy evaluations. See
 Continued diagnosis confirmed post-action supervision: same-sample labels nearly
 match the already-observed pose. ADR 029 adds an explicit causal v3 converter;
 572 real frames passed action/state/RGB equivalence checks. All 16 conditional
-phase handoffs still failed with the frozen checkpoint. Next is the proposed
-[label-only training experiment](plans/causal-action-alignment-study.md), with
-one-step feedback and a fresh final cohort after its diagnostic gate. No causal
-model has been trained or qualified yet.
+phase handoffs still failed with that frozen checkpoint. The subsequent
+[label-only training experiment](plans/causal-action-alignment-study.md) used
+one-step feedback and is preserved as history. Its incomplete run and the later
+requested-intent qualification are recorded below.
 
 ### Paired feedback diagnosis: action meaning
 
@@ -429,13 +446,13 @@ Applied setpoints are filtered outputs, while the application accepts intent.
 [ADR 030](adr/030-requested-intent-training-labels.md) defines opt-in causal
 requested labels with executed fault holds. The [controlled study](reports/requested-intent-study.md) completed 5,000 CUDA
 updates but failed its diagnostic gate (0/20), with no final seeds consumed.
-[ADR 031](adr/031-explicit-inference-temporal-ensemble.md) defines the next
-frozen-checkpoint inference experiment. Learned success and the leanest
-sufficient camera configuration remain pending.
+[ADR 031](adr/031-explicit-inference-temporal-ensemble.md) defined the subsequent
+frozen-checkpoint inference experiment. The later 20k paired recipe qualified;
+the leanest sufficient camera configuration remains unresolved.
 
 The frozen-checkpoint [temporal ensemble diagnostic](reports/act-temporal-ensemble.md)
-completed 3/20 tasks with 827 collision stops, below its gate. The next
-[bounded continuation](plans/act-budget-10000-study.md) tests 10,000 updates,
+completed 3/20 tasks with 827 collision stops, below its gate. The subsequent
+[bounded continuation](plans/act-budget-10000-study.md) tested 10,000 updates,
 with no data/model/safety/rate changes. Automatic source journaling for every
 resume attempt remains deferred; this study records an explicit resume sidecar
 and preserves the initial completed manifest.
@@ -461,5 +478,6 @@ and 90/100 audited fresh final tasks with the frozen paired camera configuration
 coefficient 0.01 and shared safety. All ten final timeouts and 1,073 collision-stop
 commands remain visible; no drops occurred. The final cohort 23000–23099 is now
 consumed. The selected recipe is simulation-qualified only. Wrist-only ablation,
-broader generalization, live timing/learned ROS motion and a new curated release
-remain separate roadmap work. No additional training loop or merge is automatic.
+broader generalization and live timing/learned ROS motion remain separate roadmap
+work. The current curated release packages this qualified recipe; it does not
+launch another training loop or authorize physical deployment.

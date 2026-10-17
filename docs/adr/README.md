@@ -69,3 +69,6 @@ consequences, and status.
 
 - [ADR 032](032-opt-in-numeric-action-projection.md): opt-in future numeric-action
   projection with unchanged tensors and spawned-worker/checkpoint equivalence.
+
+- [ADR 033](033-qualified-paired-act-release.md): separate paired simulation
+  release with explicit inference metadata, replay examples and clean-download use.

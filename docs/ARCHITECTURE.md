@@ -316,8 +316,9 @@ requested-intent training labels (converter v4). Safety-filtered executed
 setpoints are intermediate outputs; feeding them back as intent applies the
 response filter again. Requested labels preserve executed disabled holds for
 faults and keep all inference safety checks. Legacy conversion is unchanged.
-The [requested-intent study](plans/requested-intent-study.md) must establish
-closed-loop performance before qualification.
+The initial [requested-intent study](plans/requested-intent-study.md) failed its
+gate; the later explicit-ensemble 20k continuation met the frozen simulation
+qualification described below.
 
 Optional inference temporal ensembling is explicit in runtime configuration and
 evidence ([ADR 031](adr/031-explicit-inference-temporal-ensemble.md)). It predicts
@@ -336,3 +337,18 @@ The frozen paired ACT recipe met its 18/20 diagnostic and 90/100 final simulatio
 gates after 20,000 updates. Its [qualification report](reports/act-budget-20000-study.md)
 records every failure, hash, gate and scope limit. It does not establish wrist-only
 sufficiency, wall-clock real-time control or hardware safety.
+
+
+## Qualified release boundary
+
+[ADR 033](adr/033-qualified-paired-act-release.md) packages the paired dataset,
+frozen checkpoint, exact inference settings and two illustrative policy reruns
+separately from the historical educational release. Optional `inference.json`
+is checked against the primary evaluation, dataset FPS and checkpoint digest.
+Staging additionally checks camera/model contracts and frozen episode indices.
+Source notices, configs and reproduction evidence live outside unchanged
+payloads. A clean download/load check uses explicit horizon-one/0.01 inference;
+saved training defaults cannot silently stand in for that recipe. Demonstration
+reruns do not enlarge or replace the final statistical cohort. Publication stays
+private, explicit and independent of training; no dependency or ROS requirement
+is added to the domain or local workflow.

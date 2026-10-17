@@ -99,9 +99,12 @@ The final ten timeouts and 1,073 collision-stop commands remain explicit. A matc
 steady training throughput with exactly equal checkpoint tensors. Earlier failed
 trials, default historical behavior and the benchmark limits remain documented.
 
-For a curated dataset and evaluated ACT checkpoint, see the
-[Hugging Face release workflow](docs/hugging-face-release.md). Publication is
-opt-in and separate from training; the first recipe uses the legacy two-camera
+For the simulation-qualified paired dataset, frozen checkpoint and success/failure
+Foxglove examples, see the [Hugging Face release workflow](docs/hugging-face-release.md)
+and [reproduction instructions](docs/releases/paired-reproduction.md). The lean
+paired package is approximately 1.015 GB; inference explicitly requires horizon
+one at 25 Hz with ensemble coefficient 0.01. Publication is private, opt-in and
+separate from training. The historical first recipe uses the legacy two-camera
 educational robot and preserves its evaluation limits.
 
 Requirements: Docker Engine with Docker Compose v2.
