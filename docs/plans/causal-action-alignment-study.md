@@ -43,3 +43,20 @@ protocol; it does not trigger a blind budget extension or final-seed reuse.
 Stop the improvement loop when a frozen candidate qualifies or progress requires
 external information. Training, data and model changes remain inspectable in
 individual run manifests and the report.
+
+## Active run record
+
+- Reused the original selection and verified identical episode split manifests.
+- v3 logical fingerprint:
+  `0a9a44a9ab5e3d4cba261d1cac2bf630786dd4a0c7496182604b18458f40758a`.
+- Verified storage fingerprint:
+  `083c427ad1de71f2e781b3335abfb9d7ec3092a2bf4c8c2f8f32443e1331e559`.
+- 11,624 total frames; 8,789 training frames; 662,515,256 dataset bytes.
+- Fresh CUDA training started from revision `66b0f92`, using the frozen config.
+  Its manifest records effective device, dependencies, dataset and source identity.
+- The identity probe now supports explicit causal lineage and a separate raw
+  source root. It reproduced the old 200-frame summaries exactly and verified
+  200 causal labels against their next raw command. It rejects a raw selection
+  that differs from the dataset's embedded selection.
+- Training, automatic diagnostic evaluation and descriptive error probes remain
+  pending. No new task-success claim follows from conversion or falling loss.
