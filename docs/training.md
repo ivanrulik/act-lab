@@ -87,13 +87,14 @@ belong to PR 9.
 ## Causal action labels for new feedback experiments
 
 Raw observations are post-command. For the new causal learning protocol, create
-a separate dataset with `recording convert --action-alignment next-command`.
-Converter v3 pairs the current observation with the next raw command before
-resampling. Default `same-sample` retains v2 historical reproduction. Check
-`action_alignment` and `converter_version` in lineage; a v2 checkpoint cannot
-be resumed against a changed v3 dataset fingerprint. See
-[ADR 029](adr/029-causal-derived-action-alignment.md) and the
-[proposed controlled experiment](plans/causal-action-alignment-study.md).
+a separate dataset with both `recording convert --action-alignment next-command`
+and `--action-source requested` (v4). Current observations pair with the next
+accepted intent; faults retain explicit/reconstructed disabled holds. This matches
+the application input, rather than re-filtering its applied output. Default
+`same-sample`/`applied` retains v2 historical reproduction; v3 remains available
+for the alignment-only diagnosis. Check all source/alignment/version lineage.
+Changed fingerprints require fresh training. See [ADR 030](adr/030-requested-intent-training-labels.md)
+and [the measured requested-intent study](reports/requested-intent-study.md).
 
 
 ## Optional numeric-action projection
@@ -116,5 +117,7 @@ See [ADR 032](adr/032-opt-in-numeric-action-projection.md).
 Four read-only probes reduced image decoding from 202 to two per paired sample
 while all returned fields were equal. The real spawned-worker tiny-training test
 produced exactly equal model, optimizer and RNG tensors against the stock reader.
-The sample-read microbenchmark is not an end-to-end training speed claim; an
-isolated GPU comparison is still required before a later pilot opts in.
+The separate three-pair [GPU comparison](reports/action-loading-gpu.md) passed
+exact model/optimizer/RNG equality: median steady throughput improved 4.55x and
+whole 100-update trial wall time 3.30x. These are short local trials, not a general
+performance guarantee or evidence of task success.

@@ -102,15 +102,17 @@ Build the isolated, CPU-only conversion image and convert the frozen manifest:
 docker compose --profile data build data
 docker compose --profile data run --rm data act-lab recording convert \
   data/selection.json --output data/lerobot/pick-place \
-  --repo-id local/act-lab-pick-place --fps 25
+  --repo-id local/act-lab-pick-place --fps 25 \
+  --action-source requested --action-alignment next-command
 ```
 
 The converter verifies every selected raw hash and reruns quality validation.
-State is six joint positions plus gripper position. Action is the safe executed
-Cartesian position, normalized quaternion, and gripper target; a rejected command
-uses its recorded request and remains visible through the quality warning. Scene
-images use LeRobot image features (not video) to keep the small conversion path
-simple and deterministic.
+State is six joint positions plus gripper position. This explicit v4 example
+uses the next accepted requested Cartesian intent, normalized quaternion and
+gripper target. Rejected/disabled commands become disabled hold targets with
+accepted aperture history. Use a new output directory. The API default remains
+v2 historical applied/fallback-request reproduction when the options are omitted.
+Scene images use LeRobot image features (not video) for deterministic conversion.
 
 Numeric streams use linear interpolation on an integer-nanosecond grid. Discrete
 fields and RGB frames use nearest-neighbor selection with earlier-frame tie
@@ -130,7 +132,7 @@ builds. ACT Lab verifies both fingerprints before loading training episodes.
 
 ### Causal label option for feedback learning
 
-New feedback experiments can add `--action-alignment next-command` to
+Applied-label timing experiments can add `--action-alignment next-command` to
 `recording convert` (converter v3). Pair each current observation with the next
 raw command before resampling; the final unlabeled observation is dropped.
 Default v2 `same-sample` reproduces historical datasets. See
@@ -144,7 +146,8 @@ For the application's intent interface, opt in to v4 with both
 `--action-source requested --action-alignment next-command`. Accepted commands
 supply requested targets; rejected/disabled commands supply an explicit executed
 disabled hold or a reconstructed measured-pose disabled hold with the last
-accepted executed aperture. Missing aperture history fails conversion. Raw hash and applied-data quality checks remain, followed
+accepted executed aperture. Missing aperture history fails conversion. Raw hash
+and applied-data quality checks remain, followed
 by selected-label frame/time and numeric checks. Current input state/images,
 episode splits and raw data remain unchanged. A new fingerprint requires a
 fresh training run. See [ADR 030](adr/030-requested-intent-training-labels.md) and

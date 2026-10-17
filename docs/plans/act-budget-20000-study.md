@@ -1,6 +1,7 @@
 # Requested-intent ACT: conditional 20,000-update continuation
 
-Status: eligible to start; the three isolated GPU A/B pairs passed exact
+Status: active; official CUDA resume started from 10,000 with explicit
+project_action_columns=true after the three isolated GPU A/B pairs passed exact
 model/optimizer/RNG comparison and source-checkpoint integrity checks.
 Protocol was predeclared before this gate completed.
 
@@ -35,3 +36,9 @@ state/action representation, gains, thresholds or safety changes are bundled.
 Reuse all data. Combined run artifacts must stay below the 5 GiB soft gate.
 Record per-attempt source Git/container/configuration in a sidecar, preserving
 initial and completed manifests. No hardware use, publication or merge follows.
+
+Runtime record: resume source `421b787`; initial completed manifest and actual
+source/image/configuration sidecar are retained. The preflight projected peak
+including shared raw data and planned checkpoints was 4,863,388,660 bytes, below
+5 GiB. Early sustained throughput is approximately 9.1 updates/s; task outcome
+remains pending.

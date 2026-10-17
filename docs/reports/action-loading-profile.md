@@ -47,8 +47,9 @@ Fourteen dev-profile skips and one existing multiprocessing warning remain;
 learning checks ran separately.
 
 The active 5,000 -> 10,000 continuation uses the original reader throughout.
-An isolated GPU A/B is still required before a later pilot opts in. No GPU
-speedup, learning improvement or hardware validation is claimed here.
+The subsequent [isolated GPU A/B](action-loading-gpu.md) passed exact checkpoint
+equality and measured local throughput separately. This read profile alone
+establishes no GPU speedup, learning improvement or robot hardware validation.
 
 ## Reproduce
 

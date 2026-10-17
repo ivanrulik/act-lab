@@ -90,9 +90,12 @@ one-step feedback scored 0/20 diagnostic successes and remains unqualified.
 Further diagnosis found post-action training labels; an explicit causal
 conversion mode is implemented. A diagnostic oracle also exposed re-filtering
 of applied targets: [requested-intent labels](docs/adr/030-requested-intent-training-labels.md)
-completed a fresh 5,000-update trial but achieved 0/20 diagnostic task successes
-([results](docs/reports/requested-intent-study.md)). Inference diagnostics continue
-with unchanged safety; no useful fresh-feedback policy is qualified yet.
+reached **8/20 diagnostic successes** after 10,000 updates with explicit temporal
+ensembling, below the 18/20 gate ([results](docs/reports/act-budget-10000-study.md)).
+Collision-stop commands remain explicit; no useful fresh-feedback policy is
+qualified yet. A matched [loading benchmark](docs/reports/action-loading-gpu.md)
+measured 4.55x median steady training throughput with exactly equal checkpoint
+tensors; the next bounded continuation uses this opt-in optimization.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is
