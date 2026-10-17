@@ -137,3 +137,16 @@ Default v2 `same-sample` reproduces historical datasets. See
 [ADR 029](adr/029-causal-derived-action-alignment.md) for timing, versioning and
 compatibility, and the [diagnosis](reports/paired-camera-diagnosis.md) for measured
 identity-baseline evidence. Conversion alone does not improve an old checkpoint.
+
+### Experimental requested-intent labels
+
+For the application's intent interface, opt in to v4 with both
+`--action-source requested --action-alignment next-command`. Accepted commands
+supply requested targets; rejected/disabled commands supply an explicit executed
+disabled hold or a reconstructed measured-pose disabled hold with the last
+accepted executed aperture. Missing aperture history fails conversion. Raw hash and applied-data quality checks remain, followed
+by selected-label frame/time and numeric checks. Current input state/images,
+episode splits and raw data remain unchanged. A new fingerprint requires a
+fresh training run. See [ADR 030](adr/030-requested-intent-training-labels.md) and
+[the bounded study](plans/requested-intent-study.md). This is not a demonstrated
+policy improvement or a replacement for closed-loop qualification.

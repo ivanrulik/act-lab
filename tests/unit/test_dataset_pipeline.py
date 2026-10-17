@@ -232,10 +232,18 @@ def test_conversion_round_trips_values_and_has_stable_fingerprint(
     assert reports[0]["dataset_fingerprint"] == reports[1]["dataset_fingerprint"]
 
 
-@pytest.mark.parametrize("alignment", ["same-sample", "next-command"])
+@pytest.mark.parametrize(
+    "alignment,source",
+    [
+        ("same-sample", "applied"),
+        ("next-command", "applied"),
+        ("next-command", "requested"),
+    ],
+)
 def test_real_lerobot_dataset_round_trip_when_data_profile_is_installed(
     tmp_path: Path,
     alignment: str,
+    source: str,
 ) -> None:
     pytest.importorskip("lerobot")
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -248,6 +256,7 @@ def test_real_lerobot_dataset_round_trip_when_data_profile_is_installed(
         25,
         {"selection_manifest": {"manifest_version": 1}},
         action_alignment=alignment,
+        action_source=source,
     )
     dataset = LeRobotDataset("test/act-lab", root=output)
     assert len(dataset) == (1 if alignment == "next-command" else 2)
@@ -340,3 +349,112 @@ def test_causal_conversion_has_distinct_version_and_fingerprint(tmp_path: Path) 
     assert lineage["converter_version"] == "3"
     assert lineage["action_alignment"] == "next-command"
     assert FakeDataset.latest.episodes[0][0]["action"][0] == pytest.approx(0.41)
+
+
+def test_requested_conversion_versions_labels_and_rejects_noncausal_use(
+    tmp_path: Path,
+) -> None:
+    applied = convert_episodes(
+        [episode()],
+        tmp_path / "applied",
+        "local/test",
+        25,
+        {},
+        dataset_class=FakeDataset,
+        action_alignment="next-command",
+    )
+    requested = convert_episodes(
+        [episode()],
+        tmp_path / "requested",
+        "local/test",
+        25,
+        {},
+        dataset_class=FakeDataset,
+        action_alignment="next-command",
+        action_source="requested",
+    )
+    assert applied["dataset_fingerprint"] != requested["dataset_fingerprint"]
+    lineage = json.loads((tmp_path / "requested/act_lab_lineage.json").read_text())
+    assert lineage["converter_version"] == "4"
+    assert lineage["action_source"] == "requested"
+    assert lineage["action_alignment"] == "next-command"
+    with pytest.raises(ValueError, match="requires next-command"):
+        convert_episodes(
+            [episode()],
+            tmp_path / "bad",
+            "local/test",
+            25,
+            {},
+            dataset_class=FakeDataset,
+            action_source="requested",
+        )
+
+
+@pytest.mark.parametrize("invalid_source", [None, "applied", "requested"])
+def test_requested_conversion_rechecks_both_source_quality_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_source: str | None,
+) -> None:
+    from act_lab.adapters import lerobot
+    from act_lab.adapters.mcap import reading
+    from act_lab.application.dataset import file_sha256
+    from act_lab.cli import _recording_convert
+
+    raw = tmp_path / "raw.mcap"
+    raw.write_bytes(b"fixture")
+    calls = []
+
+    def read(path, *, action_source="applied"):
+        calls.append(action_source)
+        result = episode()
+        if action_source == invalid_source:
+            result = replace(
+                result,
+                samples=(
+                    replace(
+                        result.samples[0],
+                        action_position_xyz_m=(float("nan"), 0.0, 0.0),
+                    ),
+                )
+                + result.samples[1:],
+            )
+        return result
+
+    monkeypatch.setattr(reading, "read_episode", read)
+    monkeypatch.setattr(lerobot, "convert_episodes", lambda *a, **k: k)
+    manifest = tmp_path / "selection.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_version": 1,
+                "episodes": [
+                    {
+                        "selected": True,
+                        "path": raw.name,
+                        "sha256": file_sha256(raw),
+                        "episode_id": "episode-001",
+                    }
+                ],
+            }
+        )
+    )
+    args = argparse.Namespace(
+        manifest=manifest,
+        output=tmp_path / "out",
+        repo_id="local/test",
+        fps=25,
+        cameras=None,
+        action_source="requested",
+        action_alignment="next-command",
+    )
+    if invalid_source is None:
+        result = _recording_convert(args)
+        assert result["action_source"] == "requested"
+        assert calls == ["applied", "requested"]
+    else:
+        with pytest.raises(ValueError, match="passes selection|quality"):
+            _recording_convert(args)
+        assert calls == (
+            ["applied"] if invalid_source == "applied" else ["applied", "requested"]
+        )

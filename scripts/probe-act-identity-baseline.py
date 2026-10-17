@@ -11,6 +11,23 @@ from mcap.reader import make_reader
 
 from act_lab.adapters.mcap.schema import decode
 
+
+def label_position(raw, timestamp, action_source):
+    command = raw[timestamp]["/command"]
+    if action_source == "requested":
+        if command.outcome in {"applied", "limited"}:
+            return list(command.requested_action.target_pose.position_xyz_m)
+        if not command.HasField("executed_action"):
+            state = raw[timestamp]["/observation"].robot
+            return list(state.end_effector_pose.position_xyz_m)
+    action = (
+        command.executed_action
+        if command.HasField("executed_action")
+        else command.requested_action
+    )
+    return list(action.target_pose.position_xyz_m)
+
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--pilot", type=Path, required=True)
 parser.add_argument("--probe", type=Path, required=True)
@@ -25,6 +42,7 @@ root = args.pilot
 source_root = args.raw_pilot or root
 lineage = json.loads((root / "paired/dataset/act_lab_lineage.json").read_text())
 alignment = lineage.get("action_alignment", "same-sample")
+action_source = lineage.get("action_source", "applied")
 if alignment not in {"same-sample", "next-command"}:
     parser.error("unsupported action alignment")
 fps = lineage["fps"]
@@ -58,22 +76,10 @@ for ep, entry in enumerate(selected):
         truth = r["truth"][:3]
         # Require exact source-to-derived target agreement, up to float32 encoding.
         label_stamp = following[stamp] if alignment == "next-command" else stamp
-        cmd = raw[label_stamp]["/command"]
-        applied = (
-            cmd.executed_action
-            if cmd.HasField("executed_action")
-            else cmd.requested_action
-        )
-        target = list(applied.target_pose.position_xyz_m)
+
+        target = label_position(raw, label_stamp, action_source)
         assert math.dist(target, truth) < 1e-6
-        future = raw.get(following.get(stamp))
-        if future:
-            fc = future["/command"]
-            fa = (
-                fc.executed_action
-                if fc.HasField("executed_action")
-                else fc.requested_action
-            )
+        future_stamp = following.get(stamp)
         samples.append(
             {
                 "episode": ep,
@@ -82,15 +88,16 @@ for ep, entry in enumerate(selected):
                 "identity_error_m": math.dist(pose, truth),
                 "model_error_m": r["xyz_error_m"],
                 "next_command_identity_error_m": math.dist(
-                    pose, list(fa.target_pose.position_xyz_m)
+                    pose, label_position(raw, future_stamp, action_source)
                 )
-                if future
+                if future_stamp is not None
                 else None,
             }
         )
 result = {
     "samples": len(samples),
     "action_alignment": alignment,
+    "action_source": action_source,
     "dataset_fingerprint": lineage["dataset_fingerprint"],
     "summary": {},
 }

@@ -509,3 +509,126 @@ def test_quality_manifest_and_replay_cli(tmp_path, provenance, capsys):
         "validation",
     }
     assert any(not entry["selected"] for entry in contents["episodes"])
+
+
+def test_requested_labels_preserve_applied_state_and_disabled_holds(
+    tmp_path, provenance
+):
+    from act_lab.adapters.mcap.reading import read_episode
+
+    sink = McapEpisodeSink(tmp_path)
+    sink.start(provenance, 0)
+    first = sample()
+    requested = replace(
+        first.command.requested_action,
+        target_pose=replace(
+            first.command.requested_action.target_pose, position_xyz_m=(0.5, 0.1, 0.7)
+        ),
+        gripper_position=0.9,
+    )
+    sink.append(
+        replace(first, command=replace(first.command, requested_action=requested))
+    )
+    second = sample(40_000_000)
+    hold = replace(second.command.executed_action, enabled=False, gripper_position=0.3)
+    sink.append(
+        replace(
+            second,
+            command=replace(
+                second.command,
+                outcome=CommandOutcome.INVALID,
+                requested_action=replace(requested, timestamp_ns=20_000_000),
+                executed_action=hold,
+            ),
+        )
+    )
+    sink.stop(EpisodeOutcome.SUCCESS, "fixture")
+    applied = read_episode(sink.final_path)
+    intent = read_episode(sink.final_path, action_source="requested")
+    assert applied.samples[0].action_position_xyz_m == (0.4, 0.0, 0.6)
+    assert intent.samples[0].action_position_xyz_m == (0.5, 0.1, 0.7)
+    assert intent.samples[0].action_gripper_position == 0.9
+    assert (
+        intent.samples[0].joint_positions_rad == applied.samples[0].joint_positions_rad
+    )
+    assert intent.samples[0].images == applied.samples[0].images
+    assert intent.samples[1] == applied.samples[1]
+    assert not intent.samples[1].action_enabled
+    assert intent.samples[1].action_gripper_position == 0.3
+
+
+@pytest.mark.parametrize(
+    "fault", ["frame", "future", "stale", "missing_hold", "enabled_hold"]
+)
+def test_requested_labels_reject_invalid_transport_and_unsafe_holds(
+    tmp_path, provenance, fault
+):
+    from act_lab.adapters.mcap.reading import read_episode
+
+    value = sample()
+    request = value.command.requested_action
+    report = value.command
+    if fault == "frame":
+        request = replace(
+            request, target_pose=replace(request.target_pose, frame_id="other")
+        )
+    elif fault == "future":
+        request = replace(request, timestamp_ns=20_000_001)
+    elif fault == "stale":
+        value = sample(100_000_000)
+        report = value.command
+        request = replace(request, timestamp_ns=0)
+    else:
+        report = replace(
+            report,
+            outcome=CommandOutcome.INVALID,
+            executed_action=None if fault == "missing_hold" else report.executed_action,
+        )
+    sink = McapEpisodeSink(tmp_path)
+    sink.start(provenance, 0)
+    sink.append(replace(value, command=replace(report, requested_action=request)))
+    sink.stop(EpisodeOutcome.SUCCESS, "fixture")
+    with pytest.raises(ValueError):
+        read_episode(sink.final_path, action_source="requested")
+
+
+def test_requested_labels_reconstruct_legacy_hold_from_accepted_aperture(
+    tmp_path, provenance
+):
+    from act_lab.adapters.mcap.reading import read_episode
+
+    sink = McapEpisodeSink(tmp_path)
+    sink.start(provenance, 0)
+    first = sample()
+    sink.append(
+        replace(
+            first,
+            command=replace(
+                first.command,
+                executed_action=replace(
+                    first.command.executed_action, gripper_position=0.3
+                ),
+            ),
+        )
+    )
+    second = sample(40_000_000)
+    sink.append(
+        replace(
+            second,
+            command=replace(
+                second.command,
+                outcome=CommandOutcome.IK_FAILURE,
+                executed_action=None,
+                requested_action=replace(
+                    second.command.requested_action, gripper_position=1.0
+                ),
+            ),
+        )
+    )
+    sink.stop(EpisodeOutcome.SUCCESS, "fixture")
+    result = read_episode(sink.final_path, action_source="requested")
+    hold = result.samples[1]
+    assert not hold.action_enabled
+    assert hold.action_position_xyz_m == hold.end_effector_position_xyz_m
+    assert hold.action_gripper_position == 0.3
+    assert hold.gripper_position == 0.5  # Measured aperture is not the hold target.

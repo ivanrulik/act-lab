@@ -88,7 +88,10 @@ recorded 33/100 tasks with an unintended 100-action queue.
 [Diagnosis](docs/reports/paired-camera-diagnosis.md) corrected the loader; fresh
 one-step feedback scored 0/20 diagnostic successes and remains unqualified.
 Further diagnosis found post-action training labels; an explicit causal
-conversion mode is implemented and verified, pending a new training experiment.
+conversion mode is implemented. A diagnostic oracle also exposed re-filtering
+of applied targets: [requested-intent labels](docs/adr/030-requested-intent-training-labels.md)
+are now being tested with unchanged safety. The alignment-only run was
+interrupted; no useful fresh-feedback policy is qualified yet.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is

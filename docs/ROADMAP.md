@@ -419,3 +419,14 @@ phase handoffs still failed with the frozen checkpoint. Next is the proposed
 [label-only training experiment](plans/causal-action-alignment-study.md), with
 one-step feedback and a fresh final cohort after its diagnostic gate. No causal
 model has been trained or qualified yet.
+
+### Paired feedback diagnosis: action meaning
+
+The alignment-only experiment was preempted at update 789, with no completed
+checkpoint. A 20-seed oracle hold diagnostic completed 0/20 when its first applied
+setpoint was reused, versus 16/20 for requested intent (four IK failures).
+Applied setpoints are filtered outputs, while the application accepts intent.
+[ADR 030](adr/030-requested-intent-training-labels.md) defines opt-in causal
+requested labels with executed fault holds. The next
+[controlled study](plans/requested-intent-study.md) keeps model/rates/safety fixed;
+learned success and the leanest sufficient camera configuration remain pending.

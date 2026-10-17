@@ -1,6 +1,6 @@
 # Causal action-label experiment
 
-Status: active, authorized by the request to continue the diagnosis/validation loop.
+Status: preempted at update 789 after a diagnostic oracle exposed an action-meaning mismatch. No completed checkpoint or learned-policy result.
 Extends ADR 029 and the paired pilot.
 The only experimental factor is action-label alignment. Preserve the corrected
 one-action feedback loop, source episodes, camera pair, model, safety and gains.
@@ -58,5 +58,8 @@ individual run manifests and the report.
   source root. It reproduced the old 200-frame summaries exactly and verified
   200 causal labels against their next raw command. It rejects a raw selection
   that differs from the dataset's embedded selection.
-- Training, automatic diagnostic evaluation and descriptive error probes remain
-  pending. No new task-success claim follows from conversion or falling loss.
+- Training was interrupted explicitly (manifest: failed / KeyboardInterrupt).
+  Automatic checkpoint-dependent stages stopped as required; none ran.
+- The 20-seed oracle yielded 0/20 first-applied holds versus 16/20 requested
+  holds, with four reported IK failures. See ADR 030 and the next
+  [requested-intent experiment](requested-intent-study.md).

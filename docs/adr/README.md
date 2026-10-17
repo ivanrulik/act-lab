@@ -60,3 +60,6 @@ consequences, and status.
 
 - [ADR 029](029-causal-derived-action-alignment.md): opt-in v3 causal command
   labels before resampling, preserving v2 reproduction and raw acquisition.
+
+- [ADR 030](030-requested-intent-training-labels.md): opt-in v4 requested-intent
+  labels with executed fault holds and unchanged application safety.

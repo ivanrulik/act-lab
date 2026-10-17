@@ -308,3 +308,13 @@ shift actions within raw episodes before resampling, preserving current input
 state and images. Converter v3 uses a separate fingerprint; v2 artifacts retain
 their historical same-sample semantics. The recording schema/domain remain
 unchanged. See the [continued diagnosis](reports/paired-camera-diagnosis.md).
+
+### Learning intent versus controller output
+
+[ADR 030](adr/030-requested-intent-training-labels.md) adds explicit causal
+requested-intent training labels (converter v4). Safety-filtered executed
+setpoints are intermediate outputs; feeding them back as intent applies the
+response filter again. Requested labels preserve executed disabled holds for
+faults and keep all inference safety checks. Legacy conversion is unchanged.
+The [requested-intent study](plans/requested-intent-study.md) must establish
+closed-loop performance before qualification.

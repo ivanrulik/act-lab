@@ -56,6 +56,7 @@ def convert_episodes(
     dataset_class: Any | None = None,
     cameras: tuple[str, ...] | None = None,
     action_alignment: str = "same-sample",
+    action_source: str = "applied",
 ) -> dict[str, Any]:
     """Create one atomically published local LeRobotDataset v3 directory."""
     if not episodes:
@@ -67,7 +68,17 @@ def convert_episodes(
         raise FileExistsError(f"partial conversion already exists: {stage}")
     if action_alignment not in {"same-sample", "next-command"}:
         raise ValueError("unsupported action alignment")
-    version = "3" if action_alignment == "next-command" else CONVERTER_VERSION
+    if action_source not in {"applied", "requested"}:
+        raise ValueError("unsupported action source")
+    if action_source == "requested" and action_alignment != "next-command":
+        raise ValueError("requested action source requires next-command alignment")
+    version = (
+        "4"
+        if action_source == "requested"
+        else "3"
+        if action_alignment == "next-command"
+        else CONVERTER_VERSION
+    )
     aligned = (
         [align_next_commands(episode) for episode in episodes]
         if action_alignment == "next-command"
@@ -218,6 +229,7 @@ def convert_episodes(
     lineage.update(
         converter_version=version,
         action_alignment=action_alignment,
+        action_source=action_source,
         dataset_fingerprint=fingerprint,
         fps=fps,
         repo_id=repo_id,

@@ -68,7 +68,9 @@ def _mini_episode(tooling: bool = False) -> RecordedEpisode:
     )
 
 
-@pytest.mark.parametrize("tooling", [False, True, "wrist", "paired", "causal"])
+@pytest.mark.parametrize(
+    "tooling", [False, True, "wrist", "paired", "causal", "requested"]
+)
 def test_reduced_act_checkpoint_and_resume(
     tmp_path: Path, tooling: bool | str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -89,9 +91,12 @@ def test_reduced_act_checkpoint_and_resume(
         cameras=("wrist",)
         if tooling == "wrist"
         else ("wrist", "policy")
-        if tooling in ("paired", "causal")
+        if tooling in ("paired", "causal", "requested")
         else None,
-        action_alignment="next-command" if tooling == "causal" else "same-sample",
+        action_alignment="next-command"
+        if tooling in ("causal", "requested")
+        else "same-sample",
+        action_source="requested" if tooling == "requested" else "applied",
     )
     config_path = tmp_path / "tiny.toml"
     config_path.write_text(
@@ -135,7 +140,7 @@ cudnn_deterministic = true
     assert [item["step"] for item in metrics] == [1, 2]
     # The causal fixture has one fewer sample; two minibatches establish
     # optimization mechanics, not a transferable percentage improvement.
-    required_ratio = 1.0 if tooling == "causal" else 0.95
+    required_ratio = 1.0 if tooling in ("causal", "requested") else 0.95
     assert metrics[-1]["loss"] < metrics[0]["loss"] * required_ratio
     train_act(
         run,
@@ -163,7 +168,7 @@ cudnn_deterministic = true
             if tooling == "wrist"
             else (
                 {"wrist", "policy"}
-                if tooling in ("paired", "causal")
+                if tooling in ("paired", "causal", "requested")
                 else {"overview", "policy", "wrist"}
             )
         )
@@ -172,7 +177,7 @@ cudnn_deterministic = true
 
         with pytest.raises(ValueError, match="incompatible"):
             LeRobotACTPolicy(resumed, "cpu", ("policy",))
-        if tooling in ("wrist", "paired", "causal"):
+        if tooling in ("wrist", "paired", "causal", "requested"):
             from act_lab.adapters.mujoco import (
                 MujocoUR5eEnvironment,
                 SimulationConfig,

@@ -265,10 +265,16 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--fps", type=int, default=25)
     convert.add_argument("--cameras", nargs="+", help="explicit derived camera subset")
     convert.add_argument(
+        "--action-source",
+        choices=("applied", "requested"),
+        default="applied",
+        help="requested uses accepted intent and executed fault holds (converter v4)",
+    )
+    convert.add_argument(
         "--action-alignment",
         choices=("same-sample", "next-command"),
         default="same-sample",
-        help="next-command uses causal pre-command labels (converter v3)",
+        help="next-command pairs current input with the next raw command",
     )
     training = subparsers.add_parser("train", help="train or resume an ACT policy")
     training_commands = training.add_subparsers(dest="train_command", required=True)
@@ -1497,6 +1503,10 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
     if manifest.get("manifest_version") != 1:
         raise ValueError("unsupported selection manifest version")
     episodes = []
+    action_source = getattr(args, "action_source", "applied")
+    alignment = getattr(args, "action_alignment", "same-sample")
+    if action_source == "requested" and alignment != "next-command":
+        raise ValueError("requested action source requires next-command alignment")
     selected_entries = [entry for entry in manifest["episodes"] if entry["selected"]]
     for entry in selected_entries:
         path = (args.manifest.parent / entry["path"]).resolve()
@@ -1514,6 +1524,10 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
             raise ValueError("raw source differs from the frozen manifest")
         if episode.episode_id != entry["episode_id"] or not report.training_eligible:
             raise ValueError(f"episode no longer passes selection: {path}")
+        if action_source == "requested":
+            episode = read_episode(path, action_source="requested")
+            if not validate_episode(episode).training_eligible:
+                raise ValueError("requested intent labels fail quality validation")
         episodes.append(episode)
     return convert_episodes(
         episodes,
@@ -1522,7 +1536,8 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
         args.fps,
         {"selection_manifest": manifest},
         cameras=tuple(args.cameras) if getattr(args, "cameras", None) else None,
-        action_alignment=getattr(args, "action_alignment", "same-sample"),
+        action_alignment=alignment,
+        action_source=action_source,
     )
 
 
