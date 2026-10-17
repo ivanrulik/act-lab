@@ -46,10 +46,11 @@ one documented, tested integration. For broader policy research, large parallel
 simulation, or supported physical robots, another stack may be a better fit.
 See [project purpose and alternatives](docs/PROJECT_PURPOSE.md).
 
-Evidence is configuration-specific: the current articulated gripper/wrist-camera
-training smoke verifies integration; useful learned task success on that model
-still needs a full training/evaluation campaign. The CRISP capture showcase uses
-the scripted expert. Physical deployment requires separate qualification.
+Evidence is configuration-specific: the paired wrist/fixed-camera ACT recipe
+met its frozen simulation gates at **90/100 held-out tasks**
+([qualification](docs/reports/act-budget-20000-study.md)). All ten failures and
+safety stops are reported. The CRISP capture showcase uses the scripted expert.
+Physical deployment and wrist-only sufficiency require separate qualification.
 
 ## Optional ROS 2 executable contracts
 
@@ -90,12 +91,13 @@ one-step feedback scored 0/20 diagnostic successes and remains unqualified.
 Further diagnosis found post-action training labels; an explicit causal
 conversion mode is implemented. A diagnostic oracle also exposed re-filtering
 of applied targets: [requested-intent labels](docs/adr/030-requested-intent-training-labels.md)
-reached **8/20 diagnostic successes** after 10,000 updates with explicit temporal
-ensembling, below the 18/20 gate ([results](docs/reports/act-budget-10000-study.md)).
-Collision-stop commands remain explicit; no useful fresh-feedback policy is
-qualified yet. A matched [loading benchmark](docs/reports/action-loading-gpu.md)
-measured 4.55x median steady training throughput with exactly equal checkpoint
-tensors; the next bounded continuation uses this opt-in optimization.
+reached **18/20 diagnostics and 90/100 fresh final successes** after 20,000
+updates with explicit temporal ensembling
+([frozen paired simulation recipe](docs/reports/act-budget-20000-study.md)).
+The final ten timeouts and 1,073 collision-stop commands remain explicit. A matched
+[loading benchmark](docs/reports/action-loading-gpu.md) measured 4.55x median
+steady training throughput with exactly equal checkpoint tensors. Earlier failed
+trials, default historical behavior and the benchmark limits remain documented.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is

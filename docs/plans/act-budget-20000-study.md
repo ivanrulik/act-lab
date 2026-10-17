@@ -1,9 +1,8 @@
 # Requested-intent ACT: conditional 20,000-update continuation
 
-Status: active; official CUDA resume started from 10,000 with explicit
-project_action_columns=true after the three isolated GPU A/B pairs passed exact
-model/optimizer/RNG comparison and source-checkpoint integrity checks.
-Protocol was predeclared before this gate completed.
+Status: completed; diagnostic 18/20 and audited fresh final 90/100 met the
+predeclared gates for this frozen paired simulation recipe. See the
+[qualification report](../reports/act-budget-20000-study.md).
 
 The 10,000-step ensemble model completed 8/20 diagnostics, versus 3/20 at 5,000:
 two previous successes retained, six gained, one lost. Its 95% Wilson interval
@@ -42,3 +41,8 @@ source/image/configuration sidecar are retained. The preflight projected peak
 including shared raw data and planned checkpoints was 4,863,388,660 bytes, below
 5 GiB. Early sustained throughput is approximately 9.1 updates/s; task outcome
 remains pending.
+
+Final cohort 23000–23099 is now consumed. All eight final inference hashes were
+unchanged; older 5,000/10,000 inference hashes were reverified. Only the unused
+15,000 intermediate was removed after qualification, with a retention hash record.
+No further training or final-cohort reuse is implied.

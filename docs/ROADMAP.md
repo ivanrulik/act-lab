@@ -452,3 +452,14 @@ diagnostic tasks with 1,469 collision-stop commands, below its 18/20 gate. No
 final seeds were consumed. A [bounded 20,000-step continuation](plans/act-budget-20000-study.md)
 keeps learning/data/safety settings fixed and explicitly opts into the validated
 column-projection optimization.
+
+
+### Paired ACT qualification completed
+
+The [20,000-step study](reports/act-budget-20000-study.md) passed 18/20 diagnostic
+and 90/100 audited fresh final tasks with the frozen paired camera configuration,
+coefficient 0.01 and shared safety. All ten final timeouts and 1,073 collision-stop
+commands remain visible; no drops occurred. The final cohort 23000–23099 is now
+consumed. The selected recipe is simulation-qualified only. Wrist-only ablation,
+broader generalization, live timing/learned ROS motion and a new curated release
+remain separate roadmap work. No additional training loop or merge is automatic.

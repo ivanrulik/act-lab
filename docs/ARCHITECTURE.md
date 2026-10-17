@@ -330,3 +330,9 @@ framework formatting ([ADR 032](adr/032-opt-in-numeric-action-projection.md)).
 This default-false path avoids unused future image decoding without changing
 current inputs or learning tensors. The process-local factory hook is restored
 on success/failure, and its reader subclass supports spawned workers.
+
+
+The frozen paired ACT recipe met its 18/20 diagnostic and 90/100 final simulation
+gates after 20,000 updates. Its [qualification report](reports/act-budget-20000-study.md)
+records every failure, hash, gate and scope limit. It does not establish wrist-only
+sufficiency, wall-clock real-time control or hardware safety.
