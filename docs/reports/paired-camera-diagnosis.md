@@ -122,3 +122,87 @@ including the new fresh-prediction checks for wrist and paired observations.
 Actual CUDA runs covered both complete twenty-seed diagnostic cohorts and the
 200-frame dataset probe, which reproduced exactly. No final-cohort replay or
 additional training ran. Hosted CI for this correction is tracked on PR #30.
+
+## Continued diagnosis: causal label timing
+
+The raw archive correctly stores a command's **resulting** state and synchronous
+RGB. Reading/conversion v2 pairs that resulting observation with the command
+that has already been applied. The requested command timestamp precedes the
+stored observation by exactly 20 ms throughout all 40 pilot episodes. This is a
+causal supervision mismatch for the declared observe-then-command feedback loop.
+It is not a corruption of the raw recording or a camera coordinate change.
+
+Across 23,189 enabled adjacent samples, 19,999 moved more than 0.1 mm. For those
+moving samples, median target-to-post-state distance was **0.170 mm**; median
+target-to-pre-state distance was **1.600 mm**. Median actual motion was 1.632 mm.
+
+On the exact 200 earlier probe frames, a diagnostic identity baseline targeting
+the recorded current end-effector pose gives:
+
+| XYZ error median | Training samples | Reserved samples |
+| --- | ---: | ---: |
+| Identity baseline, original labels | 0.059 mm | 0.104 mm |
+| Learned first prediction | 12.424 mm | 18.961 mm |
+| Identity baseline, next raw command labels | 1.600 mm | 1.600 mm |
+
+The identity baseline uses recorded end-effector pose for analysis. The policy
+receives joint angles and gripper state, not an explicit end-effector XYZ input;
+kinematics relate those features. These numbers demonstrate that the old labels
+reward predicting an already-reached pose. They do not prove the network's
+internal strategy, or prove that corrected labels alone will solve the task.
+A very low same-sample regression error would not establish useful task motion.
+
+### Phase handoffs
+
+For diagnostic seeds 21000 and 21001, the expert first reached each of eight
+phases, then handed over to the unchanged one-action policy for the remaining
+original 750-step episode budget. The phases were open/raise, approach, descend,
+close/dwell, lift, transit, lower, and open/dwell. **All 16 conditional rollouts
+failed to finish.** These are deliberately selected diagnostic conditions, not
+sixteen independent full-policy trials or a new generalization benchmark.
+
+Stalling therefore persists when the expert provides intermediate task states;
+it is not confined to the initial opening step. Phase labels/task geometry were
+used to arrange the handoff, never provided as learned-policy inputs. Every
+command retained the same application safety. Per-case geometry/rejections are
+in the metrics file.
+
+### Versioned correction and verification
+
+[ADR 029](../adr/029-causal-derived-action-alignment.md) adds explicit
+`--action-alignment next-command` (converter v3). Labels shift by **one raw
+command before resampling**, preserving current state/RGB/timestamps and
+per-episode boundaries. The final unlabeled observation is dropped. Legacy
+same-sample conversion remains available for historical reproduction.
+
+A real two-episode subset produced **572 frames**. Every numeric action matched
+the next raw command after resampling; every current state and decoded RGB image
+matched the original observation. Raw hashes were unchanged, and dataset
+verification retained one train and one reserved episode. Its distinct v3
+fingerprint is in the metrics. No pilot-scale checkpoint was trained on these new labels. Tiny CPU
+training/resume tests establish mechanics only.
+
+The next [controlled alignment study](../plans/causal-action-alignment-study.md)
+changes labels alone at a frozen training budget. Learning remains unqualified
+until that experiment establishes closed-loop improvement on corrected feedback.
+
+### Reproduce these probes
+
+```bash
+docker compose run --rm dev python scripts/probe-raw-action-alignment.py \
+  --pilot runs/paired-camera-pilot-v2 --output runs/new-alignment-audit.json
+
+docker compose --profile training run --rm train-cpu \
+  python scripts/probe-act-identity-baseline.py \
+  --pilot runs/paired-camera-pilot-v2 \
+  --probe runs/paired-camera-diagnosis/teacher-probe-reproduced.json \
+  --output runs/new-identity-probe.json
+
+docker compose --profile gpu run --rm train-gpu \
+  python scripts/probe-act-phase-handoff.py \
+  --pilot runs/paired-camera-pilot-v2 --output runs/new-phase-handoffs.json
+```
+
+Raw alignment and matched identity summaries reproduced exactly. Causal
+conversion/learning checks passed 17 tests in the pinned CPU image. Full dev:
+422 passed, eight expected optional skips; build, Ruff, mypy and doctor passed.

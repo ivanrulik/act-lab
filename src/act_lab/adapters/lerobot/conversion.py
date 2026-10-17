@@ -12,14 +12,22 @@ from typing import Any
 
 import numpy as np
 
-from act_lab.application.dataset import CONVERTER_VERSION, resample_episode
+from act_lab.application.dataset import (
+    CONVERTER_VERSION,
+    align_next_commands,
+    resample_episode,
+)
 from act_lab.application.training import storage_fingerprint
 from act_lab.domain.dataset import RecordedEpisode
 
 
-def _fingerprint(episodes: list[RecordedEpisode], fps: int) -> str:
+def _fingerprint(
+    episodes: list[RecordedEpisode],
+    fps: int,
+    converter_version: str = CONVERTER_VERSION,
+) -> str:
     digest = hashlib.sha256()
-    digest.update(f"act-lab-converter:{CONVERTER_VERSION}:fps:{fps}\n".encode())
+    digest.update(f"act-lab-converter:{converter_version}:fps:{fps}\n".encode())
     for episode in episodes:
         digest.update(f"episode:{episode.episode_id}\n".encode())
         for sample in episode.samples:
@@ -47,6 +55,7 @@ def convert_episodes(
     *,
     dataset_class: Any | None = None,
     cameras: tuple[str, ...] | None = None,
+    action_alignment: str = "same-sample",
 ) -> dict[str, Any]:
     """Create one atomically published local LeRobotDataset v3 directory."""
     if not episodes:
@@ -56,7 +65,15 @@ def convert_episodes(
     stage = output.with_name(output.name + ".partial")
     if stage.exists():
         raise FileExistsError(f"partial conversion already exists: {stage}")
-    converted = [resample_episode(episode, fps) for episode in episodes]
+    if action_alignment not in {"same-sample", "next-command"}:
+        raise ValueError("unsupported action alignment")
+    version = "3" if action_alignment == "next-command" else CONVERTER_VERSION
+    aligned = (
+        [align_next_commands(episode) for episode in episodes]
+        if action_alignment == "next-command"
+        else episodes
+    )
+    converted = [resample_episode(episode, fps) for episode in aligned]
     from act_lab.application.model_compatibility import model_contract
 
     contracts = [
@@ -181,7 +198,7 @@ def convert_episodes(
             dataset.add_frame(frame)
         dataset.save_episode()
     dataset.finalize()
-    fingerprint = _fingerprint(converted, fps)
+    fingerprint = _fingerprint(converted, fps, version)
     selected_entries = {
         str(entry["episode_id"]): entry.get("split")
         for entry in lineage.get("selection_manifest", {}).get("episodes", [])
@@ -199,7 +216,8 @@ def convert_episodes(
         + "\n"
     )
     lineage.update(
-        converter_version=CONVERTER_VERSION,
+        converter_version=version,
+        action_alignment=action_alignment,
         dataset_fingerprint=fingerprint,
         fps=fps,
         repo_id=repo_id,

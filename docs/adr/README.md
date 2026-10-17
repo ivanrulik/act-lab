@@ -57,3 +57,6 @@ consequences, and status.
 
 - [ADR 028](028-explicit-camera-study.md): calibrated camera projection and
   bounded visibility/learning comparison with explicit no-go gates.
+
+- [ADR 029](029-causal-derived-action-alignment.md): opt-in v3 causal command
+  labels before resampling, preserving v2 reproduction and raw acquisition.

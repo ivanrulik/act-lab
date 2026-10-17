@@ -127,3 +127,13 @@ to the canonical logical fingerprint. Datasets produced by converter version 1
 must be regenerated from their immutable selection manifest. The data image
 pins CPU-only PyTorch, while separate training images pin CPU and CUDA 12.8
 builds. ACT Lab verifies both fingerprints before loading training episodes.
+
+### Causal label option for feedback learning
+
+New feedback experiments can add `--action-alignment next-command` to
+`recording convert` (converter v3). Pair each current observation with the next
+raw command before resampling; the final unlabeled observation is dropped.
+Default v2 `same-sample` reproduces historical datasets. See
+[ADR 029](adr/029-causal-derived-action-alignment.md) for timing, versioning and
+compatibility, and the [diagnosis](reports/paired-camera-diagnosis.md) for measured
+identity-baseline evidence. Conversion alone does not improve an old checkpoint.

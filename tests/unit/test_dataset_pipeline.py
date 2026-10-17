@@ -232,8 +232,10 @@ def test_conversion_round_trips_values_and_has_stable_fingerprint(
     assert reports[0]["dataset_fingerprint"] == reports[1]["dataset_fingerprint"]
 
 
+@pytest.mark.parametrize("alignment", ["same-sample", "next-command"])
 def test_real_lerobot_dataset_round_trip_when_data_profile_is_installed(
     tmp_path: Path,
+    alignment: str,
 ) -> None:
     pytest.importorskip("lerobot")
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -245,11 +247,96 @@ def test_real_lerobot_dataset_round_trip_when_data_profile_is_installed(
         "test/act-lab",
         25,
         {"selection_manifest": {"manifest_version": 1}},
+        action_alignment=alignment,
     )
     dataset = LeRobotDataset("test/act-lab", root=output)
-    assert len(dataset) == 2
+    assert len(dataset) == (1 if alignment == "next-command" else 2)
+    assert dataset[0]["action"][0].item() == pytest.approx(
+        0.41 if alignment == "next-command" else 0.4
+    )
     np.testing.assert_allclose(
         dataset[0]["observation.state"].numpy(),
         np.asarray((0.0,) * 6 + (0.5,), dtype=np.float32),
     )
     assert tuple(dataset[0]["observation.images.policy"].shape) == (3, 2, 2)
+
+
+def test_causal_alignment_preserves_observation_and_uses_next_raw_command() -> None:
+    from act_lab.application.dataset import align_next_commands
+
+    original = episode()
+    original = replace(
+        original,
+        samples=(
+            original.samples[0],
+            replace(
+                original.samples[1],
+                action_quaternion_wxyz=(0.0, 1.0, 0.0, 0.0),
+                action_gripper_position=0.8,
+                action_enabled=False,
+                command_outcome="disabled",
+            ),
+            original.samples[2],
+        ),
+    )
+    aligned = align_next_commands(original)
+    assert len(aligned.samples) == 2
+    for current, result, following in zip(
+        original.samples, aligned.samples, original.samples[1:], strict=False
+    ):
+        assert result.timestamp_ns == current.timestamp_ns
+        assert result.joint_positions_rad == current.joint_positions_rad
+        assert result.images == current.images
+        assert result.action_position_xyz_m == following.action_position_xyz_m
+        assert result.action_quaternion_wxyz == following.action_quaternion_wxyz
+        assert result.action_gripper_position == following.action_gripper_position
+        assert result.action_enabled == following.action_enabled
+        assert result.command_outcome == following.command_outcome
+        assert result.gripper_position == current.gripper_position
+    # Alignment precedes 25 Hz resampling: the label is 40 ms, not 60 ms.
+    sampled = resample_episode(aligned, 25)
+    assert len(sampled.samples) == 1
+    assert (
+        sampled.samples[0].action_position_xyz_m
+        == original.samples[1].action_position_xyz_m
+    )
+    assert len(original.samples) == 3
+
+
+@pytest.mark.parametrize("gap", [0, -1, 100_000_000])
+def test_causal_alignment_rejects_invalid_command_intervals(gap: int) -> None:
+    from act_lab.application.dataset import align_next_commands
+
+    original = episode()
+    first = original.samples[0]
+    following = replace(original.samples[1], timestamp_ns=first.timestamp_ns + gap)
+    with pytest.raises(ValueError, match="interval"):
+        align_next_commands(replace(original, samples=(first, following)))
+    with pytest.raises(ValueError, match="at least two"):
+        align_next_commands(replace(original, samples=(first,)))
+
+
+def test_causal_conversion_has_distinct_version_and_fingerprint(tmp_path: Path) -> None:
+    legacy = convert_episodes(
+        [episode()],
+        tmp_path / "legacy",
+        "test/legacy",
+        25,
+        {},
+        dataset_class=FakeDataset,
+    )
+    causal = convert_episodes(
+        [episode()],
+        tmp_path / "causal",
+        "test/causal",
+        25,
+        {},
+        dataset_class=FakeDataset,
+        action_alignment="next-command",
+    )
+    assert legacy["dataset_fingerprint"] != causal["dataset_fingerprint"]
+    assert legacy["frames"] == 2 and causal["frames"] == 1
+    lineage = json.loads((tmp_path / "causal/act_lab_lineage.json").read_text())
+    assert lineage["converter_version"] == "3"
+    assert lineage["action_alignment"] == "next-command"
+    assert FakeDataset.latest.episodes[0][0]["action"][0] == pytest.approx(0.41)

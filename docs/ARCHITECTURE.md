@@ -302,3 +302,9 @@ completed 33/100 final tasks at 5,000 updates and did not qualify for release.
 Its [report](reports/paired-camera-pilot.md) records per-seed failures, measured
 costs and renderer-dependent audit limits. Requalification needs a new protocol
 and untouched final seeds.
+
+Derived learning data can explicitly use causal next-command labels (ADR 029):
+shift actions within raw episodes before resampling, preserving current input
+state and images. Converter v3 uses a separate fingerprint; v2 artifacts retain
+their historical same-sample semantics. The recording schema/domain remain
+unchanged. See the [continued diagnosis](reports/paired-camera-diagnosis.md).

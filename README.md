@@ -87,6 +87,8 @@ pixel threshold is renderer-dependent. Paired input passes both audits. The [bou
 recorded 33/100 tasks with an unintended 100-action queue.
 [Diagnosis](docs/reports/paired-camera-diagnosis.md) corrected the loader; fresh
 one-step feedback scored 0/20 diagnostic successes and remains unqualified.
+Further diagnosis found post-action training labels; an explicit causal
+conversion mode is implemented and verified, pending a new training experiment.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is

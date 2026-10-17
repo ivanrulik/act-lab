@@ -264,6 +264,12 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--repo-id", required=True)
     convert.add_argument("--fps", type=int, default=25)
     convert.add_argument("--cameras", nargs="+", help="explicit derived camera subset")
+    convert.add_argument(
+        "--action-alignment",
+        choices=("same-sample", "next-command"),
+        default="same-sample",
+        help="next-command uses causal pre-command labels (converter v3)",
+    )
     training = subparsers.add_parser("train", help="train or resume an ACT policy")
     training_commands = training.add_subparsers(dest="train_command", required=True)
     act = training_commands.add_parser("act", help="train ACT on a validated dataset")
@@ -1516,6 +1522,7 @@ def _recording_convert(args: argparse.Namespace) -> dict[str, object]:
         args.fps,
         {"selection_manifest": manifest},
         cameras=tuple(args.cameras) if getattr(args, "cameras", None) else None,
+        action_alignment=getattr(args, "action_alignment", "same-sample"),
     )
 
 

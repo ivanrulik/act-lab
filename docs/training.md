@@ -1,7 +1,8 @@
 # ACT training
 
-PR 8 trains only from a converter-version-2 dataset whose logical and finalized
-storage fingerprints match and whose episode split is valid. Regenerate older
+Training requires a converter-version-2 (historical) or version-3 (causal) dataset
+whose logical and finalized storage fingerprints match and whose episode split
+is valid. Regenerate older
 derived datasets from the immutable selection manifest; raw MCAP files do not
 change.
 
@@ -81,3 +82,14 @@ configuration APIs, optionally invokes the production CLI, and plots local
 metrics. Training loss is an offline optimization diagnostic, not evidence of
 safe closed-loop performance. Seeded held-out rollouts and confidence intervals
 belong to PR 9.
+
+## Causal action labels for new feedback experiments
+
+Raw observations are post-command. For the new causal learning protocol, create
+a separate dataset with `recording convert --action-alignment next-command`.
+Converter v3 pairs the current observation with the next raw command before
+resampling. Default `same-sample` retains v2 historical reproduction. Check
+`action_alignment` and `converter_version` in lineage; a v2 checkpoint cannot
+be resumed against a changed v3 dataset fingerprint. See
+[ADR 029](adr/029-causal-derived-action-alignment.md) and the
+[proposed controlled experiment](plans/causal-action-alignment-study.md).

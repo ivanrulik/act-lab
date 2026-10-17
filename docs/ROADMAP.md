@@ -411,3 +411,11 @@ grasp; the initial 33/100 measured unintended long-chunk execution. Inspect
 first-action/phase-transition learning before extending training, and audit
 effective horizons in historical legacy evaluations. See
 [the diagnosis](reports/paired-camera-diagnosis.md).
+
+Continued diagnosis confirmed post-action supervision: same-sample labels nearly
+match the already-observed pose. ADR 029 adds an explicit causal v3 converter;
+572 real frames passed action/state/RGB equivalence checks. All 16 conditional
+phase handoffs still failed with the frozen checkpoint. Next is the proposed
+[label-only training experiment](plans/causal-action-alignment-study.md), with
+one-step feedback and a fresh final cohort after its diagnostic gate. No causal
+model has been trained or qualified yet.
