@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,13 @@ class LeRobotACTPolicy:
         cameras: tuple[str, ...],
         n_action_steps: int = 1,
         model_contract: dict[str, Any] | None = None,
+        temporal_ensemble_coeff: float | None = None,
     ) -> None:
+        if temporal_ensemble_coeff is not None:
+            if not math.isfinite(temporal_ensemble_coeff):
+                raise ValueError("temporal ensemble coefficient must be finite")
+            if n_action_steps != 1:
+                raise ValueError("temporal ensembling requires action horizon one")
         model_path = (
             checkpoint / "pretrained_model"
             if (checkpoint / "pretrained_model").is_dir()
@@ -66,8 +73,15 @@ class LeRobotACTPolicy:
             cli_overrides=[
                 f"--device={device}",
                 f"--n_action_steps={n_action_steps}",
-            ],
+            ]
+            + (
+                [f"--temporal_ensemble_coeff={temporal_ensemble_coeff}"]
+                if temporal_ensemble_coeff is not None
+                else []
+            ),
         )
+        if configuration.temporal_ensemble_coeff != temporal_ensemble_coeff:
+            raise RuntimeError("ACT checkpoint did not honor temporal ensemble setting")
         self._policy = act_module.ACTPolicy.from_pretrained(
             str(model_path), config=configuration
         )
@@ -101,6 +115,12 @@ class LeRobotACTPolicy:
         """Clear ACT's queued chunk actions between independent episodes."""
         self._policy.reset()
 
+    @property
+    def temporal_ensemble_coeff(self) -> float | None:
+        """Resolved inference ensemble coefficient; None preserves the baseline."""
+        value = self._policy.config.temporal_ensemble_coeff
+        return float(value) if value is not None else None
+
     def act(
         self,
         observation: Observation,
@@ -122,6 +142,7 @@ class LeRobotACTPolicy:
             ):
                 self.input_rejection = "missing_or_mismatched_camera"
             if self.input_rejection:
+                self._policy.reset()
                 return Action(
                     observation.timestamp_ns,
                     observation.robot.end_effector_pose,

@@ -167,3 +167,19 @@ def test_metric_stream_retains_exact_steps_when_upstream_rounds_on_resume(tmp_pa
     assert [r["step"] for r in rows] == [1000, 1200, 1400, 1600, 1800, 2000]
     assert [r["smpl"] for r in rows] == [8000, 9600, 11200, 12800, 14400, 16000]
     assert (tmp_path / "train.log").read_text().count("step:1K") == 3
+
+
+@pytest.mark.parametrize("coefficient", [float("nan"), float("inf"), -float("inf")])
+def test_temporal_ensemble_rejects_nonfinite_options_without_framework_imports(
+    coefficient,
+):
+    from act_lab.adapters.lerobot.policy import LeRobotACTPolicy
+
+    with pytest.raises(ValueError, match="finite"):
+        LeRobotACTPolicy(
+            Path("missing"), "cpu", (), temporal_ensemble_coeff=coefficient
+        )
+    with pytest.raises(ValueError, match="horizon one"):
+        LeRobotACTPolicy(
+            Path("missing"), "cpu", (), n_action_steps=2, temporal_ensemble_coeff=0.01
+        )

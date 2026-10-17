@@ -53,3 +53,12 @@ retain upstream display precision. Historic text logs remain immutable; use
 `scripts/recover-training-metrics.py` to write separate corrected JSONL and
 provenance bound to the original log hash, dataset and source revision. A running
 run cannot be recovered, and existing outputs are never overwritten.
+
+### Optional inference ensemble
+
+`sim evaluate --temporal-ensemble-coeff` explicitly enables pinned ACT temporal
+ensembling. Reports must record the effective coefficient and action horizon.
+Every call predicts a fresh chunk; episode reset and rejected camera input clear
+all prediction history. Default None preserves baseline inference and the frozen
+training recipe. An inference change needs a predeclared diagnostic protocol and
+a passing candidate still needs untouched final seeds. See ADR 031.

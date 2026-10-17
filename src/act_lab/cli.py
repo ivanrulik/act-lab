@@ -178,6 +178,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--seed-start", type=int, default=10000)
     evaluate.add_argument("--episodes", type=int, default=20)
     evaluate.add_argument(
+        "--temporal-ensemble-coeff",
+        type=float,
+        help="explicit ACT inference temporal ensemble coefficient (default: disabled)",
+    )
+    evaluate.add_argument(
         "--policy-hz",
         type=int,
         help=(
@@ -1035,6 +1040,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
             config.cameras,
             n_action_steps=1,
             model_contract=identity,
+            temporal_ensemble_coeff=getattr(args, "temporal_ensemble_coeff", None),
         )
         args.output.mkdir(parents=True, exist_ok=True)
         all_results: dict[str, Any] = {}
@@ -1296,6 +1302,7 @@ def _sim_evaluate(args: argparse.Namespace) -> int:
                 "environment_hz": config.environment_hz,
                 "policy_inference_stride": policy_stride,
                 "act_n_action_steps": learned.n_action_steps,
+                "act_temporal_ensemble_coeff": learned.temporal_ensemble_coeff,
                 "training_dataset_fps": dataset_fps,
                 "training_configuration": training_config,
             },

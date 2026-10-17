@@ -427,6 +427,8 @@ checkpoint. A 20-seed oracle hold diagnostic completed 0/20 when its first appli
 setpoint was reused, versus 16/20 for requested intent (four IK failures).
 Applied setpoints are filtered outputs, while the application accepts intent.
 [ADR 030](adr/030-requested-intent-training-labels.md) defines opt-in causal
-requested labels with executed fault holds. The next
-[controlled study](plans/requested-intent-study.md) keeps model/rates/safety fixed;
-learned success and the leanest sufficient camera configuration remain pending.
+requested labels with executed fault holds. The [controlled study](reports/requested-intent-study.md) completed 5,000 CUDA
+updates but failed its diagnostic gate (0/20), with no final seeds consumed.
+[ADR 031](adr/031-explicit-inference-temporal-ensemble.md) defines the next
+frozen-checkpoint inference experiment. Learned success and the leanest
+sufficient camera configuration remain pending.

@@ -90,8 +90,9 @@ one-step feedback scored 0/20 diagnostic successes and remains unqualified.
 Further diagnosis found post-action training labels; an explicit causal
 conversion mode is implemented. A diagnostic oracle also exposed re-filtering
 of applied targets: [requested-intent labels](docs/adr/030-requested-intent-training-labels.md)
-are now being tested with unchanged safety. The alignment-only run was
-interrupted; no useful fresh-feedback policy is qualified yet.
+completed a fresh 5,000-update trial but achieved 0/20 diagnostic task successes
+([results](docs/reports/requested-intent-study.md)). Inference diagnostics continue
+with unchanged safety; no useful fresh-feedback policy is qualified yet.
 
 For a curated dataset and evaluated ACT checkpoint, see the
 [Hugging Face release workflow](docs/hugging-face-release.md). Publication is

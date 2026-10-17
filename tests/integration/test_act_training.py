@@ -230,3 +230,45 @@ cudnn_deterministic = true
                 ).enabled
                 assert len(predictions) == 2
                 assert not policy.act(observation, {}).enabled
+                if tooling == "requested":
+                    ensemble = LeRobotACTPolicy(
+                        resumed,
+                        "cpu",
+                        simulation.cameras,
+                        model_contract=current,
+                        temporal_ensemble_coeff=0.01,
+                    )
+                    assert ensemble.n_action_steps == 1
+                    assert ensemble.temporal_ensemble_coeff == 0.01
+                    calls = []
+                    ensemble_predict = ensemble._policy.predict_action_chunk
+
+                    def count_ensemble_prediction(batch):
+                        calls.append(True)
+                        return ensemble_predict(batch)
+
+                    monkeypatch.setattr(
+                        ensemble._policy,
+                        "predict_action_chunk",
+                        count_ensemble_prediction,
+                    )
+                    images = {c: env.render(c) for c in simulation.cameras}
+                    for _ in range(2):
+                        assert ensemble.act(
+                            observation,
+                            images,
+                            capture_timestamp_ns=observation.timestamp_ns,
+                        ).enabled
+                    assert len(calls) == 2
+                    history = ensemble._policy.temporal_ensembler
+                    assert history.ensembled_actions is not None
+                    ensemble.reset()
+                    assert history.ensembled_actions is None
+                    ensemble.act(
+                        observation,
+                        images,
+                        capture_timestamp_ns=observation.timestamp_ns,
+                    )
+                    assert history.ensembled_actions is not None
+                    assert not ensemble.act(observation, {}).enabled
+                    assert history.ensembled_actions is None

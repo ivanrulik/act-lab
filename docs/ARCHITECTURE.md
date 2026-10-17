@@ -318,3 +318,8 @@ response filter again. Requested labels preserve executed disabled holds for
 faults and keep all inference safety checks. Legacy conversion is unchanged.
 The [requested-intent study](plans/requested-intent-study.md) must establish
 closed-loop performance before qualification.
+
+Optional inference temporal ensembling is explicit in runtime configuration and
+evidence ([ADR 031](adr/031-explicit-inference-temporal-ensemble.md)). It predicts
+a fresh chunk each tick and clears history on episode/input faults; it preserves
+the default disabled training/inference recipe and shared safety path.

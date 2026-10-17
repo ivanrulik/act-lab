@@ -63,3 +63,6 @@ consequences, and status.
 
 - [ADR 030](030-requested-intent-training-labels.md): opt-in v4 requested-intent
   labels with executed fault holds and unchanged application safety.
+
+- [ADR 031](031-explicit-inference-temporal-ensemble.md): explicit optional ACT
+  inference ensemble with fresh prediction and reset/fault history clearing.

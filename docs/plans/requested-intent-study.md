@@ -1,6 +1,7 @@
 # Causal requested-intent experiment
 
-Status: implementation and full dataset verification passed; training ready.
+Status: completed 5,000 CUDA updates; diagnostic gate failed (0/20).
+No fresh final cohort was consumed.
 Protocol was predeclared before implementation/training. Extends ADR 030.
 
 The alignment-only run was interrupted at update 789 after the oracle found a
