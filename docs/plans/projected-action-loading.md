@@ -1,6 +1,7 @@
 # Numeric target-loading equivalence and throughput probe
 
-Status: adapter and CPU equivalence gates passed; isolated GPU A/B pending.
+Status: CPU and all three isolated GPU A/B pairs passed exact tensor and source
+checkpoint integrity checks.
 Predeclared before production adapter changes.
 
 A read-only profile of LeRobot 0.6.1 / datasets 4.8.5 found 202 image decodes for
@@ -49,3 +50,10 @@ periods separately. Retain the three measured values per mode and display
 precision limits. The helper's CPU smoke (two updates per mode) passed exact
 comparison and source-hash assertions; its timing is not a GPU claim. Remove only
 successful generated throughput replicas, retaining logs/metrics/provenance.
+
+Measured GPU result: median steady throughput 2.0 -> 9.09 updates/s (4.55x);
+median complete 100-update trial wall 61.44 -> 18.61 s (3.30x). All three model,
+optimizer and RNG tensor comparisons were exact. Source files were unchanged,
+and only successful temporary replicas were removed. The initial unguarded
+entrypoint attempt was interrupted before a completed trial and retained; the
+spawn main guard was fixed before the measured run.

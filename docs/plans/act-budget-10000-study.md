@@ -1,6 +1,7 @@
 # Requested-intent ACT: bounded 10,000-update continuation
 
-Status: predeclared before resume.
+Status: completed; diagnostic gate failed (8/20).
+Predeclared before resume.
 
 The frozen 5,000-step model with ensemble coefficient 0.01 completed 3/20
 (21000, 21005, 21007), versus 0/20 without ensembling. It recorded three grasps
@@ -33,3 +34,8 @@ component; no data-loader or hardware configuration changes are bundled here.
 
 Reuse existing data. Combined checkpoints, traces and data must remain below
 5 GiB for this run; do not copy raw episodes. No hardware or publication approval.
+
+Outcome: 8/20 successes and grasps, zero drops, 1,469 collision-stop commands.
+Median sampled XYZ error: 6.06 mm train / 8.09 mm reserved. No final seeds used.
+See the [report](../reports/act-budget-10000-study.md) and conditional
+[next bounded protocol](act-budget-20000-study.md).

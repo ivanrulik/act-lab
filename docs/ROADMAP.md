@@ -443,5 +443,12 @@ and preserves the initial completed manifest.
 A read-only [loading profile](reports/action-loading-profile.md) found 202 image
 decodes per sample for a 100-action paired chunk; numeric projection reduced
 this to two with identical returned fields. ADR 032 adds a default-false option
-with exact CPU training/optimizer/RNG and spawned-worker checks. Isolated GPU
-throughput measurement remains pending; active learning trials stay unchanged.
+with exact CPU training/optimizer/RNG and spawned-worker checks. The three-pair [GPU A/B](reports/action-loading-gpu.md) passed exact model/optimizer/
+RNG equality, measuring 4.55x median steady throughput and 3.30x whole-trial
+wall improvement. The original 10,000-step trial stayed unchanged.
+
+The [10,000-step model](reports/act-budget-10000-study.md) completed 8/20
+diagnostic tasks with 1,469 collision-stop commands, below its 18/20 gate. No
+final seeds were consumed. A [bounded 20,000-step continuation](plans/act-budget-20000-study.md)
+keeps learning/data/safety settings fixed and explicitly opts into the validated
+column-projection optimization.
