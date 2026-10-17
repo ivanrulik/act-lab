@@ -1,6 +1,7 @@
-# Proposed next experiment: causal action labels
+# Causal action-label experiment
 
-Status: specified; training not started. Extends ADR 029 and the paired pilot.
+Status: active, authorized by the request to continue the diagnosis/validation loop.
+Extends ADR 029 and the paired pilot.
 The only experimental factor is action-label alignment. Preserve the corrected
 one-action feedback loop, source episodes, camera pair, model, safety and gains.
 
@@ -31,3 +32,14 @@ A negative result would separate a necessary timing correction from remaining
 learning/convergence/action-representation issues. Any later budget, loss or
 representation change is a separate predeclared factor. Publication and hardware
 use require their own existing gates.
+
+## Iteration discipline
+
+Continue with one predeclared factor per iteration. Preserve diagnostic and final
+cohort separation, measured safety decisions, source/dataset/checkpoint identity
+and a 5 GiB soft artifact gate per experiment. Reuse raw data and converted data
+where unchanged. A failed diagnostic gate starts another hypothesis and bounded
+protocol; it does not trigger a blind budget extension or final-seed reuse.
+Stop the improvement loop when a frozen candidate qualifies or progress requires
+external information. Training, data and model changes remain inspectable in
+individual run manifests and the report.
