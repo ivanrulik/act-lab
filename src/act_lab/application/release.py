@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import shutil
 import tomllib
 from pathlib import Path
@@ -55,6 +56,52 @@ def write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+def verify_inference(root: Path, manifest: dict[str, Any]) -> None:
+    """Bind explicit inference settings to the evaluated, unchanged checkpoint."""
+    if "inference" not in manifest:
+        return  # Historical releases predate explicit inference metadata.
+    inference = json.loads((root / "inference.json").read_text())
+    if inference != manifest["inference"]:
+        raise ValueError("inference metadata differs from release manifest")
+    for key in ("evaluation", "simulation_config"):
+        if inference[key] not in manifest["files"]:
+            raise ValueError("inference references a file outside the inventory")
+    evaluation = json.loads((root / inference["evaluation"]).read_text())
+    policy = evaluation["policy"]
+    for key, recorded in (
+        ("policy_hz", "policy_hz"),
+        ("n_action_steps", "act_n_action_steps"),
+        ("temporal_ensemble_coeff", "act_temporal_ensemble_coeff"),
+    ):
+        if inference[key] != policy[recorded]:
+            raise ValueError(f"inference {key} differs from evaluation")
+    coefficient = inference["temporal_ensemble_coeff"]
+    if (
+        type(inference["policy_hz"]) is not int
+        or inference["policy_hz"] <= 0
+        or type(inference["n_action_steps"]) is not int
+        or inference["n_action_steps"] != 1
+        or (
+            coefficient is not None
+            and (
+                type(coefficient) not in (int, float)
+                or not math.isfinite(coefficient)
+                or coefficient < 0
+            )
+        )
+    ):
+        raise ValueError("invalid explicit inference settings")
+    if policy["checkpoint_sha256"] != manifest["checkpoint_sha256"]:
+        raise ValueError("inference evaluation checkpoint differs")
+    config_path = root / inference["simulation_config"]
+    if file_hash(config_path) != inference["simulation_config_sha256"]:
+        raise ValueError("inference simulation configuration differs")
+    if manifest["kind"] == "dataset":
+        info = json.loads((root / "payload/meta/info.json").read_text())
+        if info["fps"] != inference["policy_hz"]:
+            raise ValueError("inference rate differs from dataset FPS")
+
+
 def verify_package(root: Path) -> dict[str, Any]:
     manifest: dict[str, Any] = json.loads((root / "release.json").read_text())
     if manifest.get("schema_version") != 1:
@@ -85,6 +132,7 @@ def verify_package(root: Path) -> dict[str, Any]:
             raise ValueError("downloaded checkpoint identity differs")
     else:
         raise ValueError("unknown release kind")
+    verify_inference(root, manifest)
     return manifest
 
 
@@ -110,6 +158,31 @@ def stage(config: Path, output: Path) -> dict[str, Any]:
     info = json.loads((dataset / "meta/info.json").read_text())
     if info["total_episodes"] != settings["episodes"]:
         raise ValueError("unexpected episode count")
+    inference = None
+    if "inference" in settings:
+        requested = settings["inference"]
+        simulation = Path(requested["simulation_config"])
+        inference = {
+            "schema_version": 1,
+            "policy_hz": requested["policy_hz"],
+            "n_action_steps": requested["n_action_steps"],
+            "temporal_ensemble_coeff": requested["temporal_ensemble_coeff"],
+            "simulation_config": f"reproduction/{simulation.name}",
+            "simulation_config_sha256": file_hash(simulation),
+            "evaluation": "evidence/qualification.json",
+        }
+        lineage = json.loads((dataset / "act_lab_lineage.json").read_text())
+        recorded_contract = json.loads((checkpoint / "act_lab_model.json").read_text())
+        if recorded_contract != lineage.get("model_contract"):
+            raise ValueError("checkpoint and dataset model contracts differ")
+        if training.get("status") != "completed":
+            raise ValueError("release training run must be completed")
+        for key, actual in (
+            ("train_episode_indices", identity.train_episode_indices),
+            ("reserved_episode_indices", identity.reserved_episode_indices),
+        ):
+            if list(actual) != training["dataset"][key]:
+                raise ValueError("release training episode split differs")
     if output.exists():
         raise ValueError("release output already exists; use a new path")
     output.mkdir(parents=True)
@@ -120,6 +193,26 @@ def stage(config: Path, output: Path) -> dict[str, Any]:
         (target / "README.md").write_text(card)
         shutil.copy2(settings["asset_notice"], target / "ASSET-NOTICE.txt")
         shutil.copy2(settings["license_file"], target / "LICENSE")
+        for notice in settings.get("asset_notices", []):
+            path = Path(notice)
+            destination = target / "notices" / f"{path.parent.name}-{path.name}"
+            destination.parent.mkdir(exist_ok=True)
+            shutil.copy2(path, destination)
+        for source_path in settings.get("reproduction_files", []):
+            path = Path(source_path)
+            destination = target / "reproduction" / path.name
+            destination.parent.mkdir(exist_ok=True)
+            if destination.exists():
+                raise ValueError("duplicate reproduction filename")
+            shutil.copy2(path, destination)
+        if kind == "model":
+            for source_path in settings.get("model_examples", []):
+                path = Path(source_path)
+                destination = target / "examples" / path.name
+                destination.parent.mkdir(exist_ok=True)
+                if destination.exists():
+                    raise ValueError("duplicate example filename")
+                shutil.copy2(path, destination)
         for evidence in settings["evidence"]:
             path = Path(evidence)
             value = json.loads(path.read_text())
@@ -127,6 +220,13 @@ def stage(config: Path, output: Path) -> dict[str, Any]:
                 target / "evidence" / f"{path.parent.name}-{path.name}",
                 sanitized(value),
             )
+        if inference is not None:
+            simulation = Path(settings["inference"]["simulation_config"])
+            destination = target / inference["simulation_config"]
+            destination.parent.mkdir(exist_ok=True)
+            shutil.copy2(simulation, destination)
+            write_json(target / "inference.json", inference)
+            write_json(target / inference["evaluation"], sanitized(evaluation))
         manifest: dict[str, Any] = {
             "schema_version": 1,
             "kind": kind,
@@ -141,6 +241,8 @@ def stage(config: Path, output: Path) -> dict[str, Any]:
                 for p in files(target)
             },
         }
+        if inference is not None:
+            manifest["inference"] = inference
         write_json(target / "release.json", manifest)
         verify_package(target)
     return {"output": str(output), "status": "verified", "schema_version": 1}

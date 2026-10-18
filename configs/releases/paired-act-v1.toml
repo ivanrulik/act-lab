@@ -1,0 +1,38 @@
+[release]
+dataset = "runs/requested-intent-study/paired/dataset"
+checkpoint = "runs/requested-intent-study/paired/training/lerobot/checkpoints/020000/pretrained_model"
+evaluation = "runs/act-budget-20000-study/final/evaluation.json"
+training_manifest = "runs/requested-intent-study/paired/training/act_lab_run.json"
+dataset_fingerprint = "49e3f6f6fa7f016bef373cf4050b88f8b6c81905106332cdde70813291a2be04"
+episodes = 40
+dataset_repo = "ivanrulik/act-lab-ur5e-paired-pick-place-v1"
+model_repo = "ivanrulik/act-lab-ur5e-paired-act-v1"
+dataset_card = "docs/releases/paired-dataset-card.md"
+model_card = "docs/releases/paired-model-card.md"
+asset_notice = "src/act_lab/adapters/mujoco/assets/ur5e/LICENSE"
+asset_notices = ["src/act_lab/adapters/mujoco/assets/robotiq_2f85/LICENSE"]
+license_file = "LICENSE"
+reproduction_files = [
+  "configs/training/act-camera-pilot-projected.toml",
+  "docs/releases/paired-reproduction.md",
+  "docs/reports/act-budget-20000-study.md",
+  "scripts/check-paired-release.py",
+]
+model_examples = [
+  "runs/act-foxglove-replay/capture-v2/act-seed-23000.mcap",
+  "runs/act-foxglove-replay/capture-v2/act-seed-23003.mcap",
+]
+evidence = [
+  "runs/requested-intent-study/paired/training/act_lab_run.json",
+  "runs/act-budget-20000-study/resume-provenance.json",
+  "runs/act-budget-20000-study/checkpoint-freeze.json",
+  "runs/act-budget-20000-study/final-protocol.json",
+  "runs/act-budget-20000-study/metrics-recovered.provenance.json",
+  "runs/act-foxglove-replay/capture-v2/report.json",
+]
+
+[release.inference]
+simulation_config = "configs/sim/ur5e_2f85_d405_paired.toml"
+policy_hz = 25
+n_action_steps = 1
+temporal_ensemble_coeff = 0.01
