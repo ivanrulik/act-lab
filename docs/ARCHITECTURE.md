@@ -350,5 +350,14 @@ Source notices, configs and reproduction evidence live outside unchanged
 payloads. A clean download/load check uses explicit horizon-one/0.01 inference;
 saved training defaults cannot silently stand in for that recipe. Demonstration
 reruns do not enlarge or replace the final statistical cohort. Publication stays
-private, explicit and independent of training; no dependency or ROS requirement
+explicit and independent of training; no dependency or ROS requirement
 is added to the domain or local workflow.
+
+
+[ADR 034](adr/034-public-presentation-editions.md) permits explicitly authorized
+public presentation editions without changing frozen payloads, evidence or
+inference. A separate promotion checks the baseline inventory and expected Hub
+parent commit, adds only reviewed cards/instructions and small preview media,
+then changes visibility. New public receipts preserve their predecessor commit.
+Original commit-pinned downloads remain available; ordinary publication still
+refuses changed releases and defaults private.

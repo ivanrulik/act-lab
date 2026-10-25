@@ -1,0 +1,11 @@
+{
+  "source": "runs/act-foxglove-replay/capture-v2/act-seed-23000.mcap",
+  "source_sha256": "f32d4320c0292bc144fe14c745d834043f3c55c9d9668e218087621cc3a4a4c1",
+  "source_frames": 508,
+  "video_frames": 254,
+  "fps": 25,
+  "duration_s": 10.16,
+  "simulation_duration_s": 10.16,
+  "scope": "recorded consumed-seed ACT demonstration, not new evaluation",
+  "video_sha256": "c66ad88c3db540f959c127536667834dc3365010f1846577d4ac9b480f974320"
+}

@@ -1,5 +1,9 @@
 # Qualified paired ACT release
 
+Public update (2026-10-25): the paired repositories are now public with clearer
+cards and a short demo. See [public showcase evidence](public-paired-showcase.md).
+The private-publication history and original commit receipts below are retained.
+
 Date: 2026-10-17. Release candidate: articulated UR5e/2F-85 with paired wrist and
 fixed policy RGB. The distinct private repositories preserve the historical
 educational release. No raw acquisition archive, optimizer state or intermediate

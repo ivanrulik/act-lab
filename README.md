@@ -25,6 +25,26 @@ results and limits are reported in [the qualification report](docs/reports/crisp
 See [Foxglove views](#optional-foxglove-views) and
 [recording and replay](docs/ros2-recording.md).
 
+## Public ACT model and dataset
+
+A reproducible UR5e imitation-learning project built with **LeRobot ACT and
+MuJoCo**. The paired wrist/fixed-camera model achieved **90/100 held-out
+simulation tasks**; all ten failures and safety rejections are documented.
+This result is specific to the simulated task and configuration.
+
+[![Learned ACT policy replay: wrist and fixed RGB at 1x simulation time](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-preview.jpg)](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-demo.mp4)
+
+[Model and demo](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1) ·
+[Dataset](https://huggingface.co/datasets/ivanrulik/act-lab-ur5e-paired-pick-place-v1) ·
+[Reproduce locally](docs/releases/paired-reproduction.md)
+
+The 10.16 s clip is an actual learned-policy demonstration rerun on a consumed
+seed, played at 1x simulation time. It illustrates the result; the
+[full evaluation](docs/reports/act-budget-20000-study.md) supplies the evidence.
+Public downloads need no Hub login. We contribute the inspectable pipeline,
+causal labeling, safety integration, experiments and failure diagnosis;
+[LeRobot](https://github.com/huggingface/lerobot) supplies the ACT implementation.
+
 ## Why ACT Lab?
 
 ACT Lab is an inspectable UR5e robot-learning lab where demonstrations, safety
@@ -103,8 +123,8 @@ For the simulation-qualified paired dataset, frozen checkpoint and success/failu
 Foxglove examples, see the [Hugging Face release workflow](docs/hugging-face-release.md)
 and [reproduction instructions](docs/releases/paired-reproduction.md). The lean
 paired package is approximately 1.015 GB; inference explicitly requires horizon
-one at 25 Hz with ensemble coefficient 0.01. Publication is private, opt-in and
-separate from training. The historical first recipe uses the legacy two-camera
+one at 25 Hz with ensemble coefficient 0.01. The paired release is public;
+publication remains explicit and separate from training. The historical first recipe uses the legacy two-camera
 educational robot and preserves its evaluation limits.
 
 Requirements: Docker Engine with Docker Compose v2.

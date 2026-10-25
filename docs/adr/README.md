@@ -72,3 +72,6 @@ consequences, and status.
 
 - [ADR 033](033-qualified-paired-act-release.md): separate paired simulation
   release with explicit inference metadata, replay examples and clean-download use.
+
+- [ADR 034](034-public-presentation-editions.md): explicit public presentation
+  editions that preserve frozen payload/evidence and immutable historical commits.

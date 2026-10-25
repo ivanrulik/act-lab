@@ -8,7 +8,11 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from act_lab.application.release import verify_package, write_json
+from act_lab.application.release import (
+    verify_package,
+    verify_presentation_update,
+    write_json,
+)
 
 
 def publish(root: Path, *, public: bool) -> dict[str, Any]:
@@ -68,3 +72,74 @@ def download(receipt_path: Path, output: Path) -> dict[str, Any]:
     if (manifest["repo_id"], manifest["kind"]) != (receipt["repo_id"], receipt["kind"]):
         raise ValueError("downloaded release does not match the receipt repository")
     return {"status": "verified", "output": str(output), **receipt}
+
+
+def promote(root: Path, receipt_path: Path) -> dict[str, Any]:
+    """Commit a verified presentation edition, then explicitly make it public."""
+    manifest = verify_package(root)
+    baseline = json.loads(receipt_path.read_text())
+    if baseline.get("schema_version") != 1 or not re.fullmatch(
+        r"[0-9a-f]{40}", baseline.get("revision", "")
+    ):
+        raise ValueError("promotion requires a commit-pinned baseline receipt")
+    kind, repo_id = manifest["kind"], manifest["repo_id"]
+    if (baseline["kind"], baseline["repo_id"]) != (kind, repo_id):
+        raise ValueError("promotion receipt repository differs")
+    hub = import_module("huggingface_hub")
+    api = hub.HfApi()
+    api.whoami()
+
+    def remote_manifest(revision: str) -> dict[str, Any]:
+        path = hub.hf_hub_download(
+            repo_id, "release.json", repo_type=kind, revision=revision
+        )
+        value: dict[str, Any] = json.loads(Path(path).read_text())
+        return value
+
+    old = remote_manifest(baseline["revision"])
+    verify_presentation_update(old, manifest)
+    head = api.repo_info(repo_id, repo_type=kind).sha
+    if head == baseline["revision"]:
+        remote = set(api.list_repo_files(repo_id, repo_type=kind, revision=head))
+        if remote - {".gitattributes"} != set(old["files"]) | {"release.json"}:
+            raise ValueError("remote baseline inventory differs")
+        changed = {
+            name
+            for name, record in manifest["files"].items()
+            if old["files"].get(name) != record
+        } | {"release.json"}
+        commit = api.create_commit(
+            repo_id,
+            repo_type=kind,
+            parent_commit=head,
+            operations=[
+                hub.CommitOperationAdd(
+                    path_in_repo=name, path_or_fileobj=str(root / name)
+                )
+                for name in sorted(changed)
+            ],
+            commit_message="Publish ACT Lab presentation edition",
+        )
+        revision = commit.oid
+    elif remote_manifest(head) == manifest:
+        revision = head  # Retry after a successful commit but interrupted promotion.
+    else:
+        raise ValueError("remote head changed since the baseline receipt")
+    if api.repo_info(repo_id, repo_type=kind).sha != revision:
+        raise ValueError("remote head changed before public promotion")
+    remote = set(api.list_repo_files(repo_id, repo_type=kind, revision=revision))
+    if remote - {".gitattributes"} != set(manifest["files"]) | {"release.json"}:
+        raise ValueError("presentation inventory differs before public promotion")
+    api.update_repo_settings(repo_id, repo_type=kind, private=False)
+    if api.repo_info(repo_id, repo_type=kind).private:
+        raise ValueError("repository did not become public")
+    receipt = {
+        "schema_version": 1,
+        "kind": kind,
+        "repo_id": repo_id,
+        "revision": revision,
+        "public": True,
+        "supersedes_revision": baseline["revision"],
+    }
+    write_json(root.parent / f"{kind}-public-receipt.json", receipt)
+    return receipt

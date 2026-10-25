@@ -10,6 +10,24 @@ pretty_name: ACT Lab articulated UR5e paired-camera pick and place
 
 # ACT Lab paired wrist/fixed-camera demonstrations
 
+**40 simulated demonstrations / 11,624 frames**, with a frozen **30 train / 10
+reserved** episode split. The paired ACT model trained on these data completed
+**90/100 held-out simulation tasks** (95% CI 82.56–94.48%). All failures are
+reported. This small, fixed-task dataset does not establish physical performance
+or broad manipulation generalization.
+
+[Source and setup](https://github.com/ivanrulik/act-lab) ·
+[Trained ACT model](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1) ·
+[10-second policy replay](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-demo.mp4)
+
+ACT Lab demonstrates the complete data-to-policy workflow using
+[LeRobot](https://github.com/huggingface/lerobot) and
+[MuJoCo](https://github.com/google-deepmind/mujoco). Its contribution is the
+inspectable integration, validated labels and experiments; the underlying ACT
+algorithm and simulation assets retain their upstream attribution and notices.
+
+## Dataset scope
+
 40 simulated scripted-expert episodes, seeds 20000–20039, with the articulated
 Robotiq 2F-85 and D405-inspired synthetic RGB wrist camera. **30 training / 10
 reserved episodes**, 11,624 frames at 25 Hz. Original wrist and fixed policy RGB

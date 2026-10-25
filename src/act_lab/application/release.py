@@ -136,6 +136,32 @@ def verify_package(root: Path) -> dict[str, Any]:
     return manifest
 
 
+def verify_presentation_update(old: dict[str, Any], new: dict[str, Any]) -> None:
+    """Permit presentation editions without changing frozen release evidence."""
+    if {k: v for k, v in old.items() if k != "files"} != {
+        k: v for k, v in new.items() if k != "files"
+    }:
+        raise ValueError("presentation update changes release identity")
+    editable = {"README.md", "reproduction/paired-reproduction.md"}
+    for name, record in old["files"].items():
+        if name not in new["files"]:
+            raise ValueError("presentation update removes a release file")
+        if new["files"][name] != record and name not in editable:
+            raise ValueError(f"presentation update changes frozen file: {name}")
+    for name in set(new["files"]) - set(old["files"]):
+        path = Path(name)
+        if (
+            len(path.parts) != 2
+            or path.parts[0] != "media"
+            or path.suffix not in {".mp4", ".jpg", ".png"}
+        ):
+            raise ValueError("presentation additions must be preview media")
+    if sum(v["bytes"] for k, v in new["files"].items() if k.startswith("media/")) > (
+        20 * 1024 * 1024
+    ):
+        raise ValueError("presentation media exceeds the 20 MiB budget")
+
+
 def stage(config: Path, output: Path) -> dict[str, Any]:
     settings = tomllib.loads(config.read_text())["release"]
     dataset = Path(settings["dataset"])

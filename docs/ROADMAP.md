@@ -5,15 +5,17 @@ Do not combine adjacent PRs merely because they are listed together.
 
 ## Current position
 
-Merged through GitHub PR #30: the articulated paired-camera ACT recipe passed
+Merged through GitHub PR #31: the articulated paired-camera ACT recipe passed
 18/20 diagnostics and **90/100 fresh final simulation tasks**. The full local
 learning pipeline, optional ROS/CRISP capture and Foxglove replay are implemented.
 Earlier experiment sections below are historical; the final qualification
 supersedes their candidate-status statements, while retaining all failures.
 
-The current branch delivers the qualified dataset/model and two demonstration
-replays, verified private Hub publication and clean-download use (ADR 033;
-[release evidence](reports/paired-act-release.md)). Next, prioritize independent
+The qualified dataset/model and two demonstration replays have verified Hub
+publication and clean-download use (ADR 033;
+[release evidence](reports/paired-act-release.md)). The public showcase increment
+(ADR 034) adds explicit public promotion, cross-links and a labeled 10-second
+video while preserving payloads and old commits. Next, prioritize independent
 newcomer reproduction. Broader generalization, wrist-only learning, learned ROS
 motion/live timing and hardware remain separately scoped work.
 

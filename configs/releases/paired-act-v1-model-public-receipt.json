@@ -1,0 +1,8 @@
+{
+  "kind": "model",
+  "public": true,
+  "repo_id": "ivanrulik/act-lab-ur5e-paired-act-v1",
+  "revision": "71f495f007ce142fc3be9845deb3595430f325b7",
+  "schema_version": 1,
+  "supersedes_revision": "fa9f0f4ae004e8922c1485339e32d5afe85c7fce"
+}
