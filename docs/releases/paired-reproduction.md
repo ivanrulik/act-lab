@@ -2,8 +2,9 @@
 
 Use ACT Lab source with ADR 033 (the qualified release branch or its merged
 successor). Docker Compose is authoritative. No ROS, CRISP or physical devices
-are needed. Dataset and model repositories are private; obtain authorized Hub
-access before downloading. Publication receipts record immutable commit IDs.
+are needed. The paired dataset and model are public; Hub login is unnecessary
+for download. Publication receipts record immutable commit IDs. Historical
+private-publication receipts still pin their original, now accessible commits.
 
 ## Download and verify
 

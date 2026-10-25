@@ -9,7 +9,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from act_lab.application.release import checkpoint_hash, stage, verify_package
+from act_lab.application.release import (
+    checkpoint_hash,
+    file_hash,
+    stage,
+    verify_package,
+    verify_presentation_update,
+    write_json,
+)
 from act_lab.application.training import storage_fingerprint
 
 
@@ -303,3 +310,105 @@ def test_paired_lineage_must_match(paired_recipe: Path, change: str) -> None:
     path.write_text(json.dumps(value))
     with pytest.raises(ValueError):
         stage(paired_recipe, root / "bad-lineage")
+
+
+@pytest.mark.parametrize(
+    "change", ["weights", "identity", "remove", "addition", "size"]
+)
+def test_presentation_update_protects_frozen_release(staged: Path, change: str) -> None:
+    old = verify_package(staged / "model")
+    new = json.loads(json.dumps(old))
+    if change == "weights":
+        new["files"]["payload/model.safetensors"]["sha256"] = "changed"
+    elif change == "identity":
+        new["checkpoint_sha256"] = "changed"
+    elif change == "remove":
+        del new["files"]["LICENSE"]
+    else:
+        name = "unreviewed.txt" if change == "addition" else "media/demo.mp4"
+        new["files"][name] = {"sha256": "added", "bytes": 21 * 1024 * 1024}
+    with pytest.raises(ValueError):
+        verify_presentation_update(old, new)
+
+
+@pytest.mark.parametrize("stale", [False, True])
+def test_public_promotion_commits_before_visibility(staged: Path, monkeypatch, stale):
+    from act_lab.adapters import hugging_face
+
+    package = staged / "model"
+    old = verify_package(package)
+    old_path = staged / "baseline.json"
+    write_json(old_path, old)
+    (package / "README.md").write_text("# Public card\n")
+    media = package / "media/demo.mp4"
+    media.parent.mkdir()
+    media.write_bytes(b"preview")
+    new = json.loads(json.dumps(old))
+    for path in (package / "README.md", media):
+        new["files"][path.relative_to(package).as_posix()] = {
+            "sha256": file_hash(path),
+            "bytes": path.stat().st_size,
+        }
+    write_json(package / "release.json", new)
+    receipt = staged / "baseline-receipt.json"
+    write_json(
+        receipt,
+        {
+            "schema_version": 1,
+            "kind": "model",
+            "repo_id": "test/model",
+            "revision": "a" * 40,
+            "public": False,
+        },
+    )
+    calls = []
+
+    class API:
+        head = "c" * 40 if stale else "a" * 40
+        private = True
+
+        def whoami(self):
+            return {"name": "test"}
+
+        def repo_info(self, *args, **kwargs):
+            return SimpleNamespace(sha=self.head, private=self.private)
+
+        def list_repo_files(self, *args, **kwargs):
+            current = new if self.head == "b" * 40 else old
+            return list(current["files"]) + ["release.json", ".gitattributes"]
+
+        def create_commit(self, *args, **kwargs):
+            assert kwargs["parent_commit"] == "a" * 40
+            assert {op.path_in_repo for op in kwargs["operations"]} == {
+                "README.md",
+                "media/demo.mp4",
+                "release.json",
+            }
+            calls.append("commit")
+            self.head = "b" * 40
+            return SimpleNamespace(oid=self.head)
+
+        def update_repo_settings(self, *args, **kwargs):
+            assert calls == ["commit"]
+            assert kwargs["private"] is False
+            calls.append("public")
+            self.private = False
+
+    monkeypatch.setattr(
+        hugging_face,
+        "import_module",
+        lambda _: SimpleNamespace(
+            HfApi=API,
+            hf_hub_download=lambda *args, **kwargs: old_path,
+            CommitOperationAdd=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+    )
+    if stale:
+        with pytest.raises(ValueError, match="remote head changed"):
+            hugging_face.promote(package, receipt)
+        assert not calls
+    else:
+        result = hugging_face.promote(package, receipt)
+        assert calls == ["commit", "public"]
+        assert result["public"] and result["supersedes_revision"] == "a" * 40
+        assert (staged / "model-public-receipt.json").is_file()

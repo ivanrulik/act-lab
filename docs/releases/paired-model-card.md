@@ -1,6 +1,9 @@
 ---
 license: apache-2.0
 library_name: lerobot
+widget:
+- src: media/act-policy-demo.mp4
+  example_title: ACT demonstration rerun (1x simulation time)
 tags:
 - robotics
 - act
@@ -9,7 +12,35 @@ datasets:
 - ivanrulik/act-lab-ur5e-paired-pick-place-v1
 ---
 
-# ACT Lab paired-camera UR5e ACT — simulation-qualified recipe
+# ACT Lab — UR5e pick-and-place with ACT
+
+A reproducible robotics learning project built with **LeRobot's ACT policy and
+MuJoCo**, using a simulated UR5e, articulated Robotiq 2F-85 and wrist + fixed RGB.
+**90/100 held-out simulation tasks succeeded** (95% CI 82.56–94.48%).
+Ten timeouts and their safety rejections are documented below. This is a bounded
+simulation result; physical deployment and broader generalization are unqualified.
+
+[Source and setup](https://github.com/ivanrulik/act-lab) ·
+[Training dataset](https://huggingface.co/datasets/ivanrulik/act-lab-ur5e-paired-pick-place-v1) ·
+[Evaluation evidence](https://github.com/ivanrulik/act-lab/blob/main/docs/reports/act-budget-20000-study.md)
+
+<video controls playsinline width="100%" poster="https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-preview.jpg" src="https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-demo.mp4"></video>
+
+[Watch/download the 10-second replay](https://huggingface.co/ivanrulik/act-lab-ur5e-paired-act-v1/resolve/main/media/act-policy-demo.mp4).
+Playback is at **1× simulation time**. This successful consumed-seed rerun is an
+illustration; the full 100-task evaluation and a failed MCAP example are retained.
+
+## What this project contributes
+
+ACT Lab integrates acquisition, validated causal requested-intent labels,
+training, shared application safety, measured evaluation and inspectable replay.
+It documents the labeling/inference bugs found along the way and preserves
+failed experiments. The policy algorithm is ACT via
+[LeRobot](https://github.com/huggingface/lerobot), with simulation through
+[MuJoCo](https://github.com/google-deepmind/mujoco) and assets from
+[MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
+
+## Frozen model
 
 One frozen 20,000-update inference checkpoint for articulated UR5e pick/place:
 wrist + fixed policy RGB, ResNet-18 ImageNet V1 initialization, VAE, batch 8,

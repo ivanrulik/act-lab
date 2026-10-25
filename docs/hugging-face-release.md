@@ -26,9 +26,9 @@ docker compose --profile hub-release run --rm hub-release \
   act-lab release verify --package runs/releases/paired-v1/model
 ```
 
-Publish/download using the commands below with the paired package paths. New
-repositories are `ivanrulik/act-lab-ur5e-paired-pick-place-v1` (dataset) and
-`ivanrulik/act-lab-ur5e-paired-act-v1` (model), private by default. Immutable
+The paired repositories are
+`ivanrulik/act-lab-ur5e-paired-pick-place-v1` (dataset) and
+`ivanrulik/act-lab-ur5e-paired-act-v1` (model), now public. Immutable
 commits and actual clean-download evidence are recorded in the
 [paired release report](reports/paired-act-release.md).
 
@@ -38,16 +38,45 @@ published artifacts without regenerating local training data:
 ```bash
 docker compose --profile hub-release run --rm hub-release \
   act-lab release download \
-  --receipt configs/releases/paired-act-v1-dataset-receipt.json \
+  --receipt configs/releases/paired-act-v1-dataset-public-receipt.json \
   --output runs/releases/downloaded-paired-dataset
 docker compose --profile hub-release run --rm hub-release \
   act-lab release download \
-  --receipt configs/releases/paired-act-v1-model-receipt.json \
+  --receipt configs/releases/paired-act-v1-model-public-receipt.json \
   --output runs/releases/downloaded-paired-model
 ```
 
-Private repository access requires your authorized Hub credentials. No token is
-included in the receipts or artifacts.
+Paired public downloads require no Hub login. Historical private receipts still
+pin their original commits; separate public receipts identify the presentation
+edition. No token is included in either. Legacy educational repositories retain
+their separate visibility settings.
+
+### Public presentation editions
+
+The current cards describe the public edition; staging does not silently replace
+an existing immutable publication. Normal `release publish` still refuses a
+changed inventory. Use the explicit ADR 034 promotion for an authorized
+presentation update: first prepare and verify the local package, then provide
+the original receipt as its baseline.
+
+```bash
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release promote --package runs/public-paired-showcase/packages/model \
+  --receipt configs/releases/paired-act-v1-model-receipt.json
+docker compose --profile hub-release run --rm hub-release \
+  act-lab release promote --package runs/public-paired-showcase/packages/dataset \
+  --receipt configs/releases/paired-act-v1-dataset-receipt.json
+```
+
+These commands make the named repository public. They permit only card and
+reproduction-instruction edits and up to 20 MiB of preview MP4/JPEG/PNG additions.
+The package's inventory must be regenerated and verified after local edits.
+Changed payloads, inference, evidence, notices, deleted files or an unexpected
+remote head are refused. Promotion commits changed presentation files and a new
+inventory with an expected parent SHA, verifies the published inventory, then
+changes visibility and writes a separate `*-public-receipt.json` with its
+predecessor. Old receipts/commits remain intact. See the
+[public showcase report](reports/public-paired-showcase.md).
 
 `inference.json` is checked against the primary evaluation and checkpoint;
 dataset packages also check 25 Hz FPS. Staging checks completed training,

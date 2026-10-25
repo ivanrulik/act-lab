@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     publish = release_commands.add_parser("publish")
     publish.add_argument("--package", type=Path, required=True)
     publish.add_argument("--public", action="store_true")
+    promote = release_commands.add_parser(
+        "promote", help="publish a presentation edition and make a release public"
+    )
+    promote.add_argument("--package", type=Path, required=True)
+    promote.add_argument("--receipt", type=Path, required=True)
     download = release_commands.add_parser("download")
     download.add_argument("--receipt", type=Path, required=True)
     download.add_argument("--output", type=Path, required=True)
@@ -1714,13 +1719,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif args.release_command == "verify":
                 report = verify_package(args.package)
             else:
-                from act_lab.adapters.hugging_face import download, publish
+                from act_lab.adapters.hugging_face import download, promote, publish
 
-                report = (
-                    publish(args.package, public=args.public)
-                    if args.release_command == "publish"
-                    else download(args.receipt, args.output)
-                )
+                if args.release_command == "publish":
+                    report = publish(args.package, public=args.public)
+                elif args.release_command == "promote":
+                    report = promote(args.package, args.receipt)
+                else:
+                    report = download(args.receipt, args.output)
             print(json.dumps(report, indent=2, sort_keys=True))
             return 0
         except (OSError, ValueError, ImportError) as error:

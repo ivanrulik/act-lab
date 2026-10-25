@@ -1,0 +1,8 @@
+{
+  "kind": "dataset",
+  "public": true,
+  "repo_id": "ivanrulik/act-lab-ur5e-paired-pick-place-v1",
+  "revision": "9b1e1286aa4cc6047e9dab5a9112fc23b2d644b3",
+  "schema_version": 1,
+  "supersedes_revision": "9a134913a648c049dabe2c77f0ba363ea43ec0d6"
+}
